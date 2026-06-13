@@ -13,6 +13,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
+import com.nearexpiry.manager.utils.LanguageManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,31 +53,39 @@ fun DetailScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Column {
-                        // Title: product name if known, else item code, else barcode
+                        val item = uiState.item!!
+                        val isArabic = LanguageManager.isArabic()
+                        // Title: name in the app's current language (falls back to
+                        // the other language, then item code, then barcode).
                         Text(
-                            text = uiState.item!!.productName ?: uiState.item!!.itemCode ?: uiState.item!!.barcode,
+                            text = item.displayName,
                             style = MaterialTheme.typography.titleLarge
                         )
-                        // Arabic name
-                        if (!uiState.item!!.productNameArabic.isNullOrBlank()) {
+                        // Secondary line: name in the *other* language, if available
+                        val secondaryName = if (isArabic) {
+                            item.productName?.takeIf { it.isNotBlank() }
+                        } else {
+                            item.productNameArabic?.takeIf { it.isNotBlank() }
+                        }
+                        if (!secondaryName.isNullOrBlank()) {
                             Text(
-                                uiState.item!!.productNameArabic!!,
+                                secondaryName,
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
                         // Item Code
-                        if (!uiState.item!!.itemCode.isNullOrBlank()) {
+                        if (!item.itemCode.isNullOrBlank()) {
                             Text(
-                                stringResource(R.string.item_code_format, uiState.item!!.itemCode!!),
+                                stringResource(R.string.item_code_format, item.itemCode),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         // Barcode + Unit
                         Text(
-                            text = if (!uiState.item!!.unit.isNullOrBlank())
-                                stringResource(R.string.barcode_unit_format, uiState.item!!.barcode, uiState.item!!.unit!!)
+                            text = if (!item.unit.isNullOrBlank())
+                                stringResource(R.string.barcode_unit_format, item.barcode, item.unit)
                             else
-                                stringResource(R.string.barcode_format, uiState.item!!.barcode),
+                                stringResource(R.string.barcode_format, item.barcode),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

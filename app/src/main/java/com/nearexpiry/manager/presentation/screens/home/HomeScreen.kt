@@ -283,7 +283,7 @@ fun RecentItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClick
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = item.productName ?: item.itemCode ?: item.barcode,
+                text = item.displayName,
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = CyanAccent,
                     fontWeight = FontWeight.Bold

@@ -50,6 +50,7 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
+import com.nearexpiry.manager.utils.LanguageManager
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -147,6 +148,25 @@ fun ScanScreen(
     // Manual mode button: visible whenever no dialogs are showing (incl. when camera active)
     val showManualButton = !dialogsShowing
 
+    // ── Language-aware product name for dialogs ──────────────────────────────
+    // Arabic name first when the app is in Arabic (falling back to English),
+    // otherwise English first (falling back to Arabic if English is missing).
+    val isArabic = LanguageManager.isArabic()
+    val pendingDisplayName = if (isArabic) {
+        uiState.pendingProductNameArabic?.takeIf { it.isNotBlank() }
+            ?: uiState.pendingProductName
+    } else {
+        uiState.pendingProductName?.takeIf { it.isNotBlank() }
+            ?: uiState.pendingProductNameArabic
+    }
+    val editDisplayName = if (isArabic) {
+        uiState.editProductNameArabic?.takeIf { it.isNotBlank() }
+            ?: uiState.editProductName
+    } else {
+        uiState.editProductName?.takeIf { it.isNotBlank() }
+            ?: uiState.editProductNameArabic
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = { BottomNavigationBar(navController) },
@@ -239,7 +259,7 @@ fun ScanScreen(
                             onClick         = { viewModel.restartScanner() },
                             modifier        = Modifier.fillMaxSize(),
                             detectedBarcode = uiState.detectedBarcode,
-                            productName     = uiState.pendingProductName
+                            productName     = pendingDisplayName
                         )
                     }
                     else -> {
@@ -309,7 +329,7 @@ fun ScanScreen(
         ExpiryDatePickerDialog(
             onDateSelected = { date -> viewModel.onExpiryDateSelected(date) },
             onDismiss = { viewModel.dismissDialog() },
-            productName = uiState.pendingProductName
+            productName = pendingDisplayName
         )
     }
 
@@ -317,7 +337,7 @@ fun ScanScreen(
         QuantityInputDialog(
             onQuantityConfirmed = { quantity -> viewModel.onQuantityConfirmed(quantity) },
             onDismiss = { viewModel.dismissQuantityDialog() },
-            productName = uiState.pendingProductName,
+            productName = pendingDisplayName,
             unit = uiState.pendingUnit
         )
     }
@@ -328,14 +348,14 @@ fun ScanScreen(
             newQty = uiState.duplicateNewQty,
             onConfirm = { viewModel.mergeDuplicateItem() },
             onDismiss = { viewModel.dismissDuplicateDialog() },
-            productName = uiState.pendingProductName
+            productName = pendingDisplayName
         )
     }
 
     if (uiState.showEditDialog) {
         EditScanItemDialog(
             barcode = uiState.editBarcode,
-            productName = uiState.editProductName,
+            productName = editDisplayName,
             expiryDate = uiState.editExpiryDate,
             quantity = uiState.editQuantity,
             onExpiryDateChange = { viewModel.updateEditExpiryDate(it) },
@@ -483,10 +503,17 @@ private fun RecentScanCard(
                     ),
                     maxLines = 1
                 )
-                // Line 2: Product name (if known)
-                if (!item.productName.isNullOrBlank()) {
+                // Line 2: Product name (if known) — in the app's current language
+                val productDisplayName = if (LanguageManager.isArabic()) {
+                    item.productNameArabic?.takeIf { it.isNotBlank() }
+                        ?: item.productName?.takeIf { it.isNotBlank() }
+                } else {
+                    item.productName?.takeIf { it.isNotBlank() }
+                        ?: item.productNameArabic?.takeIf { it.isNotBlank() }
+                }
+                if (!productDisplayName.isNullOrBlank()) {
                     Text(
-                        text = item.productName,
+                        text = productDisplayName,
                         style = MaterialTheme.typography.bodySmall.copy(color = Color.White),
                         maxLines = 1
                     )

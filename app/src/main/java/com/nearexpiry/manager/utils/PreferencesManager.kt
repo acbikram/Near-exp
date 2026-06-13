@@ -21,6 +21,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
 
     private val scanSoundKey = booleanPreferencesKey("scan_sound")
     private val vibrationKey = booleanPreferencesKey("vibration")
+    private val languagePromptShownKey = booleanPreferencesKey("language_prompt_shown")
 
     val scanSoundFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[scanSoundKey] ?: true
@@ -28,6 +29,17 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
 
     val vibrationFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[vibrationKey] ?: true
+    }
+
+    /** True once the user has been shown the first-launch language picker. */
+    val languagePromptShownFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[languagePromptShownKey] ?: false
+    }
+
+    suspend fun setLanguagePromptShown() {
+        context.dataStore.edit { prefs ->
+            prefs[languagePromptShownKey] = true
+        }
     }
 
     suspend fun setScanSound(enabled: Boolean) {

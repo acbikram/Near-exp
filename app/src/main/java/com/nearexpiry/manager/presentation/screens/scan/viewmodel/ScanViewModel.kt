@@ -59,6 +59,7 @@ class ScanViewModel @Inject constructor(
         val editItemId: Long = 0,
         val editBarcode: String = "",
         val editProductName: String? = null,
+        val editProductNameArabic: String? = null,
         val editExpiryDate: String = "",
         val editQuantity: Double = 1.0,
         // Delete confirm dialog state
@@ -325,6 +326,7 @@ class ScanViewModel @Inject constructor(
                 editItemId = item.id,
                 editBarcode = item.barcode,
                 editProductName = item.productName,
+                editProductNameArabic = item.productNameArabic,
                 editExpiryDate = item.expiryDate,
                 editQuantity = item.quantity
             )

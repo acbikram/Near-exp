@@ -161,7 +161,7 @@ fun HistoryItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClic
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = item.productName ?: item.itemCode ?: item.barcode,
+                text = item.displayName,
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = CyanAccent,
                     fontWeight = FontWeight.Bold

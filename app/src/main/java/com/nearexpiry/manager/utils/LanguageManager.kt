@@ -2,6 +2,7 @@ package com.nearexpiry.manager.utils
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import java.util.Locale
 
 /**
  * Wraps [AppCompatDelegate]'s per-app language API.
@@ -28,6 +29,17 @@ object LanguageManager {
             tags.startsWith("en") -> AppLanguage.ENGLISH
             else -> AppLanguage.SYSTEM_DEFAULT
         }
+    }
+
+    /**
+     * True if the app is currently displaying Arabic — either because the
+     * user explicitly chose Arabic, or because "System Default" resolves to
+     * an Arabic device locale.
+     */
+    fun isArabic(): Boolean = when (getCurrentLanguage()) {
+        AppLanguage.ARABIC -> true
+        AppLanguage.ENGLISH -> false
+        AppLanguage.SYSTEM_DEFAULT -> Locale.getDefault().language == "ar"
     }
 
     /** Applies the chosen language app-wide (recreates activities to apply it). */
