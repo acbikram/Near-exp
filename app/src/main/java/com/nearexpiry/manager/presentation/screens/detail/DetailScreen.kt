@@ -50,22 +50,31 @@ fun DetailScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Column {
-                        if (!uiState.item!!.productName.isNullOrBlank()) {
-                            Text(uiState.item!!.productName!!, style = MaterialTheme.typography.titleLarge)
-                            if (!uiState.item!!.productNameArabic.isNullOrBlank()) {
-                                Text(
-                                    uiState.item!!.productNameArabic!!,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
+                        // Title: product name if known, else item code, else barcode
+                        Text(
+                            text = uiState.item!!.productName ?: uiState.item!!.itemCode ?: uiState.item!!.barcode,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        // Arabic name
+                        if (!uiState.item!!.productNameArabic.isNullOrBlank()) {
                             Text(
-                                "Barcode: ${uiState.item!!.barcode}" +
-                                    (uiState.item!!.unit?.let { "  •  Unit: $it" } ?: ""),
+                                uiState.item!!.productNameArabic!!,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                        // Item Code
+                        if (!uiState.item!!.itemCode.isNullOrBlank()) {
+                            Text(
+                                "Item Code: ${uiState.item!!.itemCode}",
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                        } else {
-                            Text("Barcode: ${uiState.item!!.barcode}", style = MaterialTheme.typography.titleLarge)
                         }
+                        // Barcode + Unit
+                        Text(
+                            "Barcode: ${uiState.item!!.barcode}" +
+                                (uiState.item!!.unit?.let { "  •  Unit: $it" } ?: ""),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                     OutlinedTextField(
                         value = uiState.expiryDate,

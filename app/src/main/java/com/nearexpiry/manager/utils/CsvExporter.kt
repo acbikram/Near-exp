@@ -14,7 +14,7 @@ object CsvExporter {
         CSVWriter(OutputStreamWriter(outputStream)).use { writer ->
             writer.writeNext(
                 arrayOf(
-                    "Barcode", "ProductName", "ProductNameArabic", "Unit",
+                    "Barcode", "ItemCode", "ProductName", "ProductNameArabic", "Unit",
                     "ExpiryDate", "Quantity", "CreatedAt", "UpdatedAt"
                 )
             )
@@ -22,6 +22,7 @@ object CsvExporter {
                 writer.writeNext(
                     arrayOf(
                         item.barcode,
+                        item.itemCode ?: "",
                         item.productName ?: "",
                         item.productNameArabic ?: "",
                         item.unit ?: "",

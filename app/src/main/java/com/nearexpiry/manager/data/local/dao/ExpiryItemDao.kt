@@ -9,6 +9,10 @@ interface ExpiryItemDao {
     @Query("SELECT * FROM expiry_items ORDER BY createdAt DESC")
     fun getAllItems(): Flow<List<ExpiryItemEntity>>
 
+    /** One-shot (non-Flow) read used by the notification worker. */
+    @Query("SELECT * FROM expiry_items")
+    suspend fun getAllItemsOnce(): List<ExpiryItemEntity>
+
     @Query("SELECT * FROM expiry_items WHERE id = :id")
     suspend fun getItemById(id: Long): ExpiryItemEntity?
 

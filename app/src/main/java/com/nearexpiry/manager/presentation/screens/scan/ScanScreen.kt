@@ -454,18 +454,22 @@ private fun RecentScanCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                // Line 1: Barcode  •  ItemCode (if available)
                 Text(
-                    text = item.productName ?: item.barcode,
-                    style = MaterialTheme.typography.titleMedium.copy(
+                    text = if (item.itemCode != null) "${item.barcode}   •   ${item.itemCode}"
+                           else item.barcode,
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         color = CyanAccent,
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
                 )
-                if (item.productName != null) {
+                // Line 2: Product name (if known)
+                if (!item.productName.isNullOrBlank()) {
                     Text(
-                        text = item.barcode,
-                        style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                        text = item.productName,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                        maxLines = 1
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

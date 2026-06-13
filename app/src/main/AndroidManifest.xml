@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Required on Android 13+ (API 33) to post notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Lets WorkManager reschedule the daily check after a reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
@@ -19,7 +25,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NearExpiryManager"
         tools:targetApi="31">
-        
+
         <activity
             android:name=".presentation.MainActivity"
             android:exported="true"
@@ -40,5 +46,23 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+            Disable WorkManager's default initializer so we can supply our own
+            HiltWorkerFactory via Configuration.Provider in NearExpiryApplication.
+            Without this, WorkManager initializes itself before Hilt is ready and
+            the Hilt-injected worker constructor will crash.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
     </application>
 </manifest>

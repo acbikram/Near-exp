@@ -281,16 +281,24 @@ fun RecentItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClick
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = item.productName ?: item.barcode,
+                text = item.productName ?: item.itemCode ?: item.barcode,
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = CyanAccent,
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
             )
-            if (item.productName != null) {
+            // Item Code (show if we have a product name, or if barcode is the title)
+            if (item.itemCode != null) {
                 Text(
-                    text = item.barcode,
+                    text = "Item Code: ${item.itemCode}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                )
+            }
+            // Barcode — always shown as a secondary line when name/itemCode exist
+            if (item.productName != null || item.itemCode != null) {
+                Text(
+                    text = "Barcode: ${item.barcode}",
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }

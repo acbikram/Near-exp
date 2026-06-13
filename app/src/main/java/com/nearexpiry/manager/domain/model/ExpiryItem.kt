@@ -7,10 +7,9 @@ data class ExpiryItem(
     val quantity: Double,
     val createdAt: Long,
     val updatedAt: Long,
-    /** Product name resolved from the local catalog at scan time (English). */
     val productName: String? = null,
-    /** Product name resolved from the local catalog at scan time (Arabic). */
     val productNameArabic: String? = null,
-    /** Unit of measure resolved from the local catalog (e.g. "PCS", "KGS"). */
-    val unit: String? = null
+    val unit: String? = null,
+    /** POS/Item Code from column B of the product catalog (posCode). */
+    val itemCode: String? = null
 )

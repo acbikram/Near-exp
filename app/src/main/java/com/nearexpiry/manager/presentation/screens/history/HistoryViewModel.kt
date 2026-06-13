@@ -102,7 +102,8 @@ class HistoryViewModel @Inject constructor(
             filtered = filtered.filter {
                 it.barcode.contains(state.searchQuery, ignoreCase = true) ||
                     it.productName?.contains(state.searchQuery, ignoreCase = true) == true ||
-                    it.productNameArabic?.contains(state.searchQuery, ignoreCase = true) == true
+                    it.productNameArabic?.contains(state.searchQuery, ignoreCase = true) == true ||
+                    it.itemCode?.contains(state.searchQuery, ignoreCase = true) == true
             }
         }
 

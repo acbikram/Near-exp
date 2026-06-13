@@ -27,7 +27,8 @@ class ProductCatalogRepositoryImpl @Inject constructor(
             barcode = entry.barcode,
             name = name,
             nameArabic = nameArabic,
-            unit = unit
+            unit = unit,
+            itemCode = entry.posCode?.takeIf { it.isNotBlank() }
         )
     }
 }

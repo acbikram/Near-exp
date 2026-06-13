@@ -7,5 +7,7 @@ data class ProductInfo(
     val barcode: String,
     val name: String?,
     val nameArabic: String?,
-    val unit: String?
+    val unit: String?,
+    /** POS/Item Code from column B of the product catalog. */
+    val itemCode: String? = null
 )

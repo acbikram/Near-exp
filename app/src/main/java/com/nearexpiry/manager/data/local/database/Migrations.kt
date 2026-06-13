@@ -91,4 +91,13 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 }
 
 /** All migrations the database currently supports, in order. */
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+/**
+ * v4 -> v5: adds itemCode column (POS/Item Code from column B of the catalog).
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `expiry_items` ADD COLUMN `itemCode` TEXT")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

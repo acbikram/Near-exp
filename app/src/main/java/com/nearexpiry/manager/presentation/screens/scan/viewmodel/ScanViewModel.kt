@@ -47,10 +47,10 @@ class ScanViewModel @Inject constructor(
         val showDuplicateDialog: Boolean = false,
         val pendingBarcode: String = "",
         val pendingExpiryDate: String = "",
-        // Product info resolved from the local catalog for pendingBarcode (if found).
         val pendingProductName: String? = null,
         val pendingProductNameArabic: String? = null,
         val pendingUnit: String? = null,
+        val pendingItemCode: String? = null,
         val duplicateExistingQty: Double = 0.0,
         val duplicateNewQty: Double = 0.0,
         val duplicateItemId: Long = 0,
@@ -116,7 +116,9 @@ class ScanViewModel @Inject constructor(
     fun onManualBarcodeEntered(barcode: String) {
         val trimmed = barcode.trim()
         if (trimmed.isEmpty()) return
-        _uiState.update { it.copy(showManualMode = false) }
+        // Clear manual mode AND scannerInactive so onBarcodeScanned's guard
+        // doesn't block us (manual mode sets scannerInactive = true).
+        _uiState.update { it.copy(showManualMode = false, scannerInactive = false) }
         onBarcodeScanned(trimmed)
     }
 
@@ -138,27 +140,25 @@ class ScanViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 detectedBarcode  = barcode,
-                scannerInactive  = true,   // camera goes to standby immediately
+                scannerInactive  = true,
                 pendingBarcode   = barcode,
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
+                pendingItemCode = null,
                 showExpiryDialog = true
             )
         }
 
-        // ── Resolve product name from the local catalog (offline lookup) ────
-        // This runs async and updates the UI state when (if) a match is found;
-        // the dialogs/overlay simply fall back to the raw barcode until then.
         viewModelScope.launch {
             val product = productCatalogRepository.lookup(barcode)
-            // Make sure we're still looking at the same scan before applying it.
             if (_uiState.value.pendingBarcode == barcode) {
                 _uiState.update {
                     it.copy(
                         pendingProductName = product?.name,
                         pendingProductNameArabic = product?.nameArabic,
-                        pendingUnit = product?.unit
+                        pendingUnit = product?.unit,
+                        pendingItemCode = product?.itemCode
                     )
                 }
             }
@@ -188,6 +188,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
+                pendingItemCode = null,
                 detectedBarcode     = "",
                 scannerInactive     = false
             )
@@ -205,6 +206,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
+                pendingItemCode = null,
                 detectedBarcode    = "",
                 scannerInactive    = false
             )
@@ -222,6 +224,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
+                pendingItemCode = null,
                 detectedBarcode     = "",
                 scannerInactive     = false
             )
@@ -258,7 +261,8 @@ class ScanViewModel @Inject constructor(
                     updatedAt  = System.currentTimeMillis(),
                     productName = currentState.pendingProductName,
                     productNameArabic = currentState.pendingProductNameArabic,
-                    unit = currentState.pendingUnit
+                    unit = currentState.pendingUnit,
+                    itemCode = currentState.pendingItemCode
                 )
                 repository.insertItem(newItem)
                 loadRecentScans()
@@ -270,8 +274,9 @@ class ScanViewModel @Inject constructor(
                         pendingProductName = null,
                         pendingProductNameArabic = null,
                         pendingUnit = null,
+                        pendingItemCode = null,
                         detectedBarcode    = "",
-                        scannerInactive    = false  // Start scanning instantly
+                        scannerInactive    = false
                     )
                 }
                 startInactivityTimer()
@@ -287,12 +292,10 @@ class ScanViewModel @Inject constructor(
             val updatedItem = existing.copy(
                 quantity = newQuantity,
                 updatedAt = System.currentTimeMillis(),
-                // Backfill product info if the existing record predates the
-                // catalog lookup (e.g. items created before this feature, or
-                // before products.db had this barcode).
                 productName = existing.productName ?: state.pendingProductName,
                 productNameArabic = existing.productNameArabic ?: state.pendingProductNameArabic,
-                unit = existing.unit ?: state.pendingUnit
+                unit = existing.unit ?: state.pendingUnit,
+                itemCode = existing.itemCode ?: state.pendingItemCode
             )
             repository.updateItem(updatedItem.toEntity())
             loadRecentScans()
@@ -304,8 +307,9 @@ class ScanViewModel @Inject constructor(
                     pendingProductName = null,
                     pendingProductNameArabic = null,
                     pendingUnit = null,
+                    pendingItemCode = null,
                     detectedBarcode     = "",
-                    scannerInactive     = false  // Start scanning instantly
+                    scannerInactive     = false
                 )
             }
             startInactivityTimer()
