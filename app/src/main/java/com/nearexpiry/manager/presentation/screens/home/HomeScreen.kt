@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
@@ -72,7 +74,7 @@ fun HomeScreen(
                     .padding(top = 16.dp, bottom = 4.dp)
             ) {
                 Text(
-                    text = "NEAR EXPIRY MANAGER",
+                    text = stringResource(R.string.app_title_header),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp,
@@ -81,7 +83,7 @@ fun HomeScreen(
                 )
                 Text(
                     text = buildAnnotatedString {
-                        append("Developed by ")
+                        append(stringResource(R.string.developed_by))
                         withStyle(SpanStyle(color = OrangeAccent, fontWeight = FontWeight.SemiBold)) {
                             append("Bikram Acharya")
                         }
@@ -104,7 +106,7 @@ fun HomeScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Dashboard",
+                        text = stringResource(R.string.dashboard),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = CyanAccent,
                             fontWeight = FontWeight.Bold,
@@ -117,7 +119,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ClickableStatCard(
-                            label = "Total Records",
+                            label = stringResource(R.string.total_records),
                             value = uiState.totalRecords,
                             onClick = {
                                 navController.navigate(
@@ -126,7 +128,7 @@ fun HomeScreen(
                             }
                         )
                         ClickableStatCard(
-                            label = "Unique Products",
+                            label = stringResource(R.string.unique_products),
                             value = uiState.uniqueProducts,
                             onClick = {
                                 navController.navigate(
@@ -141,7 +143,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ClickableStatCard(
-                            label = "Expiring in 7d",
+                            label = stringResource(R.string.expiring_in_7d),
                             value = uiState.expiringIn7Days,
                             accentColor = if (uiState.expiringIn7Days > 0) Color(0xFFFF7043) else CyanAccent,
                             onClick = {
@@ -151,7 +153,7 @@ fun HomeScreen(
                             }
                         )
                         ClickableStatCard(
-                            label = "Expiring in 30d",
+                            label = stringResource(R.string.expiring_in_30d),
                             value = uiState.expiringIn30Days,
                             accentColor = if (uiState.expiringIn30Days > 0) Color(0xFFFFCA28) else CyanAccent,
                             onClick = {
@@ -167,7 +169,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         ClickableStatCard(
-                            label = "Total Quantity",
+                            label = stringResource(R.string.total_quantity),
                             value = uiState.totalQuantity,
                             onClick = {
                                 navController.navigate(
@@ -183,7 +185,7 @@ fun HomeScreen(
 
             // ── Recent scans section header (fixed, doesn't scroll) ──────────
             Text(
-                text = "Recent Scans",
+                text = stringResource(R.string.recent_scans),
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = CyanAccent,
                     fontWeight = FontWeight.Bold
@@ -212,7 +214,7 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No recent items", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.no_recent_items), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -291,30 +293,33 @@ fun RecentItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClick
             // Item Code (show if we have a product name, or if barcode is the title)
             if (item.itemCode != null) {
                 Text(
-                    text = "Item Code: ${item.itemCode}",
+                    text = stringResource(R.string.item_code_format, item.itemCode),
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }
             // Barcode — always shown as a secondary line when name/itemCode exist
             if (item.productName != null || item.itemCode != null) {
                 Text(
-                    text = "Barcode: ${item.barcode}",
+                    text = stringResource(R.string.barcode_format, item.barcode),
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Expiry: ${item.expiryDate}",
+                    text = stringResource(R.string.expiry_format, item.expiryDate),
                     style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
                 )
                 Text(
-                    text = "Qty: ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()}",
+                    text = stringResource(
+                        R.string.qty_format,
+                        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                    ),
                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )
             }
             Text(
-                text = "Scanned: ${formatTimestamp(item.createdAt)}",
+                text = stringResource(R.string.scanned_format, formatTimestamp(item.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
             )
         }

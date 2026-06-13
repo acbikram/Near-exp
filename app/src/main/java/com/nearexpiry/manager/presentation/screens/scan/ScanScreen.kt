@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.screens.scan.components.BarcodeScannerOverlay
@@ -78,11 +80,14 @@ fun ScanScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scannerInactive = uiState.scannerInactive
 
+    val cameraPermissionDeniedMsg = stringResource(R.string.camera_permission_required)
+    val failedToStartCameraFormat = stringResource(R.string.failed_to_start_camera_format)
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
-        cameraError = if (isGranted) null else "Camera permission denied"
+        cameraError = if (isGranted) null else cameraPermissionDeniedMsg
     }
 
     LaunchedEffect(Unit) {
@@ -98,7 +103,7 @@ fun ScanScreen(
                 cameraError = null
                 viewModel.startScanner()
             } catch (e: Exception) {
-                cameraError = "Failed to start camera: ${e.message}"
+                cameraError = failedToStartCameraFormat.format(e.message)
                 isCameraBound = false
             }
         }
@@ -116,7 +121,7 @@ fun ScanScreen(
                 cameraError = null
                 viewModel.startScanner()
             } catch (e: Exception) {
-                cameraError = "Failed to start camera: ${e.message}"
+                cameraError = failedToStartCameraFormat.format(e.message)
                 isCameraBound = false
             }
         }
@@ -162,7 +167,10 @@ fun ScanScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Keyboard,
-                            contentDescription = if (uiState.showManualMode) "Exit manual mode" else "Manual barcode entry"
+                            contentDescription = if (uiState.showManualMode)
+                                stringResource(R.string.manual_mode_exit)
+                            else
+                                stringResource(R.string.manual_mode_enter)
                         )
                     }
 
@@ -173,7 +181,7 @@ fun ScanScreen(
                             containerColor = GreenAccent,
                             contentColor = Color(0xFF002200)
                         ) {
-                            Icon(Icons.Filled.PhotoCamera, contentDescription = "Scan")
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.scan))
                         }
                     }
                 }
@@ -204,10 +212,10 @@ fun ScanScreen(
                     !hasCameraPermission -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Camera permission required", color = Color.White)
+                                Text(stringResource(R.string.camera_permission_required), color = Color.White)
                                 Spacer(Modifier.height(8.dp))
                                 Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                                    Text("Grant Permission")
+                                    Text(stringResource(R.string.grant_permission))
                                 }
                             }
                         }
@@ -222,7 +230,7 @@ fun ScanScreen(
                                     isCameraBound = false
                                     if (hasCameraPermission) viewModel.restartScanner()
                                     else permissionLauncher.launch(Manifest.permission.CAMERA)
-                                }) { Text("Retry") }
+                                }) { Text(stringResource(R.string.retry)) }
                             }
                         }
                     }
@@ -286,7 +294,7 @@ fun ScanScreen(
                     item {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(
-                                "No recent scans",
+                                stringResource(R.string.no_recent_scans),
                                 style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray)
                             )
                         }
@@ -340,16 +348,16 @@ fun ScanScreen(
     if (uiState.showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDeleteDialog() },
-            title = { Text("Delete Item") },
-            text = { Text("Are you sure you want to delete this scan record?") },
+            title = { Text(stringResource(R.string.delete_item)) },
+            text = { Text(stringResource(R.string.delete_scan_confirm)) },
             confirmButton = {
                 TextButton(onClick = { viewModel.confirmDelete() }) {
-                    Text("Delete", color = ErrorRed)
+                    Text(stringResource(R.string.delete), color = ErrorRed)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissDeleteDialog() }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -369,6 +377,7 @@ private fun ManualBarcodeInputBox(
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val pleaseEnterBarcodeMsg = stringResource(R.string.please_enter_barcode)
 
     // Pop the number pad the moment this enters composition.
     LaunchedEffect(Unit) {
@@ -379,7 +388,7 @@ private fun ManualBarcodeInputBox(
     val handleDone = {
         val trimmed = barcodeText.trim()
         if (trimmed.isEmpty()) {
-            error = "Please enter a barcode"
+            error = pleaseEnterBarcodeMsg
         } else {
             keyboardController?.hide()
             onBarcodeEntered(trimmed)
@@ -398,7 +407,7 @@ private fun ManualBarcodeInputBox(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "Manual Entry",
+                text = stringResource(R.string.manual_entry),
                 style = MaterialTheme.typography.labelMedium.copy(color = CyanAccent),
                 fontWeight = FontWeight.Bold
             )
@@ -411,7 +420,7 @@ private fun ManualBarcodeInputBox(
                         error = null
                     }
                 },
-                label = { Text("Barcode", color = SubtleGray) },
+                label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = { error?.let { Text(it, color = ErrorRed) } },
@@ -437,7 +446,7 @@ private fun ManualBarcodeInputBox(
                 keyboardController?.hide()
                 onDismiss()
             }) {
-                Text("Cancel", color = SubtleGray)
+                Text(stringResource(R.string.cancel), color = SubtleGray)
             }
         }
     }
@@ -484,12 +493,21 @@ private fun RecentScanCard(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Expiry: ${item.expiryDate}",
+                        text = stringResource(R.string.expiry_format, item.expiryDate),
                         style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
                     )
                     Text(
-                        text = "Qty: ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}" +
-                            (item.unit?.let { " $it" } ?: ""),
+                        text = if (item.unit != null)
+                            stringResource(
+                                R.string.qty_unit_format,
+                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                                item.unit
+                            )
+                        else
+                            stringResource(
+                                R.string.qty_format,
+                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                            ),
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
                 }
@@ -499,10 +517,10 @@ private fun RecentScanCard(
                 )
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = CyanAccent, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit), tint = CyanAccent, modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorRed, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = ErrorRed, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -527,17 +545,17 @@ private fun EditScanItemDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Item", style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent)) },
+        title = { Text(stringResource(R.string.edit_item), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!productName.isNullOrBlank()) {
                     Text(text = productName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
-                Text(text = "Barcode: $barcode", style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray))
+                Text(text = stringResource(R.string.barcode_format, barcode), style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray))
                 OutlinedTextField(
                     value = expiryDate,
                     onValueChange = onExpiryDateChange,
-                    label = { Text("Expiry Date (YYYY-MM-DD)") },
+                    label = { Text(stringResource(R.string.expiry_date_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -549,15 +567,15 @@ private fun EditScanItemDialog(
                             v.toDoubleOrNull()?.let { onQuantityChange(it) }
                         }
                     },
-                    label = { Text("Quantity") },
+                    label = { Text(stringResource(R.string.quantity_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Save", color = GreenAccent) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.save), color = GreenAccent) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 

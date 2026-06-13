@@ -16,11 +16,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
@@ -36,11 +39,6 @@ import kotlin.math.abs
 private val ITEM_HEIGHT: Dp = 48.dp
 private const val VISIBLE_ITEMS = 5          // must be odd
 private const val PADDING_ITEMS = VISIBLE_ITEMS / 2   // = 2
-
-private val MONTH_SHORT = listOf(
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date range: today → end of month that is 4 months ahead
@@ -90,6 +88,7 @@ fun ExpiryDatePickerDialog(
     val range  = remember { buildRange() }
     val months = remember(range) { buildMonthList(range) }   // list of (year, month)
     val scope  = rememberCoroutineScope()
+    val monthNames = stringArrayResource(R.array.month_short_names)
 
     // ── State: selected month index and day index ────────────────────────────
     // Start at today: month index 0 (the month containing today), and the day
@@ -129,7 +128,7 @@ fun ExpiryDatePickerDialog(
             ) {
                 // ── Title ──────────────────────────────────────────────────
                 Text(
-                    text  = "Select Expiry Date",
+                    text  = stringResource(R.string.select_expiry_date),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color      = CyanAccent,
                         fontWeight = FontWeight.Bold
@@ -153,7 +152,7 @@ fun ExpiryDatePickerDialog(
                 // ── Selected date preview ──────────────────────────────────
                 val previewDay = if (daysForMonth.isNotEmpty()) daysForMonth[selectedDayIdx.coerceIn(0, daysForMonth.lastIndex)] else 1
                 val previewMonth = currentMonthYear.second
-                val previewMonthStr = MONTH_SHORT[previewMonth - 1]
+                val previewMonthStr = monthNames[previewMonth - 1]
                 val previewMonthNum = previewMonth.toString().padStart(2, '0')
                 Text(
                     text  = "${previewDay.toString().padStart(2, '0')}, $previewMonthStr ($previewMonthNum), $selectedYear",
@@ -222,7 +221,7 @@ fun ExpiryDatePickerDialog(
                                 textAlign  = TextAlign.Center
                             )
                             Text(
-                                text      = "Year",
+                                text      = stringResource(R.string.year),
                                 style     = MaterialTheme.typography.labelSmall.copy(color = SubtleGray),
                                 textAlign = TextAlign.Center
                             )
@@ -264,7 +263,7 @@ fun ExpiryDatePickerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = SubtleGray)
+                        Text(stringResource(R.string.cancel), color = SubtleGray)
                     }
                     Spacer(Modifier.width(8.dp))
                     TextButton(
@@ -278,7 +277,7 @@ fun ExpiryDatePickerDialog(
                             if (date != null) onDateSelected(date) else onDismiss()
                         }
                     ) {
-                        Text("Done", color = CyanAccent, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.done), color = CyanAccent, fontWeight = FontWeight.Bold)
                     }
                 }
             }

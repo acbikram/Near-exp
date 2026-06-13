@@ -9,9 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.nearexpiry.manager.R
 
 @Composable
 fun QuantityInputDialog(
@@ -27,6 +29,7 @@ fun QuantityInputDialog(
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val quantityRangeError = stringResource(R.string.quantity_range_error)
 
     // Auto-focus the field and pop the number pad as soon as the dialog appears.
     LaunchedEffect(Unit) {
@@ -39,13 +42,13 @@ fun QuantityInputDialog(
         if (qty != null && qty > 0 && qty <= 99999) {
             onQuantityConfirmed(qty)
         } else {
-            error = "Quantity must be between 0.01 and 99999"
+            error = quantityRangeError
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Enter Quantity") },
+        title = { Text(stringResource(R.string.enter_quantity)) },
         text = {
             Column {
                 if (!productName.isNullOrBlank()) {
@@ -71,7 +74,7 @@ fun QuantityInputDialog(
                     keyboardActions = KeyboardActions(
                         onDone = { handleConfirm() }
                     ),
-                    label = { Text("Quantity") },
+                    label = { Text(stringResource(R.string.quantity_label)) },
                     isError = error != null,
                     supportingText = { error?.let { Text(it) } },
                     modifier = Modifier
@@ -84,12 +87,12 @@ fun QuantityInputDialog(
             TextButton(
                 onClick = handleConfirm
             ) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

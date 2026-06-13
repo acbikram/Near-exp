@@ -48,6 +48,20 @@
         </provider>
 
         <!--
+            Lets AppCompatDelegate.setApplicationLocales(...) persist the
+            chosen app language across restarts on API levels below 33,
+            without requiring activities to extend AppCompatActivity.
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
+        <!--
             Disable WorkManager's default initializer so we can supply our own
             HiltWorkerFactory via Configuration.Provider in NearExpiryApplication.
             Without this, WorkManager initializes itself before Hilt is ready and

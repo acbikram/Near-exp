@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.nearexpiry.manager.R
 
 @Composable
 fun DuplicateItemDialog(
@@ -25,7 +27,7 @@ fun DuplicateItemDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Same Item Found") },
+        title = { Text(stringResource(R.string.same_item_found)) },
         text = {
             Column {
                 if (!productName.isNullOrBlank()) {
@@ -35,27 +37,31 @@ fun DuplicateItemDialog(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
+                val previousQtyLabel = stringResource(R.string.previous_qty)
+                val newQtyLabel = stringResource(R.string.new_qty)
+                val finalQtyLabel = stringResource(R.string.final_qty)
+                val confirmSaveLabel = stringResource(R.string.confirm_save_question)
                 Text(
                     buildAnnotatedString {
-                        append("Previous Qty: ")
+                        append(previousQtyLabel)
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("${formatQty(existingQty)}\n") }
-                        append("New Qty: ")
+                        append(newQtyLabel)
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("${formatQty(newQty)}\n") }
-                        append("Final Qty: ")
+                        append(finalQtyLabel)
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("${formatQty(existingQty + newQty)}\n") }
-                        append("Confirm Save?")
+                        append(confirmSaveLabel)
                     }
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Confirm")
+                Text(stringResource(R.string.confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

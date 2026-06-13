@@ -10,9 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,6 +27,7 @@ fun BackupRestoreScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val operationSuccessMsg = stringResource(R.string.operation_successful)
 
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -43,7 +46,7 @@ fun BackupRestoreScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Backup & Restore") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.backup_restore)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -60,14 +63,14 @@ fun BackupRestoreScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
-                    Text("Backup Database")
+                    Text(stringResource(R.string.backup_database))
                 }
                 Button(
                     onClick = { restoreLauncher.launch(arrayOf("application/json")) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
-                    Text("Restore Database")
+                    Text(stringResource(R.string.restore_database))
                 }
             }
 
@@ -89,7 +92,7 @@ fun BackupRestoreScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             CircularProgressIndicator()
-                            Text("Processing...", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.processing), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
@@ -109,7 +112,7 @@ fun BackupRestoreScreen(
     if (uiState.success) {
         LaunchedEffect(Unit) {
             scope.launch {
-                snackbarHostState.showSnackbar("Operation successful")
+                snackbarHostState.showSnackbar(operationSuccessMsg)
                 viewModel.resetSuccess()
             }
         }

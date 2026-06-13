@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 
 /**
@@ -72,7 +74,7 @@ fun ScannerInactiveOverlay(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Detected • Enter details",
+                    text = stringResource(R.string.detected_enter_details),
                     color = Color(0xFF00E676),
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center
@@ -86,7 +88,7 @@ fun ScannerInactiveOverlay(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Press to start scan",
+                    text = stringResource(R.string.press_to_start_scan),
                     color = CyanAccent,
                     style = MaterialTheme.typography.titleSmall,
                     textAlign = TextAlign.Center

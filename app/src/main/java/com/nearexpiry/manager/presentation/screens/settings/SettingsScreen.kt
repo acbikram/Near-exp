@@ -5,18 +5,22 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
@@ -27,6 +31,7 @@ import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
+import com.nearexpiry.manager.utils.LanguageManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +49,7 @@ fun SettingsScreen(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
                     PackageManager.PERMISSION_GRANTED
-            else true   // < API 33: permission granted implicitly
+            else true
         )
     }
     val notifPermLauncher = rememberLauncherForActivityResult(
@@ -52,10 +57,12 @@ fun SettingsScreen(
     ) { granted ->
         hasNotifPermission = granted
         if (granted) {
-            // Re-schedule worker now that we have permission
             ExpiryNotificationWorker.schedule(context)
         }
     }
+
+    // ── Language selection ────────────────────────────────────────────────────
+    var currentLanguage by remember { mutableStateOf(LanguageManager.getCurrentLanguage()) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -63,7 +70,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Settings",
+                        stringResource(R.string.settings),
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = CyanAccent,
                             fontWeight = FontWeight.Bold
@@ -86,6 +93,55 @@ fun SettingsScreen(
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
 
+            // ── Language ───────────────────────────────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape  = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.language),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = CyanAccent,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.language_description),
+                            style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        LanguageOptionRow(
+                            label = stringResource(R.string.language_system_default),
+                            selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT,
+                            onClick = {
+                                currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT
+                                LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT)
+                            }
+                        )
+                        LanguageOptionRow(
+                            label = stringResource(R.string.language_english),
+                            selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH,
+                            onClick = {
+                                currentLanguage = LanguageManager.AppLanguage.ENGLISH
+                                LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH)
+                            }
+                        )
+                        LanguageOptionRow(
+                            label = stringResource(R.string.language_arabic),
+                            selected = currentLanguage == LanguageManager.AppLanguage.ARABIC,
+                            onClick = {
+                                currentLanguage = LanguageManager.AppLanguage.ARABIC
+                                LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC)
+                            }
+                        )
+                    }
+                }
+            }
+
             // ── Expiry Notifications ─────────────────────────────────────────
             item {
                 Card(
@@ -94,7 +150,7 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Expiry Notifications",
+                            stringResource(R.string.expiry_notifications),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = CyanAccent,
                                 fontWeight = FontWeight.Bold
@@ -102,39 +158,35 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Daily at 8:00 AM — notifications are sent for items expiring in exactly 15, 7, or 3 days.",
+                            stringResource(R.string.notifications_description),
                             style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                         )
                         Spacer(Modifier.height(12.dp))
 
-                        // 15-day row
                         NotifInfoRow(
-                            label = "15 days away",
-                            sublabel = "Soft reminder",
+                            label = stringResource(R.string.days_away_15),
+                            sublabel = stringResource(R.string.soft_reminder),
                             color = GreenAccent
                         )
                         Spacer(Modifier.height(6.dp))
-                        // 7-day row
                         NotifInfoRow(
-                            label = "7 days away",
-                            sublabel = "Soft reminder",
+                            label = stringResource(R.string.days_away_7),
+                            sublabel = stringResource(R.string.soft_reminder),
                             color = OrangeAccent
                         )
                         Spacer(Modifier.height(6.dp))
-                        // 3-day row
                         NotifInfoRow(
-                            label = "3 days away",
-                            sublabel = "Urgent alert (heads-up + double vibration)",
+                            label = stringResource(R.string.days_away_3),
+                            sublabel = stringResource(R.string.urgent_alert_desc),
                             color = ErrorRed
                         )
 
-                        // Permission button for Android 13+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotifPermission) {
                             Spacer(Modifier.height(12.dp))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                "Notification permission is required to receive expiry alerts.",
+                                stringResource(R.string.notif_permission_required),
                                 style = MaterialTheme.typography.bodySmall.copy(color = ErrorRed)
                             )
                             Spacer(Modifier.height(8.dp))
@@ -149,12 +201,12 @@ fun SettingsScreen(
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Grant Notification Permission")
+                                Text(stringResource(R.string.grant_notification_permission))
                             }
                         } else if (hasNotifPermission) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                "✓ Notifications enabled",
+                                stringResource(R.string.notifications_enabled),
                                 style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
                             )
                         }
@@ -170,7 +222,7 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Scan Settings",
+                            stringResource(R.string.scan_settings),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = CyanAccent,
                                 fontWeight = FontWeight.Bold
@@ -183,13 +235,13 @@ fun SettingsScreen(
                         ) {
                             Column {
                                 Text(
-                                    "Beep on scan",
+                                    stringResource(R.string.beep_on_scan),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                                 Text(
-                                    "Single = new  •  Double = duplicate",
+                                    stringResource(R.string.beep_on_scan_subtitle),
                                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                                 )
                             }
@@ -211,13 +263,13 @@ fun SettingsScreen(
                         ) {
                             Column {
                                 Text(
-                                    "Vibrate on scan",
+                                    stringResource(R.string.vibrate_on_scan),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                                 Text(
-                                    "Single pulse = new  •  Double = duplicate",
+                                    stringResource(R.string.vibrate_on_scan_subtitle),
                                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                                 )
                             }
@@ -242,7 +294,7 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Data Management",
+                            stringResource(R.string.data_management),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = CyanAccent,
                                 fontWeight = FontWeight.Bold
@@ -257,7 +309,7 @@ fun SettingsScreen(
                                 contentColor   = CyanAccent
                             ),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Backup & Restore") }
+                        ) { Text(stringResource(R.string.backup_restore)) }
                         Spacer(Modifier.height(8.dp))
                         Button(
                             onClick = { showClearDialog = true },
@@ -267,7 +319,7 @@ fun SettingsScreen(
                                 contentColor   = ErrorRed
                             ),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Clear All Records") }
+                        ) { Text(stringResource(R.string.clear_all_records)) }
                     }
                 }
             }
@@ -277,17 +329,42 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear All Records") },
-            text = { Text("This action cannot be undone. Are you sure?") },
+            title = { Text(stringResource(R.string.clear_all_records)) },
+            text = { Text(stringResource(R.string.clear_all_records_confirm)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.clearAllRecords()
                     showClearDialog = false
-                }) { Text("Clear") }
+                }) { Text(stringResource(R.string.clear)) }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showClearDialog = false }) { Text(stringResource(R.string.cancel)) }
             }
+        )
+    }
+}
+
+@Composable
+private fun LanguageOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = CyanAccent,
+                unselectedColor = SubtleGray
+            )
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            )
         )
     }
 }

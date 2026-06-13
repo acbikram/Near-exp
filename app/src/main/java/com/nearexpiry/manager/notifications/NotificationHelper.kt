@@ -22,7 +22,15 @@ object NotificationHelper {
     fun notifId(itemId: Long, daysLeft: Int): Int =
         ((itemId and 0xFFFFF) * 100 + daysLeft).toInt()
 
-    /** Must be called once on app start (safe to call multiple times). */
+    /**
+     * Must be called once on app start (safe to call multiple times).
+     *
+     * Note: on Android 13+ (API 33), AppCompatDelegate's per-app language
+     * setting updates the system-wide LocaleManager, so context.getString()
+     * here returns the correct language automatically. On older API levels,
+     * background contexts (WorkManager) may fall back to the device's
+     * default locale for these channel names/notification text.
+     */
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -31,10 +39,10 @@ object NotificationHelper {
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_SOFT,
-                    "Expiry Warning",
+                    context.getString(R.string.notif_channel_soft_name),
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "Soft reminders for items expiring in 15 or 7 days"
+                    description = context.getString(R.string.notif_channel_soft_desc)
                     vibrationPattern = longArrayOf(0, 200)
                     enableVibration(true)
                 }
@@ -46,10 +54,10 @@ object NotificationHelper {
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_HARD,
-                    "Expiry Alert",
+                    context.getString(R.string.notif_channel_hard_name),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Urgent alerts for items expiring in 3 days"
+                    description = context.getString(R.string.notif_channel_hard_desc)
                     vibrationPattern = longArrayOf(0, 300, 150, 300) // double-pulse
                     enableVibration(true)
                 }
@@ -60,9 +68,9 @@ object NotificationHelper {
     /** Posts one soft notification for a 15-day or 7-day threshold. */
     fun postSoftNotification(context: Context, item: ExpiryItemEntity, daysLeft: Int) {
         val label = displayName(item)
-        val qty   = formatQty(item.quantity, item.unit)
-        val title = "⚠️ Expiring in $daysLeft days"
-        val body  = "$label — $qty · Expires ${item.expiryDate}"
+        val qty   = formatQty(context, item.quantity, item.unit)
+        val title = context.getString(R.string.notif_soft_title_format, daysLeft)
+        val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
 
         val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -75,9 +83,9 @@ object NotificationHelper {
     /** Posts a high-priority heads-up notification for the 3-day threshold. */
     fun postHardNotification(context: Context, item: ExpiryItemEntity) {
         val label = displayName(item)
-        val qty   = formatQty(item.quantity, item.unit)
-        val title = "🚨 Expires in 3 Days!"
-        val body  = "$label — $qty · Expires ${item.expiryDate}"
+        val qty   = formatQty(context, item.quantity, item.unit)
+        val title = context.getString(R.string.notif_hard_title)
+        val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
 
         val notif = baseBuilder(context, CHANNEL_HARD, title, body)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -122,8 +130,11 @@ object NotificationHelper {
             ?: item.itemCode?.takeIf { it.isNotBlank() }
             ?: item.barcode
 
-    private fun formatQty(qty: Double, unit: String?): String {
+    private fun formatQty(context: Context, qty: Double, unit: String?): String {
         val qtyStr = if (qty % 1.0 == 0.0) qty.toInt().toString() else qty.toString()
-        return if (!unit.isNullOrBlank()) "Qty $qtyStr $unit" else "Qty $qtyStr"
+        return if (!unit.isNullOrBlank())
+            context.getString(R.string.qty_unit_format, qtyStr, unit)
+        else
+            context.getString(R.string.qty_format, qtyStr)
     }
 }

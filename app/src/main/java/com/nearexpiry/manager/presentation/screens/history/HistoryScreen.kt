@@ -11,10 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
@@ -51,7 +53,7 @@ fun HistoryScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "History",
+                        stringResource(R.string.history),
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = CyanAccent,
                             fontWeight = FontWeight.Bold
@@ -63,7 +65,7 @@ fun HistoryScreen(
                 ),
                 actions = {
                     IconButton(onClick = { viewModel.toggleSortOrder() }) {
-                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = CyanAccent)
+                        Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
                     }
                     FilterChip(
                         selected = uiState.filter != Filter.ALL,
@@ -90,7 +92,7 @@ fun HistoryScreen(
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::updateSearchQuery,
-                label = { Text("Search by name or barcode") },
+                label = { Text(stringResource(R.string.search_by_name_or_barcode)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -100,7 +102,11 @@ fun HistoryScreen(
             )
             // Sort indicator
             Text(
-                text = "Sort: ${uiState.sortOrder.name.replace('_', ' ')}  •  ${uiState.filteredItems.size} items",
+                text = stringResource(
+                    R.string.sort_items_summary_format,
+                    uiState.sortOrder.name.replace('_', ' '),
+                    uiState.filteredItems.size
+                ),
                 style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
@@ -124,7 +130,7 @@ fun HistoryScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "No items found",
+                                stringResource(R.string.no_items_found),
                                 style = MaterialTheme.typography.bodyLarge.copy(color = SubtleGray)
                             )
                         }
@@ -164,29 +170,32 @@ fun HistoryItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClic
             )
             if (item.itemCode != null) {
                 Text(
-                    text = "Item Code: ${item.itemCode}",
+                    text = stringResource(R.string.item_code_format, item.itemCode),
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }
             if (item.productName != null || item.itemCode != null) {
                 Text(
-                    text = "Barcode: ${item.barcode}",
+                    text = stringResource(R.string.barcode_format, item.barcode),
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Expiry: ${item.expiryDate}",
+                    text = stringResource(R.string.expiry_format, item.expiryDate),
                     style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
                 )
                 Text(
-                    text = "Qty: ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()}",
+                    text = stringResource(
+                        R.string.qty_format,
+                        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                    ),
                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )
             }
             Text(
-                text = "Scanned: ${formatTimestamp(item.createdAt)}",
+                text = stringResource(R.string.scanned_format, formatTimestamp(item.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
             )
         }

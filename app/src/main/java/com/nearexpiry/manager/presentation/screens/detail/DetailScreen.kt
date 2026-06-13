@@ -6,10 +6,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
 import kotlinx.coroutines.launch
 
@@ -30,7 +32,7 @@ fun DetailScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Item Details") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.item_details)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -65,28 +67,30 @@ fun DetailScreen(
                         // Item Code
                         if (!uiState.item!!.itemCode.isNullOrBlank()) {
                             Text(
-                                "Item Code: ${uiState.item!!.itemCode}",
+                                stringResource(R.string.item_code_format, uiState.item!!.itemCode!!),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         // Barcode + Unit
                         Text(
-                            "Barcode: ${uiState.item!!.barcode}" +
-                                (uiState.item!!.unit?.let { "  •  Unit: $it" } ?: ""),
+                            text = if (!uiState.item!!.unit.isNullOrBlank())
+                                stringResource(R.string.barcode_unit_format, uiState.item!!.barcode, uiState.item!!.unit!!)
+                            else
+                                stringResource(R.string.barcode_format, uiState.item!!.barcode),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                     OutlinedTextField(
                         value = uiState.expiryDate,
                         onValueChange = viewModel::updateExpiryDate,
-                        label = { Text("Expiry Date (YYYY-MM-DD)") },
+                        label = { Text(stringResource(R.string.expiry_date_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isSaving
                     )
                     OutlinedTextField(
                         value = uiState.quantityText,
                         onValueChange = viewModel::updateQuantity,
-                        label = { Text("Quantity") },
+                        label = { Text(stringResource(R.string.quantity_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         isError = uiState.quantityError != null,
@@ -108,7 +112,7 @@ fun DetailScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text("Save Changes")
+                            Text(stringResource(R.string.save_changes))
                         }
                         Button(
                             onClick = { showDeleteDialog = true },
@@ -116,7 +120,7 @@ fun DetailScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             enabled = !uiState.isSaving
                         ) {
-                            Text("Delete")
+                            Text(stringResource(R.string.delete))
                         }
                     }
                 }
@@ -127,8 +131,8 @@ fun DetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Item") },
-            text = { Text("Are you sure you want to delete this item?") },
+            title = { Text(stringResource(R.string.delete_item)) },
+            text = { Text(stringResource(R.string.delete_item_confirm)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -136,12 +140,12 @@ fun DetailScreen(
                         showDeleteDialog = false
                     }
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

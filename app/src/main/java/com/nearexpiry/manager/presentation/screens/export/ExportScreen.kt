@@ -14,9 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import kotlinx.coroutines.launch
 
@@ -30,6 +32,8 @@ fun ExportScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val exportSuccessMsg = stringResource(R.string.export_successful)
+    val shareCsvLabel = stringResource(R.string.share_csv)
 
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
@@ -40,7 +44,7 @@ fun ExportScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Export Data") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.export_data)) }) },
         bottomBar = { BottomNavigationBar(navController) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -53,8 +57,11 @@ fun ExportScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Export all records to CSV", style = MaterialTheme.typography.headlineSmall)
-                Text("Total records: ${uiState.totalRecords}", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.export_all_records_csv), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    stringResource(R.string.total_records_count_format, uiState.totalRecords),
+                    style = MaterialTheme.typography.bodyLarge
+                )
 
                 Button(
                     onClick = { saveLauncher.launch("NearExpiry_${System.currentTimeMillis()}.csv") },
@@ -63,7 +70,7 @@ fun ExportScreen(
                 ) {
                     Icon(Icons.Default.Save, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Save CSV")
+                    Text(stringResource(R.string.save_csv))
                 }
 
                 Button(
@@ -73,7 +80,7 @@ fun ExportScreen(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share CSV")
+                    Text(stringResource(R.string.share_csv))
                 }
             }
 
@@ -96,7 +103,7 @@ fun ExportScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             CircularProgressIndicator()
-                            Text("Exporting...", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.exporting), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
@@ -116,7 +123,7 @@ fun ExportScreen(
     if (uiState.success) {
         LaunchedEffect(Unit) {
             scope.launch {
-                snackbarHostState.showSnackbar("Export successful")
+                snackbarHostState.showSnackbar(exportSuccessMsg)
                 viewModel.resetSuccess()
             }
         }
@@ -129,7 +136,7 @@ fun ExportScreen(
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(sendIntent, "Share CSV"))
+            context.startActivity(Intent.createChooser(sendIntent, shareCsvLabel))
             viewModel.consumeShareFileUri()
         }
     }
