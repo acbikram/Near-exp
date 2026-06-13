@@ -19,10 +19,10 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * How long the same barcode must be seen continuously before we fire the
- * callback. 1 second eliminates virtually all accidental misreads — a
- * partial/blurry decode gives a different value, which resets the timer.
+ * callback. 500 ms filters out single-frame misreads while still feeling
+ * near-instant to the user.
  */
-private const val CONFIRM_DURATION_MS = 1000L
+private const val CONFIRM_DURATION_MS = 500L
 
 @Composable
 fun ScannerView(

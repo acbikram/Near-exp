@@ -239,11 +239,21 @@ fun ScanScreen(
                             ScannerView(
                                 cameraController = cameraController,
                                 onBarcodeScanned = { barcode ->
+                                    // Accept all common retail/logistics formats:
+                                    //  • EAN-13 / EAN-8   — standard consumer barcodes
+                                    //  • UPC-A / UPC-E    — North-American consumer barcodes
+                                    //  • Code 128          — store-printed price stickers, carton labels
+                                    //  • Code 39 / Code 93 — logistics & warehouse labels
+                                    //  • ITF (Interleaved 2-of-5) — outer carton / pallet barcodes
                                     if (barcode.format in setOf(
                                             Barcode.FORMAT_EAN_13,
                                             Barcode.FORMAT_EAN_8,
                                             Barcode.FORMAT_UPC_A,
-                                            Barcode.FORMAT_UPC_E
+                                            Barcode.FORMAT_UPC_E,
+                                            Barcode.FORMAT_CODE_128,
+                                            Barcode.FORMAT_CODE_39,
+                                            Barcode.FORMAT_CODE_93,
+                                            Barcode.FORMAT_ITF
                                         )) {
                                         viewModel.onBarcodeScanned(barcode.rawValue ?: return@ScannerView)
                                     }
