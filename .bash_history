@@ -82,3 +82,17 @@ git commit -m "Applied updates from Near-Expiry-updated-2"
 # 3. Push to GitHub
 git push origin main
 exit
+clear
+# 1. Clear out the previous version files
+rm -rf app build.gradle.kts settings.gradle.kts gradle.properties
+# 2. Copy the new zip from your phone's download folder
+cp ~/storage/shared/Download/Near-Expiry-updated-3.zip ~
+# 3. Unzip the new files
+unzip Near-Expiry-updated-3.zip
+# 1. Stage all the new changes
+git add .
+# 2. Commit the changes with a new message
+git commit -m "Applied updates from Near-Expiry-updated-3"
+# 3. Push to GitHub
+git push origin main
+exit

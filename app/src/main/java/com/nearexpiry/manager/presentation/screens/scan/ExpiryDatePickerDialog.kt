@@ -197,7 +197,7 @@ fun ExpiryDatePickerDialog(
                         // Month wheel  (label: "Jan (01)")
                         WheelPicker(
                             items           = months.map { (_, m) ->
-                                "${MONTH_SHORT[m - 1]} (${m.toString().padStart(2, '0')})"
+                                "${monthNames[m - 1]} (${m.toString().padStart(2, '0')})"
                             },
                             selectedIndex   = selectedMonthIdx,
                             onSelectionChange = { idx -> selectedMonthIdx = idx },
