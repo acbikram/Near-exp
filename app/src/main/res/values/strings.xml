@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Near Expiry Manager</string>
+    <string name="permission_camera_rationale">Camera permission is needed to scan barcodes.</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="scan">Scan</string>
+    <string name="home">Home</string>
+    <string name="history">History</string>
+    <string name="export">Export</string>
+    <string name="settings">Settings</string>
+</resources>
