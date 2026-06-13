@@ -63,7 +63,9 @@ class ScanViewModel @Inject constructor(
         val editQuantity: Double = 1.0,
         // Delete confirm dialog state
         val showDeleteConfirmDialog: Boolean = false,
-        val deleteItemId: Long = 0
+        val deleteItemId: Long = 0,
+        // Manual barcode entry mode
+        val showManualMode: Boolean = false
     )
 
     private val _uiState = MutableStateFlow(ScanUiState())
@@ -96,6 +98,26 @@ class ScanViewModel @Inject constructor(
     fun restartScanner() {
         _uiState.update { it.copy(scannerInactive = false) }
         startInactivityTimer()
+    }
+
+    // ── Manual barcode entry mode ─────────────────────────────────────────────
+
+    fun enterManualMode() {
+        stopScanner()
+        _uiState.update { it.copy(showManualMode = true, scannerInactive = true) }
+    }
+
+    fun exitManualMode() {
+        _uiState.update { it.copy(showManualMode = false) }
+        restartScanner()
+    }
+
+    /** Called when the user submits a manually typed barcode. */
+    fun onManualBarcodeEntered(barcode: String) {
+        val trimmed = barcode.trim()
+        if (trimmed.isEmpty()) return
+        _uiState.update { it.copy(showManualMode = false) }
+        onBarcodeScanned(trimmed)
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
@@ -160,13 +182,14 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog    = false,
                 showQuantityDialog  = false,
                 showDuplicateDialog = false,
+                showManualMode      = false,
                 pendingBarcode      = "",
                 pendingExpiryDate   = "",
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 detectedBarcode     = "",
-                scannerInactive     = false   // release camera immediately
+                scannerInactive     = false
             )
         }
         startInactivityTimer()
@@ -176,13 +199,14 @@ class ScanViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 showQuantityDialog = false,
+                showManualMode     = false,
                 pendingBarcode     = "",
                 pendingExpiryDate  = "",
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 detectedBarcode    = "",
-                scannerInactive    = false   // release camera immediately
+                scannerInactive    = false
             )
         }
         startInactivityTimer()
@@ -192,13 +216,14 @@ class ScanViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 showDuplicateDialog = false,
+                showManualMode      = false,
                 pendingBarcode      = "",
                 pendingExpiryDate   = "",
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 detectedBarcode     = "",
-                scannerInactive     = false   // release camera immediately
+                scannerInactive     = false
             )
         }
         startInactivityTimer()

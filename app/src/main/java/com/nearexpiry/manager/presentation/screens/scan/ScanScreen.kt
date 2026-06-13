@@ -9,21 +9,27 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -42,13 +48,11 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
-import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** Camera/scanner box takes 17% of the screen height (half of previous 35%); the list takes the rest. */
 private const val CAMERA_AREA_WEIGHT = 0.17f
 private const val LIST_AREA_WEIGHT   = 0.83f
 
@@ -102,11 +106,9 @@ fun ScanScreen(
 
     LaunchedEffect(scannerInactive) {
         if (scannerInactive && isCameraBound) {
-            // Camera goes to standby — unbind it
             try { cameraController.unbind() } catch (_: Exception) {}
             isCameraBound = false
         } else if (!scannerInactive && !isCameraBound && hasCameraPermission) {
-            // Camera released from standby (e.g. after cancel/save) — re-bind immediately
             try {
                 cameraController.cameraSelector = cameraSelector
                 cameraController.bindToLifecycle(lifecycleOwner)
@@ -127,24 +129,53 @@ fun ScanScreen(
         }
     }
 
-    val showScanFab = scannerInactive && 
-        !uiState.showExpiryDialog && 
-        !uiState.showQuantityDialog && 
-        !uiState.showDuplicateDialog && 
-        !uiState.showEditDialog && 
-        !uiState.showDeleteConfirmDialog
+    // Dialogs are showing — hide both action buttons
+    val dialogsShowing = uiState.showExpiryDialog ||
+        uiState.showQuantityDialog ||
+        uiState.showDuplicateDialog ||
+        uiState.showEditDialog ||
+        uiState.showDeleteConfirmDialog
+
+    // Camera FAB: only when scanner is inactive and no dialogs/manual mode
+    val showCameraFab = scannerInactive && !dialogsShowing && !uiState.showManualMode
+
+    // Manual mode button: visible whenever no dialogs are showing (incl. when camera active)
+    val showManualButton = !dialogsShowing
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = { BottomNavigationBar(navController) },
         floatingActionButton = {
-            if (showScanFab) {
-                FloatingActionButton(
-                    onClick = { viewModel.restartScanner() },
-                    containerColor = GreenAccent,
-                    contentColor = Color(0xFF002200)
+            if (showManualButton) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Filled.PhotoCamera, contentDescription = "Scan")
+                    // ── Manual entry shortcut (above camera button) ──────────
+                    SmallFloatingActionButton(
+                        onClick = {
+                            if (uiState.showManualMode) viewModel.exitManualMode()
+                            else viewModel.enterManualMode()
+                        },
+                        containerColor = if (uiState.showManualMode) OrangeAccent else CyanAccent,
+                        contentColor = Color.Black
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Keyboard,
+                            contentDescription = if (uiState.showManualMode) "Exit manual mode" else "Manual barcode entry"
+                        )
+                    }
+
+                    // ── Camera / restart scanner button ──────────────────────
+                    if (showCameraFab) {
+                        FloatingActionButton(
+                            onClick = { viewModel.restartScanner() },
+                            containerColor = GreenAccent,
+                            contentColor = Color(0xFF002200)
+                        ) {
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = "Scan")
+                        }
+                    }
                 }
             }
         }
@@ -154,7 +185,7 @@ fun ScanScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // ── Camera area (fixed height, never expands) ─────────────────
+            // ── Camera area ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,6 +193,14 @@ fun ScanScreen(
                     .background(Color.Black)
             ) {
                 when {
+                    // ── Manual barcode entry mode ─────────────────────────
+                    uiState.showManualMode -> {
+                        ManualBarcodeInputBox(
+                            onBarcodeEntered = { viewModel.onManualBarcodeEntered(it) },
+                            onDismiss        = { viewModel.exitManualMode() },
+                            modifier         = Modifier.fillMaxSize()
+                        )
+                    }
                     !hasCameraPermission -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -196,9 +235,6 @@ fun ScanScreen(
                         )
                     }
                     else -> {
-                        // Camera preview fills the entire box; the overlay draws
-                        // a dark mask OUTSIDE the glowing frame so the camera
-                        // is only visible inside the glowing border.
                         Box(modifier = Modifier.fillMaxSize()) {
                             ScannerView(
                                 cameraController = cameraController,
@@ -212,10 +248,8 @@ fun ScanScreen(
                                         viewModel.onBarcodeScanned(barcode.rawValue ?: return@ScannerView)
                                     }
                                 },
-                                // Fill the entire camera area
                                 modifier = Modifier.fillMaxSize()
                             )
-                            // Overlay: dark mask outside the frame + glowing border on top
                             BarcodeScannerOverlay(modifier = Modifier.fillMaxSize())
                         }
                     }
@@ -280,7 +314,6 @@ fun ScanScreen(
         )
     }
 
-    // Edit dialog for recent scan items
     if (uiState.showEditDialog) {
         EditScanItemDialog(
             barcode = uiState.editBarcode,
@@ -294,7 +327,6 @@ fun ScanScreen(
         )
     }
 
-    // Delete confirmation dialog
     if (uiState.showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDeleteDialog() },
@@ -314,7 +346,94 @@ fun ScanScreen(
     }
 }
 
-// ── Recent scan card with Edit / Delete icons ─────────────────────────────
+// ── Manual barcode input box (replaces camera area in manual mode) ────────
+
+@Composable
+private fun ManualBarcodeInputBox(
+    onBarcodeEntered: (String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var barcodeText by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Pop the number pad the moment this enters composition.
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    val handleDone = {
+        val trimmed = barcodeText.trim()
+        if (trimmed.isEmpty()) {
+            error = "Please enter a barcode"
+        } else {
+            keyboardController?.hide()
+            onBarcodeEntered(trimmed)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .background(Color(0xFF0D0D0D))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Manual Entry",
+                style = MaterialTheme.typography.labelMedium.copy(color = CyanAccent),
+                fontWeight = FontWeight.Bold
+            )
+            OutlinedTextField(
+                value = barcodeText,
+                onValueChange = { v ->
+                    // Only allow digits — no decimals, no letters
+                    if (v.all { it.isDigit() }) {
+                        barcodeText = v
+                        error = null
+                    }
+                },
+                label = { Text("Barcode", color = SubtleGray) },
+                singleLine = true,
+                isError = error != null,
+                supportingText = { error?.let { Text(it, color = ErrorRed) } },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,   // digits only — no decimal key
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { handleDone() }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor  = CyanAccent,
+                    unfocusedBorderColor = SubtleGray,
+                    focusedTextColor    = Color.White,
+                    unfocusedTextColor  = Color.White,
+                    cursorColor         = CyanAccent
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+            )
+            // No Save button — Enter/Done on the number pad is the only way to submit.
+            // A Cancel link lets the user go back to camera mode.
+            TextButton(onClick = {
+                keyboardController?.hide()
+                onDismiss()
+            }) {
+                Text("Cancel", color = SubtleGray)
+            }
+        }
+    }
+}
+
+// ── Recent scan card ──────────────────────────────────────────────────────
 
 @Composable
 private fun RecentScanCard(
@@ -355,7 +474,8 @@ private fun RecentScanCard(
                         style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
                     )
                     Text(
-                        text = "Qty: ${item.quantity}",
+                        text = "Qty: ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}" +
+                            (item.unit?.let { " $it" } ?: ""),
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
                 }
@@ -364,29 +484,17 @@ private fun RecentScanCard(
                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                 )
             }
-            // Edit button
             IconButton(onClick = onEdit) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = CyanAccent,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = CyanAccent, modifier = Modifier.size(20.dp))
             }
-            // Delete button
             IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = ErrorRed,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorRed, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
-// ── Inline edit dialog ────────────────────────────────────────────────────
+// ── Edit dialog ───────────────────────────────────────────────────────────
 
 @Composable
 private fun EditScanItemDialog(
@@ -399,28 +507,19 @@ private fun EditScanItemDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var qtyText by remember(quantity) { mutableStateOf(if (quantity % 1.0 == 0.0) quantity.toInt().toString() else quantity.toString()) }
+    var qtyText by remember(quantity) {
+        mutableStateOf(if (quantity % 1.0 == 0.0) quantity.toInt().toString() else quantity.toString())
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "Edit Item",
-                style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent)
-            )
-        },
+        title = { Text("Edit Item", style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!productName.isNullOrBlank()) {
-                    Text(
-                        text = productName,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                    )
+                    Text(text = productName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
-                Text(
-                    text = "Barcode: $barcode",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray)
-                )
+                Text(text = "Barcode: $barcode", style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray))
                 OutlinedTextField(
                     value = expiryDate,
                     onValueChange = onExpiryDateChange,
@@ -431,9 +530,9 @@ private fun EditScanItemDialog(
                 OutlinedTextField(
                     value = qtyText,
                     onValueChange = { v ->
-                        if (v.count { char -> char == '.' } <= 1 && v.all { char -> char.isDigit() || char == '.' }) {
+                        if (v.count { c -> c == '.' } <= 1 && v.all { c -> c.isDigit() || c == '.' }) {
                             qtyText = v
-                            qtyText.toDoubleOrNull()?.let { onQuantityChange(it) }
+                            v.toDoubleOrNull()?.let { onQuantityChange(it) }
                         }
                     },
                     label = { Text("Quantity") },
@@ -443,18 +542,11 @@ private fun EditScanItemDialog(
                 )
             }
         },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Save", color = GreenAccent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Save", color = GreenAccent) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
-private fun formatTimestamp(timestamp: Long): String {
-    return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+private fun formatTimestamp(timestamp: Long): String =
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault()))
-}
