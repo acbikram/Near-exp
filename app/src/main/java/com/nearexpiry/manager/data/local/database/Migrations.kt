@@ -32,7 +32,6 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-/** All migrations the database currently supports, in order. */
 /**
  * v2 -> v3: changes quantity column type from INTEGER to REAL (Double).
  *
@@ -73,7 +72,6 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-/** All migrations the database currently supports, in order. */
 /**
  * v3 -> v4: adds cached product-name/unit columns resolved from the local
  * product catalog (products.db) at scan time.
@@ -90,7 +88,6 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-/** All migrations the database currently supports, in order. */
 /**
  * v4 -> v5: adds itemCode column (POS/Item Code from column B of the catalog).
  */
@@ -99,8 +96,6 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("ALTER TABLE `expiry_items` ADD COLUMN `itemCode` TEXT")
     }
 }
-
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
 /**
  * v5 -> v6: adds the `custom_products` table — products the user looked up
@@ -120,3 +115,5 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         """.trimIndent())
     }
 }
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
