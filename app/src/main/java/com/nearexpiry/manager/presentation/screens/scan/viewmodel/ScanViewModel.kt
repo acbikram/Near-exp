@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.domain.model.ProductInfo
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
 import com.nearexpiry.manager.utils.PreferencesManager
@@ -27,6 +28,9 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+
+/** Tracks the user-initiated "Search Online" flow for unmatched barcodes. */
+enum class OnlineLookupState { IDLE, LOADING, FOUND, NOT_FOUND }
 
 @HiltViewModel
 class ScanViewModel @Inject constructor(
@@ -51,6 +55,11 @@ class ScanViewModel @Inject constructor(
         val pendingProductNameArabic: String? = null,
         val pendingUnit: String? = null,
         val pendingItemCode: String? = null,
+        // Online fallback lookup (Open Food Facts), for barcodes not in the
+        // bundled catalog or saved custom products.
+        val onlineLookupState: OnlineLookupState = OnlineLookupState.IDLE,
+        val onlineProductName: String? = null,
+        val onlineProductNameArabic: String? = null,
         val duplicateExistingQty: Double = 0.0,
         val duplicateNewQty: Double = 0.0,
         val duplicateItemId: Long = 0,
@@ -147,6 +156,9 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
                 showExpiryDialog = true
             )
         }
@@ -162,6 +174,68 @@ class ScanViewModel @Inject constructor(
                         pendingItemCode = product?.itemCode
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Triggers a one-shot online lookup (Open Food Facts) for the currently
+     * pending barcode. Only meaningful when the local catalog/custom-products
+     * lookup didn't resolve a name (pendingProductName/Arabic are both null).
+     */
+    fun searchOnline() {
+        val barcode = _uiState.value.pendingBarcode
+        if (barcode.isEmpty()) return
+        _uiState.update { it.copy(onlineLookupState = OnlineLookupState.LOADING) }
+        viewModelScope.launch {
+            val result = productCatalogRepository.lookupOnline(barcode)
+            // Bail out if the user moved on to a different scan in the meantime.
+            if (_uiState.value.pendingBarcode != barcode) return@launch
+            if (result != null && (result.name != null || result.nameArabic != null)) {
+                _uiState.update {
+                    it.copy(
+                        onlineLookupState = OnlineLookupState.FOUND,
+                        onlineProductName = result.name,
+                        onlineProductNameArabic = result.nameArabic
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(onlineLookupState = OnlineLookupState.NOT_FOUND) }
+            }
+        }
+    }
+
+    /**
+     * Applies the result of [searchOnline] to the item currently being
+     * scanned. If [saveForFutureScans] is true, also stores it in the
+     * custom-products table so the next scan of this barcode resolves
+     * offline without another network call.
+     */
+    fun useOnlineResult(saveForFutureScans: Boolean) {
+        val state = _uiState.value
+        val name = state.onlineProductName
+        val nameAr = state.onlineProductNameArabic
+        if (name == null && nameAr == null) return
+
+        _uiState.update {
+            it.copy(
+                pendingProductName = name,
+                pendingProductNameArabic = nameAr,
+                onlineLookupState = OnlineLookupState.IDLE
+            )
+        }
+
+        if (saveForFutureScans && state.pendingBarcode.isNotEmpty()) {
+            viewModelScope.launch {
+                productCatalogRepository.saveCustomProduct(
+                    ProductInfo(
+                        barcode = state.pendingBarcode,
+                        name = name,
+                        nameArabic = nameAr,
+                        unit = state.pendingUnit,
+                        itemCode = state.pendingItemCode
+                    )
+                )
             }
         }
     }
@@ -190,6 +264,9 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
                 detectedBarcode     = "",
                 scannerInactive     = false
             )
@@ -208,6 +285,9 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
                 detectedBarcode    = "",
                 scannerInactive    = false
             )
@@ -226,6 +306,9 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
                 detectedBarcode     = "",
                 scannerInactive     = false
             )

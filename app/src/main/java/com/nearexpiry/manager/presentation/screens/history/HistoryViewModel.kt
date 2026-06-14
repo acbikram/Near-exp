@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
-enum class Filter { ALL, TODAY, SEVEN_DAYS, THIRTY_DAYS }
+enum class Filter { ALL, EXPIRED, TODAY, SEVEN_DAYS, THIRTY_DAYS }
 enum class SortOrder { NEWEST, OLDEST, EXPIRY_DATE, QUANTITY }
 
 @HiltViewModel
@@ -49,6 +49,7 @@ class HistoryViewModel @Inject constructor(
      */
     fun applyInitialFilterAndSort(filterStr: String, sortStr: String) {
         val filter = when (filterStr) {
+            "EXPIRED"     -> Filter.EXPIRED
             "SEVEN_DAYS"  -> Filter.SEVEN_DAYS
             "THIRTY_DAYS" -> Filter.THIRTY_DAYS
             "TODAY"       -> Filter.TODAY
@@ -82,7 +83,8 @@ class HistoryViewModel @Inject constructor(
 
     fun cycleFilter() {
         val next = when (_uiState.value.filter) {
-            Filter.ALL        -> Filter.TODAY
+            Filter.ALL        -> Filter.EXPIRED
+            Filter.EXPIRED    -> Filter.TODAY
             Filter.TODAY      -> Filter.SEVEN_DAYS
             Filter.SEVEN_DAYS -> Filter.THIRTY_DAYS
             Filter.THIRTY_DAYS -> Filter.ALL
@@ -104,6 +106,7 @@ class HistoryViewModel @Inject constructor(
 
     private fun matchesDateFilter(item: ExpiryItem, filter: Filter, today: LocalDate): Boolean = when (filter) {
         Filter.ALL         -> true
+        Filter.EXPIRED     -> ExpiryDateUtils.isExpired(item.expiryDate, today)
         Filter.TODAY       -> ExpiryDateUtils.isExpiringToday(item.expiryDate, today)
         Filter.SEVEN_DAYS  -> ExpiryDateUtils.isExpiringWithin(item.expiryDate, 7, today)
         Filter.THIRTY_DAYS -> ExpiryDateUtils.isExpiringWithin(item.expiryDate, 30, today)

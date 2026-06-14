@@ -20,6 +20,7 @@ class HomeViewModel @Inject constructor(
         val totalRecords: Int = 0,
         val uniqueProducts: Int = 0,
         val totalQuantity: Double = 0.0,
+        val expiredCount: Int = 0,
         val expiringIn7Days: Int = 0,
         val expiringIn30Days: Int = 0,
         val recentItems: List<ExpiryItem> = emptyList(),
@@ -49,6 +50,9 @@ class HomeViewModel @Inject constructor(
                     val uniqueProducts = allItems.map { it.barcode }.distinct().size
                     val totalQuantity = allItems.sumOf { it.quantity }
 
+                    val expiredCount = allItems.count {
+                        ExpiryDateUtils.isExpired(it.expiryDate, today)
+                    }
                     val expiringIn7Days = allItems.count {
                         ExpiryDateUtils.isExpiringWithin(it.expiryDate, 7, today)
                     }
@@ -63,6 +67,7 @@ class HomeViewModel @Inject constructor(
                             totalRecords = totalRecords,
                             uniqueProducts = uniqueProducts,
                             totalQuantity = totalQuantity,
+                            expiredCount = expiredCount,
                             expiringIn7Days = expiringIn7Days,
                             expiringIn30Days = expiringIn30Days,
                             recentItems = recentItems,

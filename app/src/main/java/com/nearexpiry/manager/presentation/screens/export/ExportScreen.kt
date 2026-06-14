@@ -284,7 +284,7 @@ private fun ByFilterSection(
     )
     Spacer(Modifier.height(6.dp))
     FlowRowChips(
-        options = EXPORT_UNIT_OPTIONS,
+        options = EXPORT_UNIT_CHIPS,
         selected = uiState.selectedUnits,
         onToggle = viewModel::toggleUnit
     )
@@ -398,7 +398,9 @@ private fun FlowRowChips(
             FilterChip(
                 selected = option in selected,
                 onClick = { onToggle(option) },
-                label = { Text(option) },
+                label = {
+                    Text(if (option == EXPORT_UNIT_OTHER) stringResource(R.string.export_unit_other) else option)
+                },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = CyanAccent.copy(alpha = 0.2f),
                     selectedLabelColor = CyanAccent

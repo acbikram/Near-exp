@@ -83,7 +83,13 @@ private fun buildAllDates(range: PickerRange): List<LocalDate> {
 fun ExpiryDatePickerDialog(
     onDateSelected: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
-    productName: String? = null
+    productName: String? = null,
+    onlineLookupState: com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState =
+        com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.IDLE,
+    onlineProductName: String? = null,
+    onlineProductNameArabic: String? = null,
+    onSearchOnline: () -> Unit = {},
+    onUseOnlineResult: (saveForFutureScans: Boolean) -> Unit = {}
 ) {
     val range  = remember { buildRange() }
     val months = remember(range) { buildMonthList(range) }   // list of (year, month)
@@ -146,6 +152,15 @@ fun ExpiryDatePickerDialog(
                         ),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                } else {
+                    // ── Not found in catalog/custom products: offer online lookup ──
+                    OnlineLookupSection(
+                        lookupState = onlineLookupState,
+                        onlineProductName = onlineProductName,
+                        onlineProductNameArabic = onlineProductNameArabic,
+                        onSearchOnline = onSearchOnline,
+                        onUseOnlineResult = onUseOnlineResult
                     )
                 }
 
@@ -390,6 +405,91 @@ private fun WheelPicker(
                     textAlign  = TextAlign.Center,
                     maxLines   = 1
                 )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Online lookup (Open Food Facts) — shown only when the barcode wasn't found
+// in the bundled catalog or saved custom products.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun OnlineLookupSection(
+    lookupState: com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState,
+    onlineProductName: String?,
+    onlineProductNameArabic: String?,
+    onSearchOnline: () -> Unit,
+    onUseOnlineResult: (saveForFutureScans: Boolean) -> Unit
+) {
+    when (lookupState) {
+        com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.IDLE -> {
+            TextButton(onClick = onSearchOnline) {
+                Text(
+                    text = stringResource(R.string.search_online),
+                    color = CyanAccent,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.LOADING -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = CyanAccent
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.searching_online),
+                    color = SubtleGray,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.NOT_FOUND -> {
+            Text(
+                text = stringResource(R.string.online_not_found),
+                color = SubtleGray,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+        com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.FOUND -> {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                if (!onlineProductName.isNullOrBlank()) {
+                    Text(
+                        text = onlineProductName,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                if (!onlineProductNameArabic.isNullOrBlank()) {
+                    Text(
+                        text = onlineProductNameArabic,
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row {
+                    TextButton(onClick = { onUseOnlineResult(false) }) {
+                        Text(stringResource(R.string.use_this_name), color = CyanAccent, style = MaterialTheme.typography.labelMedium)
+                    }
+                    TextButton(onClick = { onUseOnlineResult(true) }) {
+                        Text(stringResource(R.string.use_and_save_for_future_scans), color = CyanAccent, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
         }
     }

@@ -46,4 +46,10 @@ object ExpiryDateUtils {
         val expiry = parseOrNull(expiryDateStr) ?: return false
         return expiry.isEqual(today)
     }
+
+    /** True if [expiryDateStr] is strictly before [today] (already expired). */
+    fun isExpired(expiryDateStr: String, today: LocalDate = LocalDate.now()): Boolean {
+        val expiry = parseOrNull(expiryDateStr) ?: return false
+        return expiry.isBefore(today)
+    }
 }

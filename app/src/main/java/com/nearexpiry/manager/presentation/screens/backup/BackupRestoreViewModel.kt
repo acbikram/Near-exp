@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,9 @@ class BackupRestoreViewModel @Inject constructor(
     data class BackupUiState(
         val isLoading: Boolean = false,
         val error: String? = null,
-        val success: Boolean = false
+        val success: Boolean = false,
+        /** Set after a successful CSV import; null otherwise. */
+        val csvImportResult: CsvImporter.ImportResult? = null
     )
 
     private val _uiState = MutableStateFlow(BackupUiState())
@@ -66,11 +69,36 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Bulk-adds items from a CSV file (see [CsvImporter] for the expected
+     * column format). Unlike [restoreFromUri], this is additive — existing
+     * records are kept, each valid row is inserted as a new item. Useful
+     * for an initial stock-take across many products at once.
+     */
+    fun importCsv(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false, csvImportResult = null) }
+            try {
+                val result = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    CsvImporter.parseCsv(inputStream)
+                } ?: CsvImporter.ImportResult(emptyList(), 0, 0)
+
+                result.imported.forEach { repository.insertItem(it) }
+
+                _uiState.update {
+                    it.copy(isLoading = false, success = true, csvImportResult = result)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
     fun resetSuccess() {
-        _uiState.update { it.copy(success = false) }
+        _uiState.update { it.copy(success = false, csvImportResult = null) }
     }
 }

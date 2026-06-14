@@ -40,6 +40,7 @@
     <string name="expiring_in_7d">Expiring in 7d</string>
     <string name="expiring_in_30d">Expiring in 30d</string>
     <string name="total_quantity">Total Quantity</string>
+    <string name="expired">Expired</string>
     <string name="recent_scans">Recent Scans</string>
     <string name="no_recent_items">No recent items</string>
 
@@ -70,6 +71,7 @@
     <string name="export_mode_by_tag_type">By Tag/Type &amp; Date Range</string>
     <string name="export_mode_select_items">Select Items</string>
     <string name="export_filter_by_type">Filter by Type</string>
+    <string name="export_unit_other">Other/Unmatched</string>
     <string name="export_date_range">Date Range</string>
     <string name="export_from_date">From</string>
     <string name="export_to_date">To</string>
@@ -84,6 +86,9 @@
     <string name="restore_database">Restore Database</string>
     <string name="processing">Processing…</string>
     <string name="operation_successful">Operation successful</string>
+    <string name="import_csv">Import CSV (Stock-Take)</string>
+    <string name="import_csv_description">Bulk-add items from a CSV file (Barcode, ExpiryDate, Quantity required; ItemCode/ProductName/Unit optional). Existing records are kept — imported rows are added as new items.</string>
+    <string name="import_csv_result_format">Imported %1$d item(s), skipped %2$d invalid row(s)</string>
 
     <!-- ── Detail screen ──────────────────────────────────────────────── -->
     <string name="item_details">Item Details</string>
@@ -95,6 +100,11 @@
 
     <!-- ── Expiry date picker dialog ──────────────────────────────────── -->
     <string name="select_expiry_date">Select Expiry Date</string>
+    <string name="search_online">Search Online for Product Info</string>
+    <string name="searching_online">Searching online…</string>
+    <string name="online_not_found">Not found online</string>
+    <string name="use_this_name">Use This Name</string>
+    <string name="use_and_save_for_future_scans">Use &amp; Save for Future Scans</string>
 
     <!-- ── Quantity input dialog ──────────────────────────────────────── -->
     <string name="enter_quantity">Enter Quantity</string>
@@ -157,6 +167,7 @@
     <string name="notif_soft_title_format">⚠️ Expiring in %1$d days</string>
     <string name="notif_hard_title">🚨 Expires in 3 Days!</string>
     <string name="notif_body_format">%1$s — %2$s · Expires %3$s</string>
+    <string name="notif_action_snooze">Remind me tomorrow</string>
 
     <!-- ── Month names (Gregorian) for date picker ─────────────────────── -->
     <string-array name="month_short_names">

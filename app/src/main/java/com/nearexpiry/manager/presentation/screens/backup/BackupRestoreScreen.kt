@@ -45,6 +45,16 @@ fun BackupRestoreScreen(
         }
     }
 
+    val csvImportLauncher = rememberLauncherForActivityResult(
+        // text/csv isn't always registered as a MIME type handler on Android,
+        // so accept any file and let CsvImporter validate the contents.
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importCsv(context, uri)
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.backup_restore)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -71,6 +81,21 @@ fun BackupRestoreScreen(
                     enabled = !uiState.isLoading
                 ) {
                     Text(stringResource(R.string.restore_database))
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Text(
+                    stringResource(R.string.import_csv_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = { csvImportLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(stringResource(R.string.import_csv))
                 }
             }
 
@@ -110,9 +135,19 @@ fun BackupRestoreScreen(
     }
 
     if (uiState.success) {
+        val csvResult = uiState.csvImportResult
         LaunchedEffect(Unit) {
             scope.launch {
-                snackbarHostState.showSnackbar(operationSuccessMsg)
+                val message = if (csvResult != null) {
+                    context.getString(
+                        R.string.import_csv_result_format,
+                        csvResult.imported.size,
+                        csvResult.skipped
+                    )
+                } else {
+                    operationSuccessMsg
+                }
+                snackbarHostState.showSnackbar(message)
                 viewModel.resetSuccess()
             }
         }

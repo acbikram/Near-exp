@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.presentation.screens.history
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -54,6 +55,12 @@ fun HistoryScreen(
     // Apply the filter/sort passed from the dashboard on first composition
     LaunchedEffect(initialFilter, initialSort) {
         viewModel.applyInitialFilterAndSort(initialFilter, initialSort)
+    }
+
+    // First back-press in selection mode exits selection mode instead of
+    // leaving the screen; a second back-press then navigates away normally.
+    BackHandler(enabled = uiState.selectionMode) {
+        viewModel.exitSelectionMode()
     }
 
     Scaffold(

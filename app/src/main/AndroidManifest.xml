@@ -37,6 +37,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Handles the "Remind me tomorrow" action on expiry notifications -->
+        <receiver
+            android:name=".notifications.SnoozeActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.nearexpiry.manager.ACTION_SNOOZE_REMINDER" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

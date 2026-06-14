@@ -40,6 +40,7 @@
     <string name="expiring_in_7d">تنتهي خلال 7 أيام</string>
     <string name="expiring_in_30d">تنتهي خلال 30 يوماً</string>
     <string name="total_quantity">الكمية الإجمالية</string>
+    <string name="expired">منتهية الصلاحية</string>
     <string name="recent_scans">آخر المسحات</string>
     <string name="no_recent_items">لا توجد عناصر حديثة</string>
 
@@ -70,6 +71,7 @@
     <string name="export_mode_by_tag_type">حسب النوع ونطاق التاريخ</string>
     <string name="export_mode_select_items">تحديد العناصر</string>
     <string name="export_filter_by_type">تصفية حسب النوع</string>
+    <string name="export_unit_other">أخرى/غير محددة</string>
     <string name="export_date_range">نطاق التاريخ</string>
     <string name="export_from_date">من</string>
     <string name="export_to_date">إلى</string>
@@ -84,6 +86,9 @@
     <string name="restore_database">استعادة قاعدة البيانات</string>
     <string name="processing">جاري المعالجة…</string>
     <string name="operation_successful">تمت العملية بنجاح</string>
+    <string name="import_csv">استيراد CSV (جرد المخزون)</string>
+    <string name="import_csv_description">إضافة عناصر بشكل مجمّع من ملف CSV (الباركود وتاريخ الانتهاء والكمية مطلوبة؛ رمز الصنف/اسم المنتج/الوحدة اختياري). يتم الاحتفاظ بالسجلات الحالية — تُضاف الصفوف المستوردة كعناصر جديدة.</string>
+    <string name="import_csv_result_format">تم استيراد %1$d عنصر، تم تجاوز %2$d صف غير صالح</string>
 
     <!-- ── شاشة التفاصيل ──────────────────────────────────────────────── -->
     <string name="item_details">تفاصيل الصنف</string>
@@ -95,6 +100,11 @@
 
     <!-- ── نافذة اختيار تاريخ الانتهاء ────────────────────────────────── -->
     <string name="select_expiry_date">اختر تاريخ الانتهاء</string>
+    <string name="search_online">البحث عن معلومات المنتج عبر الإنترنت</string>
+    <string name="searching_online">جاري البحث عبر الإنترنت…</string>
+    <string name="online_not_found">لم يتم العثور عليه عبر الإنترنت</string>
+    <string name="use_this_name">استخدام هذا الاسم</string>
+    <string name="use_and_save_for_future_scans">استخدام وحفظ للمسحات القادمة</string>
 
     <!-- ── نافذة إدخال الكمية ─────────────────────────────────────────── -->
     <string name="enter_quantity">أدخل الكمية</string>
@@ -157,6 +167,7 @@
     <string name="notif_soft_title_format">⚠️ ينتهي بعد %1$d أيام</string>
     <string name="notif_hard_title">🚨 ينتهي بعد 3 أيام!</string>
     <string name="notif_body_format">%1$s — %2$s · ينتهي في %3$s</string>
+    <string name="notif_action_snooze">ذكرني غداً</string>
 
     <!-- ── أسماء الأشهر (الميلادية) لنافذة اختيار التاريخ ──────────────── -->
     <string-array name="month_short_names">

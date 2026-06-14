@@ -25,6 +25,17 @@ enum class ExportMode { BY_FILTER, SELECT_ITEMS }
 
 val EXPORT_UNIT_OPTIONS = listOf("PCS", "OFR", "CTN", "KGS")
 
+/**
+ * Sentinel chip value for items whose [ExpiryItem.unit] is null or doesn't
+ * match any of [EXPORT_UNIT_OPTIONS] — e.g. a scanned barcode that wasn't
+ * found in the local catalog. Without this, selecting any real unit chip
+ * would silently exclude these items from export.
+ */
+const val EXPORT_UNIT_OTHER = "OTHER"
+
+/** All chips shown in the "By Tag/Type" filter, including the "Other" catch-all. */
+val EXPORT_UNIT_CHIPS = EXPORT_UNIT_OPTIONS + EXPORT_UNIT_OTHER
+
 @HiltViewModel
 class ExportViewModel @Inject constructor(
     private val repository: ExpiryRepository
@@ -61,8 +72,15 @@ class ExportViewModel @Inject constructor(
                     ExportMode.SELECT_ITEMS -> allItems.filter { it.id in selectedItemIds }
                     ExportMode.BY_FILTER -> allItems.filter { item ->
                         // Tag/Type: AND-combined with date range. Empty selection = no restriction.
-                        val unitMatch = selectedUnits.isEmpty() ||
-                            (item.unit != null && item.unit in selectedUnits)
+                        // The "Other" chip matches items whose unit is null/blank or doesn't
+                        // match any of the known catalog units (e.g. unmatched scans), so
+                        // those items aren't silently excluded when filtering by type.
+                        val unitMatch = selectedUnits.isEmpty() || run {
+                            val unit = item.unit?.takeIf { it.isNotBlank() }
+                            val isKnownUnit = unit != null && unit in EXPORT_UNIT_OPTIONS
+                            (unit != null && unit in selectedUnits) ||
+                                (EXPORT_UNIT_OTHER in selectedUnits && !isKnownUnit)
+                        }
 
                         val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate)
                         val fromOk = dateFrom == null || (expiry != null && !expiry.isBefore(dateFrom))

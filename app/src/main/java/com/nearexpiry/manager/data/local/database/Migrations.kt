@@ -100,4 +100,23 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+
+/**
+ * v5 -> v6: adds the `custom_products` table — products the user looked up
+ * online (Open Food Facts) for a barcode not in the bundled catalog, and
+ * chose to save "for future scans". See [com.nearexpiry.manager.data.local.entity.CustomProductEntity].
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `custom_products` (
+                `barcode` TEXT NOT NULL PRIMARY KEY,
+                `nameEn` TEXT,
+                `nameAr` TEXT,
+                `unit` TEXT,
+                `itemCode` TEXT
+            )
+        """.trimIndent())
+    }
+}

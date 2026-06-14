@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter
 // Filter keys used when navigating to History with a pre-set filter
 const val FILTER_ALL       = "ALL"
 const val FILTER_UNIQUE    = "UNIQUE"
+const val FILTER_EXPIRED   = "EXPIRED"
 const val FILTER_7D        = "SEVEN_DAYS"
 const val FILTER_30D       = "THIRTY_DAYS"
 const val FILTER_QUANTITY  = "QUANTITY"
@@ -143,6 +144,16 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ClickableStatCard(
+                            label = stringResource(R.string.expired),
+                            value = uiState.expiredCount,
+                            accentColor = if (uiState.expiredCount > 0) Color(0xFFE53935) else CyanAccent,
+                            onClick = {
+                                navController.navigate(
+                                    "${Screen.History.BASE}?filter=$FILTER_EXPIRED&sort=EXPIRY_DATE"
+                                )
+                            }
+                        )
+                        ClickableStatCard(
                             label = stringResource(R.string.expiring_in_7d),
                             value = uiState.expiringIn7Days,
                             accentColor = if (uiState.expiringIn7Days > 0) Color(0xFFFF7043) else CyanAccent,
@@ -152,6 +163,12 @@ fun HomeScreen(
                                 )
                             }
                         )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         ClickableStatCard(
                             label = stringResource(R.string.expiring_in_30d),
                             value = uiState.expiringIn30Days,
@@ -162,12 +179,6 @@ fun HomeScreen(
                                 )
                             }
                         )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
                         ClickableStatCard(
                             label = stringResource(R.string.total_quantity),
                             value = uiState.totalQuantity,

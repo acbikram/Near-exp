@@ -329,7 +329,12 @@ fun ScanScreen(
         ExpiryDatePickerDialog(
             onDateSelected = { date -> viewModel.onExpiryDateSelected(date) },
             onDismiss = { viewModel.dismissDialog() },
-            productName = pendingDisplayName
+            productName = pendingDisplayName,
+            onlineLookupState = uiState.onlineLookupState,
+            onlineProductName = uiState.onlineProductName,
+            onlineProductNameArabic = uiState.onlineProductNameArabic,
+            onSearchOnline = { viewModel.searchOnline() },
+            onUseOnlineResult = { saveForFutureScans -> viewModel.useOnlineResult(saveForFutureScans) }
         )
     }
 

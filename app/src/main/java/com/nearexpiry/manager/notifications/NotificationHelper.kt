@@ -74,10 +74,33 @@ object NotificationHelper {
 
         val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .addAction(snoozeAction(context, item.id, daysLeft))
             .build()
 
         NotificationManagerCompat.from(context)
             .notify(notifId(item.id, daysLeft), notif)
+    }
+
+    /**
+     * Re-posts a reminder ~24h after the user tapped "Remind me tomorrow" on
+     * a soft notification (see [SnoozeActionReceiver]/[SnoozedReminderWorker]).
+     * Uses a distinct notification id ([idOffset]) so it doesn't collide with
+     * the regular 15/7/3-day notifications, and offers another snooze action
+     * so the user can keep deferring if they still don't want to act on it.
+     */
+    fun postSnoozedReminder(context: Context, item: ExpiryItemEntity, daysLeft: Int, idOffset: Int) {
+        val label = displayName(item)
+        val qty   = formatQty(context, item.quantity, item.unit)
+        val title = context.getString(R.string.notif_soft_title_format, daysLeft)
+        val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
+
+        val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .addAction(snoozeAction(context, item.id, idOffset + daysLeft))
+            .build()
+
+        NotificationManagerCompat.from(context)
+            .notify(notifId(item.id, idOffset + daysLeft), notif)
     }
 
     /** Posts a high-priority heads-up notification for the 3-day threshold. */
@@ -101,6 +124,31 @@ object NotificationHelper {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Builds the "Remind me tomorrow" action. [idSuffix] must be the exact
+     * same value passed as the second argument to [notifId] for the
+     * notification this action is attached to, so [SnoozeActionReceiver]
+     * can cancel the correct notification.
+     */
+    private fun snoozeAction(context: Context, itemId: Long, idSuffix: Int): NotificationCompat.Action {
+        val snoozeIntent = Intent(context, SnoozeActionReceiver::class.java).apply {
+            action = SnoozeActionReceiver.ACTION_SNOOZE
+            putExtra(SnoozeActionReceiver.EXTRA_ITEM_ID, itemId)
+            putExtra(SnoozeActionReceiver.EXTRA_DAYS_LEFT, idSuffix)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            notifId(itemId, idSuffix),
+            snoozeIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return NotificationCompat.Action.Builder(
+            R.drawable.ic_launcher_foreground,
+            context.getString(R.string.notif_action_snooze),
+            pendingIntent
+        ).build()
+    }
 
     private fun baseBuilder(
         context: Context,
