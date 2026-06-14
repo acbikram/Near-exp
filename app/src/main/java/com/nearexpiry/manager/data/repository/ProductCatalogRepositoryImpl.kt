@@ -1,7 +1,7 @@
 package com.nearexpiry.manager.data.repository
 
 import com.nearexpiry.manager.data.local.catalog.ProductCatalogDao
-import com.nearexpiry.manager.data.local.dao.CustomProductDao
+import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.CustomProductEntity
 import com.nearexpiry.manager.data.remote.OpenFoodFactsApi
 import com.nearexpiry.manager.domain.model.ProductInfo
@@ -10,8 +10,10 @@ import javax.inject.Inject
 
 class ProductCatalogRepositoryImpl @Inject constructor(
     private val dao: ProductCatalogDao,
-    private val customProductDao: CustomProductDao
+    expiryDatabase: ExpiryDatabase
 ) : ProductCatalogRepository {
+
+    private val customProductDao = expiryDatabase.customProductDao()
 
     override suspend fun lookup(barcode: String): ProductInfo? {
         // 1. Bundled catalog (products.db) — the primary, offline source.
