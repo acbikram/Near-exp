@@ -32,9 +32,18 @@ class ActiveProjectManager @Inject constructor(
      * Ensures the persisted active project still exists; if not (e.g. it was
      * deleted), switches to the earliest-created remaining project. Called on
      * app start and after a project deletion.
+     *
+     * As a safety net, if there are no projects at all (which shouldn't
+     * normally happen — onCreate/migration seed "Project 1"), it recreates a
+     * default project so scanning/import/manual entry always has somewhere to
+     * save into.
      */
     suspend fun ensureValidActiveProject() {
-        val projects = projectRepository.getAllProjectsOnce()
+        var projects = projectRepository.getAllProjectsOnce()
+        if (projects.isEmpty()) {
+            projectRepository.createProject("Project 1", "#26C6DA")
+            projects = projectRepository.getAllProjectsOnce()
+        }
         if (projects.isEmpty()) return
         val current = preferencesManager.getActiveProjectId()
         if (projects.none { it.id == current }) {
