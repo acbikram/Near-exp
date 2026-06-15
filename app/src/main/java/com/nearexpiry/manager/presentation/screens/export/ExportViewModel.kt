@@ -8,10 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvExporter
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,9 +39,12 @@ const val EXPORT_UNIT_OTHER = "OTHER"
 /** All chips shown in the "By Tag/Type" filter, including the "Other" catch-all. */
 val EXPORT_UNIT_CHIPS = EXPORT_UNIT_OPTIONS + EXPORT_UNIT_OTHER
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ExportViewModel @Inject constructor(
-    private val repository: ExpiryRepository
+    private val repository: ExpiryRepository,
+    private val projectRepository: ProjectRepository,
+    private val activeProjectManager: ActiveProjectManager
 ) : ViewModel() {
 
     data class ExportUiState(
@@ -47,6 +53,8 @@ class ExportViewModel @Inject constructor(
         val isExporting: Boolean = false,
         val error: String? = null,
         val success: Boolean = false,
+        /** Active project name, used in the CSV filename. */
+        val projectName: String = "",
         /** Set once a CSV has been written to a shareable cache file; consumed by the UI to launch a share sheet. */
         val shareFileUri: Uri? = null,
 
@@ -106,7 +114,12 @@ class ExportViewModel @Inject constructor(
      */
     private fun observeItems() {
         viewModelScope.launch {
-            repository.getAllItems()
+            activeProjectManager.activeProjectIdFlow
+                .onEach { projectId ->
+                    val name = projectRepository.getProjectById(projectId)?.name ?: ""
+                    _uiState.update { it.copy(projectName = name) }
+                }
+                .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
                 .collect { items ->
                     _uiState.update { state ->
@@ -186,6 +199,19 @@ class ExportViewModel @Inject constructor(
      * a `content://` URI via [shareFileUri] for the UI to hand off to
      * [android.content.Intent.ACTION_SEND].
      */
+    /**
+     * CSV filename including the active project name, so files from different
+     * inventories don't get mixed up, e.g. "Project 1_1718000000000.csv".
+     * Non-filename-safe characters in the project name are replaced with '_'.
+     */
+    fun buildCsvFilename(): String {
+        val safeName = _uiState.value.projectName
+            .ifBlank { "NearExpiry" }
+            .replace(Regex("[^A-Za-z0-9 _-]"), "_")
+            .replace(' ', '_')
+        return "${safeName}_${System.currentTimeMillis()}.csv"
+    }
+
     fun shareAsCsv(context: Context) {
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true, error = null, success = false) }
@@ -193,7 +219,7 @@ class ExportViewModel @Inject constructor(
                 val items = _uiState.value.itemsToExport
                 val uri = withContext(Dispatchers.IO) {
                     val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    val file = File(exportDir, "NearExpiry_${System.currentTimeMillis()}.csv")
+                    val file = File(exportDir, buildCsvFilename())
                     FileOutputStream(file).use { outputStream ->
                         CsvExporter.writeCsv(outputStream, items)
                     }

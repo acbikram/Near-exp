@@ -4,16 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: ExpiryRepository
+    private val repository: ExpiryRepository,
+    private val projectRepository: ProjectRepository,
+    private val activeProjectManager: ActiveProjectManager
 ) : ViewModel() {
 
     data class HomeUiState(
@@ -24,6 +30,7 @@ class HomeViewModel @Inject constructor(
         val expiringIn7Days: Int = 0,
         val expiringIn30Days: Int = 0,
         val recentItems: List<ExpiryItem> = emptyList(),
+        val activeProjectName: String = "",
         val error: String? = null
     )
 
@@ -32,16 +39,26 @@ class HomeViewModel @Inject constructor(
 
     init {
         observeItems()
+        observeActiveProjectName()
+    }
+
+    private fun observeActiveProjectName() {
+        viewModelScope.launch {
+            activeProjectManager.activeProjectIdFlow.collect { id ->
+                val name = projectRepository.getProjectById(id)?.name ?: ""
+                _uiState.update { it.copy(activeProjectName = name) }
+            }
+        }
     }
 
     /**
-     * Continuously collects the items Flow from Room so the dashboard
-     * recomputes automatically whenever a record is inserted, updated,
-     * or deleted - no manual refresh or app restart required.
+     * Recomputes the dashboard whenever items change OR the active project
+     * changes. flatMapLatest swaps to the new project's item stream on switch.
      */
     private fun observeItems() {
         viewModelScope.launch {
-            repository.getAllItems()
+            activeProjectManager.activeProjectIdFlow
+                .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
                 .collect { allItems ->
                     val today = LocalDate.now()

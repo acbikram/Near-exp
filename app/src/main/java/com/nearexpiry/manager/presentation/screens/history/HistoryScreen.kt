@@ -2,13 +2,16 @@ package com.nearexpiry.manager.presentation.screens.history
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.MoreVert
@@ -88,6 +91,28 @@ fun HistoryScreen(
                     actions = {
                         IconButton(onClick = { viewModel.selectAllVisible() }) {
                             Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.select_all_visible), tint = CyanAccent)
+                        }
+                        // Copy to another project
+                        IconButton(
+                            onClick = { viewModel.requestProjectAction(HistoryViewModel.ProjectAction.COPY) },
+                            enabled = uiState.selectedIds.isNotEmpty() && uiState.otherProjects.isNotEmpty()
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.copy_to_project),
+                                tint = if (uiState.selectedIds.isNotEmpty() && uiState.otherProjects.isNotEmpty()) CyanAccent else SubtleGray
+                            )
+                        }
+                        // Move to another project
+                        IconButton(
+                            onClick = { viewModel.requestProjectAction(HistoryViewModel.ProjectAction.MOVE) },
+                            enabled = uiState.selectedIds.isNotEmpty() && uiState.otherProjects.isNotEmpty()
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.DriveFileMove,
+                                contentDescription = stringResource(R.string.move_to_project),
+                                tint = if (uiState.selectedIds.isNotEmpty() && uiState.otherProjects.isNotEmpty()) CyanAccent else SubtleGray
+                            )
                         }
                         IconButton(
                             onClick = { viewModel.requestDeleteSelected() },
@@ -313,6 +338,77 @@ fun HistoryScreen(
                 }
             }
         )
+    }
+
+    // ── Copy/Move: target project picker ─────────────────────────────────
+    if (uiState.projectActionMode != null && uiState.pendingTargetProjectId == null) {
+        val isCopy = uiState.projectActionMode == HistoryViewModel.ProjectAction.COPY
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissProjectAction() },
+            title = {
+                Text(
+                    stringResource(
+                        if (isCopy) R.string.copy_to_project else R.string.move_to_project
+                    )
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.select_target_project),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    uiState.otherProjects.forEach { project ->
+                        Text(
+                            text = project.name,
+                            style = MaterialTheme.typography.titleSmall.copy(color = CyanAccent),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.onTargetProjectChosen(project.id) }
+                                .padding(vertical = 12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissProjectAction() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // ── Copy/Move: Add vs Replace on duplicate collision ─────────────────
+    uiState.pendingTargetProjectId?.let { targetId ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissProjectAction() },
+            title = { Text(stringResource(R.string.duplicate_found_title)) },
+            text = { Text(stringResource(R.string.duplicate_merge_prompt)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.performProjectAction(targetId, com.nearexpiry.manager.domain.model.MergeMode.ADD)
+                }) {
+                    Text(stringResource(R.string.merge_add))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.performProjectAction(targetId, com.nearexpiry.manager.domain.model.MergeMode.REPLACE)
+                }) {
+                    Text(stringResource(R.string.merge_replace))
+                }
+            }
+        )
+    }
+
+    // ── Copy/Move result snackbar ────────────────────────────────────────
+    uiState.copyMoveResult?.let { msg ->
+        LaunchedEffect(msg) {
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearCopyMoveResult()
+        }
     }
 }
 

@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "expiry_items",
-    indices = [Index(value = ["barcode", "expiryDate"])]
+    indices = [Index(value = ["barcode", "expiryDate"]), Index(value = ["projectId"])]
 )
 data class ExpiryItemEntity(
     @PrimaryKey(autoGenerate = true)
@@ -23,7 +23,9 @@ data class ExpiryItemEntity(
     val productNameArabic: String? = null,
     val unit: String? = null,
     /** POS/Item Code from column B of the product catalog (posCode). */
-    val itemCode: String? = null
+    val itemCode: String? = null,
+    /** The project (isolated inventory) this item belongs to. Defaults to 1 ("Project 1"). */
+    val projectId: Long = 1
 )
 
 fun ExpiryItemEntity.toDomain() = ExpiryItem(
@@ -36,7 +38,8 @@ fun ExpiryItemEntity.toDomain() = ExpiryItem(
     productName = productName,
     productNameArabic = productNameArabic,
     unit = unit,
-    itemCode = itemCode
+    itemCode = itemCode,
+    projectId = projectId
 )
 
 fun ExpiryItem.toEntity() = ExpiryItemEntity(
@@ -49,5 +52,6 @@ fun ExpiryItem.toEntity() = ExpiryItemEntity(
     productName = productName,
     productNameArabic = productNameArabic,
     unit = unit,
-    itemCode = itemCode
+    itemCode = itemCode,
+    projectId = projectId
 )

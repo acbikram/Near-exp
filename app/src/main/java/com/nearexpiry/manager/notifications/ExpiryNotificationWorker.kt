@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.LocalDate
@@ -22,19 +23,22 @@ import java.util.concurrent.TimeUnit
 /**
  * Runs once per day at ~8 AM local time.
  *
- * Scans all items in the database and posts:
+ * Scans items in the **currently selected project only** and posts:
  *  • Soft notification  — items expiring exactly 15 days from today
  *  • Soft notification  — items expiring exactly 7 days from today
  *  • Hard notification  — items expiring exactly 3 days from today
  *
- * Items already deleted from the database are never notified (they're gone).
- * Quantity shown is always the current/latest value from the database.
+ * Each notification is labelled with the active project's name. Items in
+ * other (non-active) projects are not notified — switching projects changes
+ * which inventory gets alerts. Deleted items are never notified; quantity
+ * shown is always the current/latest value from the database.
  */
 @HiltWorker
 class ExpiryNotificationWorker @AssistedInject constructor(
     @Assisted private val appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val database: ExpiryDatabase
+    private val database: ExpiryDatabase,
+    private val preferencesManager: PreferencesManager
 ) : CoroutineWorker(appContext, workerParams) {
 
     companion object {
@@ -85,7 +89,11 @@ class ExpiryNotificationWorker @AssistedInject constructor(
 
         val today = LocalDate.now()
         val dao   = database.expiryItemDao()
-        val items = dao.getAllItemsOnce()
+
+        // Only the currently selected project gets notifications.
+        val projectId = preferencesManager.getActiveProjectId()
+        val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
+        val items = dao.getAllItemsOnce(projectId)
 
         for (item in items) {
             val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }
@@ -94,9 +102,9 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             val daysLeft = ChronoUnit.DAYS.between(today, expiryDate)
 
             when (daysLeft.toInt()) {
-                15   -> NotificationHelper.postSoftNotification(appContext, item, 15)
-                7    -> NotificationHelper.postSoftNotification(appContext, item, 7)
-                3    -> NotificationHelper.postHardNotification(appContext, item)
+                15   -> NotificationHelper.postSoftNotification(appContext, item, 15, projectName)
+                7    -> NotificationHelper.postSoftNotification(appContext, item, 7, projectName)
+                3    -> NotificationHelper.postHardNotification(appContext, item, projectName)
             }
         }
 

@@ -9,6 +9,34 @@
     <string name="delete">Delete</string>
     <string name="edit">Edit</string>
     <string name="confirm">Confirm</string>
+
+    <!-- ── Projects (multi-inventory) ─────────────────────────────────── -->
+    <string name="projects">Projects</string>
+    <string name="projects_description">Each project is a separate inventory. Scans, imports, exports and alerts apply only to the selected project.</string>
+    <string name="project_create">Create</string>
+    <string name="project_rename">Rename</string>
+    <string name="project_clone">Clone</string>
+    <string name="project_delete">Delete</string>
+    <string name="project_delete_confirm">Delete project \"%1$s\" and all its items? This cannot be undone.</string>
+    <string name="project_cannot_delete_last">Can\'t delete the last project — at least one must remain.</string>
+    <string name="project_name_label">Project name</string>
+    <string name="project_color_label">Colour tag</string>
+    <string name="project_summary_format">%1$d items · next expiry %2$s</string>
+    <string name="project_summary_no_expiry_format">%1$d items</string>
+    <string name="active_project_format">Project: %1$s</string>
+
+    <!-- ── Copy / Move between projects ───────────────────────────────── -->
+    <string name="copy_to_project">Copy to project</string>
+    <string name="move_to_project">Move to project</string>
+    <string name="select_target_project">Select target project</string>
+
+    <!-- ── Duplicate resolution (Add / Replace) ───────────────────────── -->
+    <string name="duplicate_found_title">Duplicate item found</string>
+    <string name="duplicate_merge_prompt">Some items already exist in the target project (same code, unit and expiry). Add to their quantity, or replace it?</string>
+    <string name="duplicate_choose_action">Add to the existing quantity, or replace it?</string>
+    <string name="add_result_qty">If added: </string>
+    <string name="merge_add">Add</string>
+    <string name="merge_replace">Replace</string>
     <string name="clear">Clear</string>
     <string name="retry">Retry</string>
     <string name="done">Done</string>

@@ -43,6 +43,15 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
 
+    // Surface the "cannot delete the last project" message as a toast.
+    val cannotDeleteMsg = stringResource(R.string.project_cannot_delete_last)
+    LaunchedEffect(uiState.message) {
+        if (uiState.message == "CANNOT_DELETE_LAST") {
+            android.widget.Toast.makeText(context, cannotDeleteMsg, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.clearMessage()
+        }
+    }
+
     // ── Notification permission (Android 13+) ────────────────────────────────
     var hasNotifPermission by remember {
         mutableStateOf(
@@ -92,6 +101,25 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
+
+            // ── Projects ───────────────────────────────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    ProjectsSection(
+                        projects = uiState.projects,
+                        activeProjectId = uiState.activeProjectId,
+                        onSwitch = { viewModel.switchProject(it) },
+                        onCreate = { name, color -> viewModel.createProject(name, color) },
+                        onRename = { id, name -> viewModel.renameProject(id, name) },
+                        onRecolor = { id, color -> viewModel.updateProjectColor(id, color) },
+                        onClone = { id, name, color -> viewModel.cloneProject(id, name, color) },
+                        onDelete = { viewModel.deleteProject(it) }
+                    )
+                }
+            }
 
             // ── Language ───────────────────────────────────────────────────
             item {

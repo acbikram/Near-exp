@@ -8,13 +8,13 @@ import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class BackupRestoreViewModel @Inject constructor(
     private val repository: ExpiryRepository,
-    private val csvImporter: CsvImporter
+    private val csvImporter: CsvImporter,
+    private val activeProjectManager: ActiveProjectManager
 ) : ViewModel() {
 
     data class BackupUiState(
@@ -40,7 +41,8 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = false) }
             try {
-                val items = repository.getAllItems().first()
+                val projectId = activeProjectManager.getActiveProjectId()
+                val items = repository.getItemsOnce(projectId)
                 val entities: List<ExpiryItemEntity> = items.map { it.toEntity() }
                 val contentResolver: ContentResolver = context.contentResolver
                 contentResolver.openOutputStream(uri)?.use { outputStream ->
@@ -60,8 +62,11 @@ class BackupRestoreViewModel @Inject constructor(
                 val contentResolver = context.contentResolver
                 contentResolver.openInputStream(uri)?.use { inputStream ->
                     val entities = JsonBackup.importFromJson(inputStream)
-                    repository.deleteAllItems()
-                    entities.forEach { repository.insertItem(it) }
+                    val projectId = activeProjectManager.getActiveProjectId()
+                    // Restore replaces only the active project's items, and
+                    // forces the restored rows into the active project.
+                    repository.deleteAllInProject(projectId)
+                    entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
                 }
                 _uiState.update { it.copy(isLoading = false, success = true) }
             } catch (e: Exception) {
@@ -89,10 +94,11 @@ class BackupRestoreViewModel @Inject constructor(
                 // or an earlier row in this same batch), add to its quantity
                 // instead of inserting a duplicate. Different unit → kept as a
                 // separate row (and flagged in exports via the warning column).
+                val projectId = activeProjectManager.getActiveProjectId()
                 var mergedCount = 0
                 for (entity in parsed.imported) {
                     val existing = repository.findByBarcodeExpiryUnit(
-                        entity.barcode, entity.expiryDate, entity.unit
+                        projectId, entity.barcode, entity.expiryDate, entity.unit
                     )
                     if (existing != null) {
                         repository.updateItem(
@@ -107,7 +113,8 @@ class BackupRestoreViewModel @Inject constructor(
                         )
                         mergedCount++
                     } else {
-                        repository.insertItem(entity)
+                        // Force imported rows into the active project.
+                        repository.insertItem(entity.copy(projectId = projectId))
                     }
                 }
 

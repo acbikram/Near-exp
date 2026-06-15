@@ -66,10 +66,10 @@ object NotificationHelper {
     }
 
     /** Posts one soft notification for a 15-day or 7-day threshold. */
-    fun postSoftNotification(context: Context, item: ExpiryItemEntity, daysLeft: Int) {
+    fun postSoftNotification(context: Context, item: ExpiryItemEntity, daysLeft: Int, projectName: String = "") {
         val label = displayName(item)
         val qty   = formatQty(context, item.quantity, item.unit)
-        val title = context.getString(R.string.notif_soft_title_format, daysLeft)
+        val title = withProject(context.getString(R.string.notif_soft_title_format, daysLeft), projectName)
         val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
 
         val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
@@ -88,10 +88,10 @@ object NotificationHelper {
      * the regular 15/7/3-day notifications, and offers another snooze action
      * so the user can keep deferring if they still don't want to act on it.
      */
-    fun postSnoozedReminder(context: Context, item: ExpiryItemEntity, daysLeft: Int, idOffset: Int) {
+    fun postSnoozedReminder(context: Context, item: ExpiryItemEntity, daysLeft: Int, idOffset: Int, projectName: String = "") {
         val label = displayName(item)
         val qty   = formatQty(context, item.quantity, item.unit)
-        val title = context.getString(R.string.notif_soft_title_format, daysLeft)
+        val title = withProject(context.getString(R.string.notif_soft_title_format, daysLeft), projectName)
         val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
 
         val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
@@ -104,10 +104,10 @@ object NotificationHelper {
     }
 
     /** Posts a high-priority heads-up notification for the 3-day threshold. */
-    fun postHardNotification(context: Context, item: ExpiryItemEntity) {
+    fun postHardNotification(context: Context, item: ExpiryItemEntity, projectName: String = "") {
         val label = displayName(item)
         val qty   = formatQty(context, item.quantity, item.unit)
-        val title = context.getString(R.string.notif_hard_title)
+        val title = withProject(context.getString(R.string.notif_hard_title), projectName)
         val body  = context.getString(R.string.notif_body_format, label, qty, item.expiryDate)
 
         val notif = baseBuilder(context, CHANNEL_HARD, title, body)
@@ -122,6 +122,10 @@ object NotificationHelper {
         NotificationManagerCompat.from(context)
             .notify(notifId(item.id, 3), notif)
     }
+
+    /** Prefixes a notification title with the project name when present, e.g. "[Project 1] ⚠ Expiring…". */
+    private fun withProject(title: String, projectName: String): String =
+        if (projectName.isBlank()) title else "[$projectName] $title"
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

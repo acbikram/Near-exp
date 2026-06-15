@@ -106,14 +106,29 @@ fun HomeScreen(
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.dashboard),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = CyanAccent,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.dashboard),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = CyanAccent,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                         )
-                    )
+                        if (uiState.activeProjectName.isNotBlank()) {
+                            Text(
+                                text = uiState.activeProjectName,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color = OrangeAccent,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),

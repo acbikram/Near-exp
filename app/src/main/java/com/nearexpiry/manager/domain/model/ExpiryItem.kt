@@ -13,7 +13,9 @@ data class ExpiryItem(
     val productNameArabic: String? = null,
     val unit: String? = null,
     /** POS/Item Code from column B of the product catalog (posCode). */
-    val itemCode: String? = null
+    val itemCode: String? = null,
+    /** The project (isolated inventory) this item belongs to. */
+    val projectId: Long = 1
 ) {
     /**
      * The product description shown in the UI, in the user's selected

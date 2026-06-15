@@ -187,7 +187,7 @@ fun ExportScreen(
                 item {
                     Spacer(Modifier.height(4.dp))
                     Button(
-                        onClick = { saveLauncher.launch("NearExpiry_${System.currentTimeMillis()}.csv") },
+                        onClick = { saveLauncher.launch(viewModel.buildCsvFilename()) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = canExport
                     ) {

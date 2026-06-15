@@ -36,13 +36,16 @@ enum class OnlineLookupState { IDLE, LOADING, FOUND, NOT_FOUND }
 class ScanViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val productCatalogRepository: ProductCatalogRepository,
+    private val projectRepository: com.nearexpiry.manager.domain.repository.ProjectRepository,
     private val preferencesManager: PreferencesManager,
+    private val activeProjectManager: com.nearexpiry.manager.utils.ActiveProjectManager,
     private val soundManager: SoundManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     data class ScanUiState(
         val recentScans: List<ExpiryItem> = emptyList(),
+        val activeProjectName: String = "",
         val scannerInactive: Boolean = false,
         /** Barcode shown on the camera overlay immediately after detection. */
         val detectedBarcode: String = "",
@@ -86,6 +89,14 @@ class ScanViewModel @Inject constructor(
     init {
         loadRecentScans()
         startInactivityTimer()
+        // Reload the recent-scans list whenever the user switches projects.
+        viewModelScope.launch {
+            activeProjectManager.activeProjectIdFlow.collect { id ->
+                loadRecentScans()
+                val name = projectRepository.getProjectById(id)?.name ?: ""
+                _uiState.update { it.copy(activeProjectName = name) }
+            }
+        }
     }
 
     fun startScanner() {
@@ -321,7 +332,8 @@ class ScanViewModel @Inject constructor(
             val currentState = _uiState.value
             val barcode = currentState.pendingBarcode
             val expiry  = currentState.pendingExpiryDate
-            val existing = repository.findByBarcodeAndExpiry(barcode, expiry)
+            val projectId = activeProjectManager.getActiveProjectId()
+            val existing = repository.findByBarcodeAndExpiry(projectId, barcode, expiry)
             if (existing != null) {
                 // ── Duplicate: play extra beep + haptic (single was already played on detection)
                 if (preferencesManager.isScanSoundEnabled()) soundManager.playDoubleBeep()
@@ -346,7 +358,8 @@ class ScanViewModel @Inject constructor(
                     productName = currentState.pendingProductName,
                     productNameArabic = currentState.pendingProductNameArabic,
                     unit = currentState.pendingUnit,
-                    itemCode = currentState.pendingItemCode
+                    itemCode = currentState.pendingItemCode,
+                    projectId = projectId
                 )
                 repository.insertItem(newItem)
                 loadRecentScans()
@@ -368,11 +381,18 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    fun mergeDuplicateItem() {
+    /**
+     * Resolves the duplicate dialog. [mergeMode] ADD sums the new quantity
+     * onto the existing item; REPLACE overwrites it with the new quantity.
+     */
+    fun resolveDuplicate(mergeMode: com.nearexpiry.manager.domain.model.MergeMode) {
         viewModelScope.launch {
             val state = _uiState.value
             val existing = repository.getItemById(state.duplicateItemId) ?: return@launch
-            val newQuantity = existing.quantity + state.duplicateNewQty
+            val newQuantity = if (mergeMode == com.nearexpiry.manager.domain.model.MergeMode.ADD)
+                existing.quantity + state.duplicateNewQty
+            else
+                state.duplicateNewQty
             val updatedItem = existing.copy(
                 quantity = newQuantity,
                 updatedAt = System.currentTimeMillis(),
@@ -467,7 +487,8 @@ class ScanViewModel @Inject constructor(
 
     private fun loadRecentScans() {
         viewModelScope.launch {
-            val allItems = repository.getAllItems().first()
+            val projectId = activeProjectManager.getActiveProjectId()
+            val allItems = repository.getItemsOnce(projectId)
             val items = allItems.sortedByDescending { it.createdAt }.take(20)
             _uiState.update { it.copy(recentScans = items) }
         }

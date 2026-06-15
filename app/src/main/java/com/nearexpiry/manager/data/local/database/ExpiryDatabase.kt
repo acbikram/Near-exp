@@ -7,19 +7,22 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.nearexpiry.manager.data.local.dao.CustomProductDao
 import com.nearexpiry.manager.data.local.dao.ExpiryItemDao
+import com.nearexpiry.manager.data.local.dao.ProjectDao
 import com.nearexpiry.manager.data.local.entity.CustomProductEntity
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
+import com.nearexpiry.manager.data.local.entity.ProjectEntity
 import com.nearexpiry.manager.data.local.typeconverter.Converters
 
 @Database(
-    entities = [ExpiryItemEntity::class, CustomProductEntity::class],
-    version = 6,
+    entities = [ExpiryItemEntity::class, CustomProductEntity::class, ProjectEntity::class],
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class ExpiryDatabase : RoomDatabase() {
     abstract fun expiryItemDao(): ExpiryItemDao
     abstract fun customProductDao(): CustomProductDao
+    abstract fun projectDao(): ProjectDao
 
     companion object {
         @Volatile

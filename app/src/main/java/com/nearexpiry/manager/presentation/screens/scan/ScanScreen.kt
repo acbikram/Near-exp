@@ -294,6 +294,18 @@ fun ScanScreen(
                 }
             }
 
+            // ── Active project label ──────────────────────────────────────
+            if (uiState.activeProjectName.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.active_project_format, uiState.activeProjectName),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = OrangeAccent,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
             // ── Recent scans list ─────────────────────────────────────────
             LazyColumn(
                 modifier = Modifier
@@ -351,7 +363,7 @@ fun ScanScreen(
         DuplicateItemDialog(
             existingQty = uiState.duplicateExistingQty,
             newQty = uiState.duplicateNewQty,
-            onConfirm = { viewModel.mergeDuplicateItem() },
+            onResolve = { mode -> viewModel.resolveDuplicate(mode) },
             onDismiss = { viewModel.dismissDuplicateDialog() },
             productName = pendingDisplayName
         )

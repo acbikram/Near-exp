@@ -9,6 +9,34 @@
     <string name="delete">حذف</string>
     <string name="edit">تعديل</string>
     <string name="confirm">تأكيد</string>
+
+    <!-- ── المشاريع (مخزونات متعددة) ──────────────────────────────────── -->
+    <string name="projects">المشاريع</string>
+    <string name="projects_description">كل مشروع هو مخزون منفصل. تنطبق عمليات المسح والاستيراد والتصدير والتنبيهات على المشروع المحدد فقط.</string>
+    <string name="project_create">إنشاء</string>
+    <string name="project_rename">إعادة تسمية</string>
+    <string name="project_clone">نسخ المشروع</string>
+    <string name="project_delete">حذف</string>
+    <string name="project_delete_confirm">حذف المشروع \"%1$s\" وجميع عناصره؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="project_cannot_delete_last">لا يمكن حذف المشروع الأخير — يجب أن يبقى مشروع واحد على الأقل.</string>
+    <string name="project_name_label">اسم المشروع</string>
+    <string name="project_color_label">علامة اللون</string>
+    <string name="project_summary_format">%1$d عنصر · أقرب انتهاء %2$s</string>
+    <string name="project_summary_no_expiry_format">%1$d عنصر</string>
+    <string name="active_project_format">المشروع: %1$s</string>
+
+    <!-- ── النسخ / النقل بين المشاريع ──────────────────────────────────── -->
+    <string name="copy_to_project">نسخ إلى مشروع</string>
+    <string name="move_to_project">نقل إلى مشروع</string>
+    <string name="select_target_project">اختر المشروع الهدف</string>
+
+    <!-- ── حل التكرار (إضافة / استبدال) ────────────────────────────────── -->
+    <string name="duplicate_found_title">تم العثور على عنصر مكرر</string>
+    <string name="duplicate_merge_prompt">بعض العناصر موجودة بالفعل في المشروع الهدف (نفس الرمز والوحدة وتاريخ الانتهاء). أضف إلى كميتها أم استبدلها؟</string>
+    <string name="duplicate_choose_action">الإضافة إلى الكمية الحالية أم استبدالها؟</string>
+    <string name="add_result_qty">عند الإضافة: </string>
+    <string name="merge_add">إضافة</string>
+    <string name="merge_replace">استبدال</string>
     <string name="clear">مسح</string>
     <string name="retry">إعادة المحاولة</string>
     <string name="done">تم</string>

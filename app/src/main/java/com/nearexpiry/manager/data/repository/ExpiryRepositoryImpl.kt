@@ -1,6 +1,5 @@
 package com.nearexpiry.manager.data.repository
 
-import com.nearexpiry.manager.data.local.dao.ExpiryItemDao
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toDomain
@@ -19,22 +18,26 @@ class ExpiryRepositoryImpl @Inject constructor(
 
     private val dao = database.expiryItemDao()
 
-    override fun getAllItems(): Flow<List<ExpiryItem>> {
-        return dao.getAllItems().map { entities ->
+    override fun getAllItems(projectId: Long): Flow<List<ExpiryItem>> {
+        return dao.getAllItems(projectId).map { entities ->
             entities.map { it.toDomain() }
         }
+    }
+
+    override suspend fun getItemsOnce(projectId: Long): List<ExpiryItem> {
+        return dao.getAllItemsOnce(projectId).map { it.toDomain() }
     }
 
     override suspend fun getItemById(id: Long): ExpiryItem? {
         return dao.getItemById(id)?.toDomain()
     }
 
-    override suspend fun findByBarcodeAndExpiry(barcode: String, expiryDate: String): ExpiryItem? {
-        return dao.findByBarcodeAndExpiry(barcode, expiryDate)?.toDomain()
+    override suspend fun findByBarcodeAndExpiry(projectId: Long, barcode: String, expiryDate: String): ExpiryItem? {
+        return dao.findByBarcodeAndExpiry(projectId, barcode, expiryDate)?.toDomain()
     }
 
-    override suspend fun findByBarcodeExpiryUnit(barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
-        return dao.findByBarcodeExpiryUnit(barcode, expiryDate, unit)?.toDomain()
+    override suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
+        return dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
     }
 
     override suspend fun insertItem(item: ExpiryItemEntity): Long {
@@ -53,7 +56,13 @@ class ExpiryRepositoryImpl @Inject constructor(
         if (ids.isNotEmpty()) dao.deleteByIds(ids)
     }
 
-    override suspend fun deleteAllItems() {
-        dao.deleteAll()
+    override suspend fun deleteAllInProject(projectId: Long) {
+        dao.deleteAllInProject(projectId)
+    }
+
+    override suspend fun moveItemsToProject(ids: List<Long>, targetProjectId: Long) {
+        if (ids.isNotEmpty()) {
+            dao.moveItemsToProject(ids, targetProjectId, System.currentTimeMillis())
+        }
     }
 }

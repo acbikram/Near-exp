@@ -3,9 +3,13 @@ package com.nearexpiry.manager.presentation.screens.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -30,9 +34,12 @@ enum class UnitFilter(val label: String) {
 
 private val KNOWN_UNITS = setOf("PCS", "OFR", "CTN", "KGS")
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val repository: ExpiryRepository
+    private val repository: ExpiryRepository,
+    private val projectRepository: ProjectRepository,
+    private val activeProjectManager: ActiveProjectManager
 ) : ViewModel() {
 
     data class HistoryUiState(
@@ -50,14 +57,28 @@ class HistoryViewModel @Inject constructor(
         val selectedIds: Set<Long> = emptySet(),
         // ── Confirmation dialogs ─────────────────────────────────────────
         val showDeleteSelectedConfirm: Boolean = false,
-        val showDeleteFilterConfirm: Boolean = false
+        val showDeleteFilterConfirm: Boolean = false,
+        // ── Copy/Move to another project ─────────────────────────────────
+        /** Other projects (excludes the active one) available as copy/move targets. */
+        val otherProjects: List<Project> = emptyList(),
+        /** When non-null, the target-project picker dialog is shown in this mode. */
+        val projectActionMode: ProjectAction? = null,
+        /** Target chosen but awaiting Add/Replace choice because of a collision. */
+        val pendingTargetProjectId: Long? = null,
+        /** One-shot message after a copy/move completes, e.g. "Moved 5, merged 2". */
+        val copyMoveResult: String? = null
     )
+
+    enum class ProjectAction { COPY, MOVE }
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
+    private var activeProjectId: Long = 1L
+
     init {
         observeItems()
+        observeOtherProjects()
     }
 
     /**
@@ -84,12 +105,27 @@ class HistoryViewModel @Inject constructor(
 
     private fun observeItems() {
         viewModelScope.launch {
-            repository.getAllItems()
+            activeProjectManager.activeProjectIdFlow
+                .onEach { activeProjectId = it }
+                .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
                 .collect { items ->
                     _uiState.update { it.copy(allItems = items) }
                     applyFiltersAndSort()
                 }
+        }
+    }
+
+    private fun observeOtherProjects() {
+        viewModelScope.launch {
+            combine(
+                projectRepository.getAllProjects(),
+                activeProjectManager.activeProjectIdFlow
+            ) { projects, activeId ->
+                projects.filter { it.id != activeId }
+            }.collect { others ->
+                _uiState.update { it.copy(otherProjects = others) }
+            }
         }
     }
 
@@ -282,5 +318,71 @@ class HistoryViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    // ── Copy / Move selected items to another project ──────────────────────
+
+    /** Opens the target-project picker for the chosen action (COPY or MOVE). */
+    fun requestProjectAction(action: ProjectAction) {
+        if (_uiState.value.selectedIds.isNotEmpty()) {
+            _uiState.update { it.copy(projectActionMode = action) }
+        }
+    }
+
+    fun dismissProjectAction() {
+        _uiState.update { it.copy(projectActionMode = null, pendingTargetProjectId = null) }
+    }
+
+    /**
+     * The user picked a target project. If any selected item would collide
+     * with an existing item there (same barcode + expiry + unit), ask whether
+     * to Add or Replace; otherwise perform immediately (merge mode is moot).
+     */
+    fun onTargetProjectChosen(targetProjectId: Long) {
+        val ids = _uiState.value.selectedIds.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            val hasCollision = ids.any { id ->
+                val item = _uiState.value.allItems.firstOrNull { it.id == id } ?: return@any false
+                repository.findByBarcodeExpiryUnit(
+                    targetProjectId, item.barcode, item.expiryDate, item.unit
+                ) != null
+            }
+            if (hasCollision) {
+                // Defer to the Add/Replace dialog.
+                _uiState.update { it.copy(pendingTargetProjectId = targetProjectId) }
+            } else {
+                performProjectAction(targetProjectId, com.nearexpiry.manager.domain.model.MergeMode.ADD)
+            }
+        }
+    }
+
+    /** Performs the pending copy/move into [targetProjectId] with the chosen [mergeMode]. */
+    fun performProjectAction(targetProjectId: Long, mergeMode: com.nearexpiry.manager.domain.model.MergeMode) {
+        val action = _uiState.value.projectActionMode ?: return
+        val ids = _uiState.value.selectedIds.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            val merged = when (action) {
+                ProjectAction.COPY -> projectRepository.copyItemsToProject(ids, targetProjectId, mergeMode)
+                ProjectAction.MOVE -> projectRepository.moveItemsToProject(ids, targetProjectId, mergeMode)
+            }
+            val movedOrCopied = ids.size
+            val verb = if (action == ProjectAction.COPY) "Copied" else "Moved"
+            val msg = if (merged > 0) "$verb $movedOrCopied, merged $merged" else "$verb $movedOrCopied"
+            _uiState.update {
+                it.copy(
+                    projectActionMode = null,
+                    pendingTargetProjectId = null,
+                    selectionMode = false,
+                    selectedIds = emptySet(),
+                    copyMoveResult = msg
+                )
+            }
+        }
+    }
+
+    fun clearCopyMoveResult() {
+        _uiState.update { it.copy(copyMoveResult = null) }
     }
 }

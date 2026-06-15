@@ -116,4 +116,40 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+/**
+ * v6 -> v7: introduces multi-project (isolated inventory) support.
+ *
+ *  • Creates the `projects` table.
+ *  • Inserts a default "Project 1" (id = 1).
+ *  • Adds a `projectId` column to `expiry_items` (default 1) and an index on it.
+ *  • Assigns every pre-existing item to Project 1, so upgrading users keep
+ *    all their data inside the default project.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `projects` (
+                `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                `name` TEXT NOT NULL,
+                `colorHex` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        // Default project (id = 1). Uses the app's cyan accent as its colour tag.
+        db.execSQL(
+            "INSERT INTO `projects` (`id`, `name`, `colorHex`, `createdAt`) VALUES (1, 'Project 1', '#26C6DA', ?)",
+            arrayOf<Any>(System.currentTimeMillis())
+        )
+
+        db.execSQL("ALTER TABLE `expiry_items` ADD COLUMN `projectId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_expiry_items_projectId` ON `expiry_items` (`projectId`)")
+        // Existing rows already default to 1 via the column default, but set
+        // explicitly to be safe against any odd pre-existing NULLs.
+        db.execSQL("UPDATE `expiry_items` SET `projectId` = 1")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+)

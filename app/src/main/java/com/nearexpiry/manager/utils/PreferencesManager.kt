@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,22 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val scanSoundKey = booleanPreferencesKey("scan_sound")
     private val vibrationKey = booleanPreferencesKey("vibration")
     private val languagePromptShownKey = booleanPreferencesKey("language_prompt_shown")
+    private val activeProjectIdKey = longPreferencesKey("active_project_id")
+
+    /** The currently selected project. Defaults to 1 ("Project 1"). */
+    val activeProjectIdFlow: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[activeProjectIdKey] ?: 1L
+    }
+
+    suspend fun setActiveProjectId(id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[activeProjectIdKey] = id
+        }
+    }
+
+    fun getActiveProjectId(): Long = runCatching {
+        runBlocking { activeProjectIdFlow.first() }
+    }.getOrDefault(1L)
 
     val scanSoundFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[scanSoundKey] ?: true
