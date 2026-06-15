@@ -18,6 +18,19 @@ class ProjectRepositoryImpl @Inject constructor(
     private val projectDao = database.projectDao()
     private val itemDao = database.expiryItemDao()
 
+    /** POS-code-first duplicate lookup (falls back to barcode for codeless items). */
+    private suspend fun findDuplicate(
+        targetProjectId: Long,
+        src: com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
+    ): com.nearexpiry.manager.data.local.entity.ExpiryItemEntity? {
+        val code = src.itemCode?.takeIf { it.isNotBlank() }
+        return if (code != null) {
+            itemDao.findByItemCodeExpiryUnit(targetProjectId, code, src.expiryDate, src.unit)
+        } else {
+            itemDao.findByBarcodeExpiryUnit(targetProjectId, src.barcode, src.expiryDate, src.unit)
+        }
+    }
+
     override fun getAllProjects(): Flow<List<Project>> =
         projectDao.getAllProjects().map { list -> list.map { it.toDomain() } }
 
@@ -72,9 +85,7 @@ class ProjectRepositoryImpl @Inject constructor(
         for (id in itemIds) {
             val src = itemDao.getItemById(id) ?: continue
             if (src.projectId == targetProjectId) continue // no-op self copy
-            val existing = itemDao.findByBarcodeExpiryUnit(
-                targetProjectId, src.barcode, src.expiryDate, src.unit
-            )
+            val existing = findDuplicate(targetProjectId, src)
             if (existing != null) {
                 val newQty = if (mergeMode == MergeMode.ADD) existing.quantity + src.quantity else src.quantity
                 itemDao.update(
@@ -102,9 +113,7 @@ class ProjectRepositoryImpl @Inject constructor(
         for (id in itemIds) {
             val src = itemDao.getItemById(id) ?: continue
             if (src.projectId == targetProjectId) continue // already there
-            val existing = itemDao.findByBarcodeExpiryUnit(
-                targetProjectId, src.barcode, src.expiryDate, src.unit
-            )
+            val existing = findDuplicate(targetProjectId, src)
             if (existing != null) {
                 // Merge into the target's existing row, then remove the source.
                 val newQty = if (mergeMode == MergeMode.ADD) existing.quantity + src.quantity else src.quantity

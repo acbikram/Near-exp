@@ -40,6 +40,17 @@ class ExpiryRepositoryImpl @Inject constructor(
         return dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
     }
 
+    override suspend fun findDuplicate(projectId: Long, itemCode: String?, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
+        // Prefer matching on POS/item code (same product across barcodes);
+        // fall back to barcode for codeless items.
+        val code = itemCode?.takeIf { it.isNotBlank() }
+        return if (code != null) {
+            dao.findByItemCodeExpiryUnit(projectId, code, expiryDate, unit)?.toDomain()
+        } else {
+            dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
+        }
+    }
+
     override suspend fun insertItem(item: ExpiryItemEntity): Long {
         return dao.insert(item)
     }

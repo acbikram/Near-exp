@@ -10,6 +10,15 @@ interface ExpiryRepository {
     suspend fun getItemById(id: Long): ExpiryItem?
     suspend fun findByBarcodeAndExpiry(projectId: Long, barcode: String, expiryDate: String): ExpiryItem?
     suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem?
+
+    /**
+     * The canonical duplicate check: matches on POS/item code + expiry + unit
+     * when [itemCode] is present, otherwise falls back to barcode + expiry +
+     * unit. Used by scan, manual entry, CSV import and copy/move so that the
+     * same product (same item code) is treated as one even across different
+     * scanned barcodes.
+     */
+    suspend fun findDuplicate(projectId: Long, itemCode: String?, barcode: String, expiryDate: String, unit: String?): ExpiryItem?
     suspend fun insertItem(item: ExpiryItemEntity): Long
     suspend fun updateItem(item: ExpiryItemEntity)
     suspend fun deleteItem(item: ExpiryItem)

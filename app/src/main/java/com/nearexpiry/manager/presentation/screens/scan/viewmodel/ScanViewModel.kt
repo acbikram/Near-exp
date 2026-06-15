@@ -333,7 +333,10 @@ class ScanViewModel @Inject constructor(
             val barcode = currentState.pendingBarcode
             val expiry  = currentState.pendingExpiryDate
             val projectId = activeProjectManager.getActiveProjectId()
-            val existing = repository.findByBarcodeAndExpiry(projectId, barcode, expiry)
+            // Duplicate identity: POS/item code (if any) else barcode, AND unit AND expiry.
+            val existing = repository.findDuplicate(
+                projectId, currentState.pendingItemCode, barcode, expiry, currentState.pendingUnit
+            )
             if (existing != null) {
                 // ── Duplicate: play extra beep + haptic (single was already played on detection)
                 if (preferencesManager.isScanSoundEnabled()) soundManager.playDoubleBeep()

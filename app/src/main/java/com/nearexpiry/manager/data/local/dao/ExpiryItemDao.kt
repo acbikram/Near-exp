@@ -28,8 +28,8 @@ interface ExpiryItemDao {
 
     /**
      * Finds an existing row in [projectId] with the same barcode, expiry date,
-     * AND unit (NULL-safe). Used by CSV import and copy/move to merge
-     * truly-identical rows within a project.
+     * AND unit (NULL-safe). Used as the fallback duplicate check for items
+     * that have no POS/item code.
      */
     @Query("""
         SELECT * FROM expiry_items
@@ -38,6 +38,20 @@ interface ExpiryItemDao {
         LIMIT 1
     """)
     suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItemEntity?
+
+    /**
+     * Finds an existing row in [projectId] with the same POS/item code, expiry
+     * date, AND unit (NULL-safe). This is the primary duplicate check: two
+     * items with the same itemCode are the same product even if their scanned
+     * barcodes differ.
+     */
+    @Query("""
+        SELECT * FROM expiry_items
+        WHERE projectId = :projectId AND itemCode = :itemCode AND expiryDate = :expiryDate
+          AND ((unit IS NULL AND :unit IS NULL) OR unit = :unit)
+        LIMIT 1
+    """)
+    suspend fun findByItemCodeExpiryUnit(projectId: Long, itemCode: String, expiryDate: String, unit: String?): ExpiryItemEntity?
 
     @Query("SELECT COUNT(*) FROM expiry_items WHERE projectId = :projectId")
     suspend fun getCount(projectId: Long): Int

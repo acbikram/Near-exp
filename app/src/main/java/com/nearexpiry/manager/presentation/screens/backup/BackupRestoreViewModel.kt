@@ -97,8 +97,8 @@ class BackupRestoreViewModel @Inject constructor(
                 val projectId = activeProjectManager.getActiveProjectId()
                 var mergedCount = 0
                 for (entity in parsed.imported) {
-                    val existing = repository.findByBarcodeExpiryUnit(
-                        projectId, entity.barcode, entity.expiryDate, entity.unit
+                    val existing = repository.findDuplicate(
+                        projectId, entity.itemCode, entity.barcode, entity.expiryDate, entity.unit
                     )
                     if (existing != null) {
                         repository.updateItem(
