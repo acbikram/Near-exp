@@ -14,6 +14,22 @@ import javax.inject.Inject
 enum class Filter { ALL, EXPIRED, TODAY, SEVEN_DAYS, THIRTY_DAYS }
 enum class SortOrder { NEWEST, OLDEST, EXPIRY_DATE, QUANTITY }
 
+/**
+ * Unit-type filter for the History screen, AND-combined with the date
+ * [Filter]. ALL = no restriction; OTHER = items whose unit is null/blank or
+ * isn't one of the known catalog units.
+ */
+enum class UnitFilter(val label: String) {
+    ALL("ALL"),
+    PCS("PCS"),
+    OFR("OFR"),
+    CTN("CTN"),
+    KGS("KGS"),
+    OTHER("OTHER")
+}
+
+private val KNOWN_UNITS = setOf("PCS", "OFR", "CTN", "KGS")
+
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val repository: ExpiryRepository
@@ -26,6 +42,7 @@ class HistoryViewModel @Inject constructor(
         val itemsInFilter: List<ExpiryItem> = emptyList(),
         val searchQuery: String = "",
         val filter: Filter = Filter.ALL,
+        val unitFilter: UnitFilter = UnitFilter.ALL,
         val sortOrder: SortOrder = SortOrder.NEWEST,
         val error: String? = null,
         // ── Selection mode ───────────────────────────────────────────────
@@ -104,6 +121,28 @@ class HistoryViewModel @Inject constructor(
         applyFiltersAndSort()
     }
 
+    fun cycleUnitFilter() {
+        val next = when (_uiState.value.unitFilter) {
+            UnitFilter.ALL   -> UnitFilter.PCS
+            UnitFilter.PCS   -> UnitFilter.OFR
+            UnitFilter.OFR   -> UnitFilter.CTN
+            UnitFilter.CTN   -> UnitFilter.KGS
+            UnitFilter.KGS   -> UnitFilter.OTHER
+            UnitFilter.OTHER -> UnitFilter.ALL
+        }
+        _uiState.update { it.copy(unitFilter = next) }
+        applyFiltersAndSort()
+    }
+
+    private fun matchesUnitFilter(item: ExpiryItem, unitFilter: UnitFilter): Boolean = when (unitFilter) {
+        UnitFilter.ALL   -> true
+        UnitFilter.OTHER -> {
+            val u = item.unit?.takeIf { it.isNotBlank() }
+            u == null || u.uppercase() !in KNOWN_UNITS
+        }
+        else -> item.unit?.equals(unitFilter.label, ignoreCase = true) == true
+    }
+
     private fun matchesDateFilter(item: ExpiryItem, filter: Filter, today: LocalDate): Boolean = when (filter) {
         Filter.ALL         -> true
         Filter.EXPIRED     -> ExpiryDateUtils.isExpired(item.expiryDate, today)
@@ -116,9 +155,11 @@ class HistoryViewModel @Inject constructor(
         val state = _uiState.value
         val today = LocalDate.now()
 
-        // Items matching the date filter only (no search) — used by
-        // "Delete N Item(s) In This Filter".
-        val itemsInFilter = state.allItems.filter { matchesDateFilter(it, state.filter, today) }
+        // Items matching the date filter AND unit filter (no search) — used by
+        // "Delete N Item(s) In This Filter" and the live count.
+        val itemsInFilter = state.allItems.filter {
+            matchesDateFilter(it, state.filter, today) && matchesUnitFilter(it, state.unitFilter)
+        }
 
         var filtered = itemsInFilter
 

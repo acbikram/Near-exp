@@ -322,10 +322,17 @@ fun RecentItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClick
                     style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
                 )
                 Text(
-                    text = stringResource(
-                        R.string.qty_format,
-                        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
-                    ),
+                    text = if (item.unit != null)
+                        stringResource(
+                            R.string.qty_unit_format,
+                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                            item.unit
+                        )
+                    else
+                        stringResource(
+                            R.string.qty_format,
+                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                        ),
                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )
             }

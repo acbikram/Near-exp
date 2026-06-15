@@ -134,6 +134,24 @@ fun HistoryScreen(
                                 selectedLabelColor = CyanAccent
                             )
                         )
+                        Spacer(Modifier.width(4.dp))
+                        FilterChip(
+                            selected = uiState.unitFilter != UnitFilter.ALL,
+                            onClick = { viewModel.cycleUnitFilter() },
+                            label = {
+                                Text(
+                                    if (uiState.unitFilter == UnitFilter.ALL)
+                                        stringResource(R.string.unit_filter_all)
+                                    else
+                                        uiState.unitFilter.label,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = OrangeAccent.copy(alpha = 0.2f),
+                                selectedLabelColor = OrangeAccent
+                            )
+                        )
                         Box {
                             IconButton(onClick = { showOverflowMenu = true }) {
                                 Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CyanAccent)
@@ -357,10 +375,17 @@ fun HistoryItemCard(
                         style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
                     )
                     Text(
-                        text = stringResource(
-                            R.string.qty_format,
-                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
-                        ),
+                        text = if (item.unit != null)
+                            stringResource(
+                                R.string.qty_unit_format,
+                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                                item.unit
+                            )
+                        else
+                            stringResource(
+                                R.string.qty_format,
+                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                            ),
                         style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                     )
                 }
