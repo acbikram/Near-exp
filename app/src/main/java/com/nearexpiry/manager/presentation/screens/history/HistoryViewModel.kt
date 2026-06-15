@@ -50,6 +50,16 @@ class HistoryViewModel @Inject constructor(
         val searchQuery: String = "",
         val filter: Filter = Filter.ALL,
         val unitFilter: UnitFilter = UnitFilter.ALL,
+        /**
+         * A specific expiry date filter (ISO "yyyy-MM-dd") OR a specific
+         * expiry month filter ("yyyy-MM"). When either is set it overrides
+         * the relative [filter] bucket (All/Expired/Today/7d/30d). They're
+         * mutually exclusive with each other; the unit filter still combines.
+         */
+        val specificDate: String? = null,
+        val specificMonth: String? = null,
+        /** Distinct expiry months present in this project's items, newest first ("yyyy-MM" → label). */
+        val availableMonths: List<MonthOption> = emptyList(),
         val sortOrder: SortOrder = SortOrder.NEWEST,
         val error: String? = null,
         // ── Selection mode ───────────────────────────────────────────────
@@ -70,6 +80,9 @@ class HistoryViewModel @Inject constructor(
     )
 
     enum class ProjectAction { COPY, MOVE }
+
+    /** An expiry month present in the data: [key] is "yyyy-MM", [label] like "Sep 2026". */
+    data class MonthOption(val key: String, val label: String)
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
@@ -142,7 +155,26 @@ class HistoryViewModel @Inject constructor(
             Filter.SEVEN_DAYS -> Filter.THIRTY_DAYS
             Filter.THIRTY_DAYS -> Filter.ALL
         }
-        _uiState.update { it.copy(filter = next) }
+        // Using the relative bucket clears any specific date/month override.
+        _uiState.update { it.copy(filter = next, specificDate = null, specificMonth = null) }
+        applyFiltersAndSort()
+    }
+
+    /** Sets a specific expiry-date filter ("yyyy-MM-dd"); clears month + bucket override. */
+    fun setSpecificDate(isoDate: String) {
+        _uiState.update { it.copy(specificDate = isoDate, specificMonth = null, filter = Filter.ALL) }
+        applyFiltersAndSort()
+    }
+
+    /** Sets a specific expiry-month filter ("yyyy-MM"); clears date + bucket override. */
+    fun setSpecificMonth(yearMonth: String) {
+        _uiState.update { it.copy(specificMonth = yearMonth, specificDate = null, filter = Filter.ALL) }
+        applyFiltersAndSort()
+    }
+
+    /** Clears both specific date and month filters (back to the relative bucket). */
+    fun clearSpecificDateFilters() {
+        _uiState.update { it.copy(specificDate = null, specificMonth = null) }
         applyFiltersAndSort()
     }
 
@@ -179,6 +211,24 @@ class HistoryViewModel @Inject constructor(
         else -> item.unit?.equals(unitFilter.label, ignoreCase = true) == true
     }
 
+    /**
+     * Whether [item] passes the active "date dimension" filter. A specific
+     * expiry date or month, when set, overrides the relative [filter] bucket.
+     */
+    private fun matchesDateDimension(item: ExpiryItem, state: HistoryUiState, today: LocalDate): Boolean {
+        // Specific date overrides everything else in the date dimension.
+        state.specificDate?.let { iso ->
+            return item.expiryDate == iso ||
+                ExpiryDateUtils.parseOrNull(item.expiryDate)?.toString() == iso
+        }
+        // Specific month ("yyyy-MM") overrides the bucket filter.
+        state.specificMonth?.let { ym ->
+            val d = ExpiryDateUtils.parseOrNull(item.expiryDate) ?: return false
+            return "%04d-%02d".format(d.year, d.monthValue) == ym
+        }
+        return matchesDateFilter(item, state.filter, today)
+    }
+
     private fun matchesDateFilter(item: ExpiryItem, filter: Filter, today: LocalDate): Boolean = when (filter) {
         Filter.ALL         -> true
         Filter.EXPIRED     -> ExpiryDateUtils.isExpired(item.expiryDate, today)
@@ -191,10 +241,10 @@ class HistoryViewModel @Inject constructor(
         val state = _uiState.value
         val today = LocalDate.now()
 
-        // Items matching the date filter AND unit filter (no search) — used by
+        // Items matching the date dimension AND unit filter (no search) — used by
         // "Delete N Item(s) In This Filter" and the live count.
         val itemsInFilter = state.allItems.filter {
-            matchesDateFilter(it, state.filter, today) && matchesUnitFilter(it, state.unitFilter)
+            matchesDateDimension(it, state, today) && matchesUnitFilter(it, state.unitFilter)
         }
 
         var filtered = itemsInFilter
@@ -220,11 +270,21 @@ class HistoryViewModel @Inject constructor(
         val validIds = state.allItems.map { it.id }.toSet()
         val prunedSelection = state.selectedIds.intersect(validIds)
 
+        // Distinct expiry months present in the data, newest first.
+        val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH)
+        val availableMonths = state.allItems
+            .mapNotNull { ExpiryDateUtils.parseOrNull(it.expiryDate) }
+            .map { "%04d-%02d".format(it.year, it.monthValue) to it.withDayOfMonth(1) }
+            .distinctBy { it.first }
+            .sortedByDescending { it.second }
+            .map { MonthOption(key = it.first, label = it.second.format(monthFmt)) }
+
         _uiState.update {
             it.copy(
                 filteredItems = filtered,
                 itemsInFilter = itemsInFilter,
-                selectedIds = prunedSelection
+                selectedIds = prunedSelection,
+                availableMonths = availableMonths
             )
         }
     }

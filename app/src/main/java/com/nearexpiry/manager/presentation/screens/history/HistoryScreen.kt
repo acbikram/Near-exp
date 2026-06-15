@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.MoreVert
@@ -36,6 +38,7 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
+import com.nearexpiry.manager.utils.ExpiryDateUtils
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
@@ -54,6 +57,9 @@ fun HistoryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showDateMenu by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showMonthPicker by remember { mutableStateOf(false) }
 
     // Apply the filter/sort passed from the dashboard on first composition
     LaunchedEffect(initialFilter, initialSort) {
@@ -142,15 +148,64 @@ fun HistoryScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
                     actions = {
+                        // By specific expiry date / month
+                        Box {
+                            IconButton(onClick = { showDateMenu = true }) {
+                                Icon(
+                                    Icons.Default.CalendarMonth,
+                                    contentDescription = stringResource(R.string.filter_by_date_or_month),
+                                    tint = if (uiState.specificDate != null || uiState.specificMonth != null) OrangeAccent else CyanAccent
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showDateMenu,
+                                onDismissRequest = { showDateMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_by_expiry_date)) },
+                                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                                    onClick = {
+                                        showDateMenu = false
+                                        showDatePicker = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_by_expiry_month)) },
+                                    leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                                    onClick = {
+                                        showDateMenu = false
+                                        showMonthPicker = true
+                                    },
+                                    enabled = uiState.availableMonths.isNotEmpty()
+                                )
+                                if (uiState.specificDate != null || uiState.specificMonth != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.clear_date_filter)) },
+                                        leadingIcon = { Icon(Icons.Default.Close, contentDescription = null) },
+                                        onClick = {
+                                            showDateMenu = false
+                                            viewModel.clearSpecificDateFilters()
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         IconButton(onClick = { viewModel.toggleSortOrder() }) {
                             Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
                         }
                         FilterChip(
-                            selected = uiState.filter != Filter.ALL,
+                            selected = uiState.filter != Filter.ALL || uiState.specificDate != null || uiState.specificMonth != null,
                             onClick = { viewModel.cycleFilter() },
                             label = {
                                 Text(
-                                    uiState.filter.name.replace('_', ' '),
+                                    when {
+                                        uiState.specificDate != null ->
+                                            ExpiryDateUtils.toCsvDate(uiState.specificDate!!)
+                                        uiState.specificMonth != null ->
+                                            uiState.availableMonths.firstOrNull { it.key == uiState.specificMonth }?.label
+                                                ?: uiState.specificMonth!!
+                                        else -> uiState.filter.name.replace('_', ' ')
+                                    },
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             },
@@ -319,11 +374,18 @@ fun HistoryScreen(
             onDismissRequest = { viewModel.dismissDeleteFilterConfirm() },
             title = { Text(stringResource(R.string.delete_items_in_filter_format, uiState.itemsInFilter.size)) },
             text = {
+                val filterLabel = when {
+                    uiState.specificDate != null -> ExpiryDateUtils.toCsvDate(uiState.specificDate!!)
+                    uiState.specificMonth != null ->
+                        uiState.availableMonths.firstOrNull { it.key == uiState.specificMonth }?.label
+                            ?: uiState.specificMonth!!
+                    else -> uiState.filter.name.replace('_', ' ')
+                }
                 Text(
                     stringResource(
                         R.string.delete_filter_items_confirm_format,
                         uiState.itemsInFilter.size,
-                        uiState.filter.name.replace('_', ' ')
+                        filterLabel
                     )
                 )
             },
@@ -409,6 +471,56 @@ fun HistoryScreen(
             snackbarHostState.showSnackbar(msg)
             viewModel.clearCopyMoveResult()
         }
+    }
+
+    // ── By Expiry Date: date picker ──────────────────────────────────────
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val iso = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+                        viewModel.setSpecificDate(iso)
+                    }
+                    showDatePicker = false
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    // ── By Expiry Month: pick from months present in the data ────────────
+    if (showMonthPicker) {
+        AlertDialog(
+            onDismissRequest = { showMonthPicker = false },
+            title = { Text(stringResource(R.string.filter_by_expiry_month)) },
+            text = {
+                LazyColumn {
+                    items(uiState.availableMonths, key = { it.key }) { month ->
+                        Text(
+                            text = month.label,
+                            style = MaterialTheme.typography.titleSmall.copy(color = CyanAccent),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setSpecificMonth(month.key)
+                                    showMonthPicker = false
+                                }
+                                .padding(vertical = 12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showMonthPicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 }
 
