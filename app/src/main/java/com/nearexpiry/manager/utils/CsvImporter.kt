@@ -41,14 +41,21 @@ class CsvImporter @Inject constructor(
     data class ImportResult(
         val imported: List<ExpiryItemEntity>,
         val skipped: Int,
-        val totalRows: Int
+        val totalRows: Int,
+        /** Per-reason skip counts, for surfacing *why* rows were skipped. */
+        val skippedMissingPosCode: Int = 0,
+        val skippedBadDate: Int = 0,
+        val skippedBadQty: Int = 0
     )
 
     suspend fun parseCsv(inputStream: InputStream): ImportResult {
         val rows = CSVReader(InputStreamReader(inputStream)).use { it.readAll() }
         if (rows.isEmpty()) return ImportResult(emptyList(), 0, 0)
 
-        val header = rows.first().map { it.trim().lowercase() }
+        // Normalise header cells: strip UTF-8 BOM, surrounding quotes/whitespace.
+        val header = rows.first().map {
+            it.replace("\uFEFF", "").trim().trim('"', '\'').lowercase()
+        }
         val dataRows = rows.drop(1)
 
         fun colIndex(vararg names: String): Int {
@@ -59,37 +66,41 @@ class CsvImporter @Inject constructor(
             return -1
         }
 
-        val idxPosCode    = colIndex("POS Code", "PosCode", "ItemCode", "Item Code")
-        val idxDesc       = colIndex("ITEM_DESCRIPTION", "ItemDescription", "ProductName", "Description")
+        val idxPosCode    = colIndex("POS Code", "PosCode", "ItemCode", "Item Code", "Pos_Code")
+        val idxDesc       = colIndex("ITEM_DESCRIPTION", "ItemDescription", "ProductName", "Description", "Item Description")
         val idxUom        = colIndex("UOM", "Unit")
-        val idxQty        = colIndex("Qty", "Quantity")
-        val idxExpiry     = colIndex("Expiry Date", "ExpiryDate")
+        val idxQty        = colIndex("Qty", "Quantity", "QTY")
+        val idxExpiry     = colIndex("Expiry Date", "ExpiryDate", "Expiry", "Exp Date", "Exp")
 
         var skipped = 0
+        var skippedMissingPosCode = 0
+        var skippedBadDate = 0
+        var skippedBadQty = 0
         val imported = mutableListOf<ExpiryItemEntity>()
         val now = System.currentTimeMillis()
 
         for (row in dataRows) {
             if (row.size == 1 && row[0].isBlank()) continue // trailing blank line
+            // Also skip a row that's entirely empty cells.
+            if (row.all { it.isBlank() }) continue
 
             // POS Code is always treated as plain text — kept verbatim, never
             // parsed as a number, so leading zeros / long codes are preserved.
-            val posCode = idxPosCode.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim()
+            val posCode = idxPosCode.takeIf { it >= 0 }?.let { row.getOrNull(it) }
+                ?.replace("\uFEFF", "")?.trim()?.trim('"', '\'')
             val rawExpiry = idxExpiry.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim()
             val quantityStr = idxQty.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim()
+                ?.replace(",", "")          // tolerate thousands separators like "1,000"
             val quantity = quantityStr?.toDoubleOrNull()
 
             // Convert the CSV date (dd-MMM-yy, e.g. "28-Sep-26") to the ISO form
             // the app stores internally; null if it can't be parsed.
             val expiryDate = rawExpiry?.let { ExpiryDateUtils.fromCsvDate(it) }
 
-            if (posCode.isNullOrBlank() ||
-                expiryDate == null ||
-                quantity == null || quantity <= 0
-            ) {
-                skipped++
-                continue
-            }
+            // Track skip reasons separately so the result can explain itself.
+            if (posCode.isNullOrBlank()) { skipped++; skippedMissingPosCode++; continue }
+            if (expiryDate == null)      { skipped++; skippedBadDate++; continue }
+            if (quantity == null || quantity <= 0) { skipped++; skippedBadQty++; continue }
 
             var description = idxDesc.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim()?.takeIf { it.isNotBlank() }
             var unit = idxUom.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim()?.takeIf { it.isNotBlank() }
@@ -122,6 +133,13 @@ class CsvImporter @Inject constructor(
             )
         }
 
-        return ImportResult(imported, skipped, dataRows.size)
+        return ImportResult(
+            imported = imported,
+            skipped = skipped,
+            totalRows = dataRows.size,
+            skippedMissingPosCode = skippedMissingPosCode,
+            skippedBadDate = skippedBadDate,
+            skippedBadQty = skippedBadQty
+        )
     }
 }

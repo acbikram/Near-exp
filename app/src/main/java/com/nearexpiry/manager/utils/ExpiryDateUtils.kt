@@ -59,11 +59,33 @@ object ExpiryDateUtils {
     //
     // The app stores expiry dates internally as ISO-8601 ("2026-09-28") — that's
     // what the date picker writes and what all the filtering logic relies on.
-    // The CSV file, however, uses the human-friendly dd-MMM-yy format for both
-    // import and export. These helpers convert between the two at the CSV boundary.
+    // The CSV file uses the human-friendly dd-MMM-yy format for export; import
+    // accepts that plus a range of other common formats (see [fromCsvDate]).
 
     private val CSV_DATE_FMT: DateTimeFormatter =
         DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH)
+
+    /**
+     * Formats accepted on import, tried in order. Covers the canonical
+     * dd-MMM-yy plus the most common spreadsheet/locale variants so valid
+     * rows aren't silently skipped over a formatting mismatch.
+     */
+    private val IMPORT_DATE_FORMATS: List<DateTimeFormatter> = listOf(
+        DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH),   // 28-Sep-26
+        DateTimeFormatter.ofPattern("d-MMM-yy", Locale.ENGLISH),    // 1-Aug-26
+        DateTimeFormatter.ofPattern("dd-MMM-yyyy", Locale.ENGLISH), // 28-Sep-2026
+        DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH),  // 1-Aug-2026
+        DateTimeFormatter.ofPattern("dd/MMM/yy", Locale.ENGLISH),   // 28/Sep/26
+        DateTimeFormatter.ofPattern("dd-MMMM-yy", Locale.ENGLISH),  // 28-September-26
+        DateTimeFormatter.ofPattern("dd-MMMM-yyyy", Locale.ENGLISH),// 28-September-2026
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ENGLISH),  // 28/09/2026
+        DateTimeFormatter.ofPattern("d/M/yyyy", Locale.ENGLISH),    // 1/8/2026
+        DateTimeFormatter.ofPattern("dd/MM/yy", Locale.ENGLISH),    // 28/09/26
+        DateTimeFormatter.ofPattern("d/M/yy", Locale.ENGLISH),      // 1/8/26
+        DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.ENGLISH),  // 09/28/2026 (US)
+        DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.ENGLISH),  // 28.09.2026
+        DateTimeFormatter.ISO_LOCAL_DATE                            // 2026-09-28
+    )
 
     /** ISO stored date ("2026-09-28") → CSV format ("28-Sep-26"). */
     fun toCsvDate(isoDateStr: String): String {
@@ -72,19 +94,39 @@ object ExpiryDateUtils {
     }
 
     /**
-     * CSV date → ISO stored date. Accepts the canonical "28-Sep-26" form, and
-     * also tolerates a plain ISO date in case a file already uses it. Returns
-     * null if neither parses, so the importer can skip the row.
+     * Parses a date string from an imported CSV into the ISO form the app
+     * stores internally. Tries each format in [IMPORT_DATE_FORMATS]; also
+     * normalises the month casing (e.g. "SEP"/"sep" → "Sep") so case
+     * differences don't cause a skip. Returns null only if nothing matches.
      */
     fun fromCsvDate(csvDateStr: String): String? {
-        val trimmed = csvDateStr.trim()
-        // Try dd-MMM-yy first (the documented CSV format)
-        try {
-            return LocalDate.parse(trimmed, CSV_DATE_FMT).toString()
-        } catch (e: DateTimeParseException) {
-            // fall through
+        // Strip a possible UTF-8 BOM and surrounding whitespace/quotes.
+        val cleaned = csvDateStr
+            .replace("\uFEFF", "")
+            .trim()
+            .trim('"', '\'')
+        if (cleaned.isEmpty()) return null
+
+        // Title-case any 3+-letter month token so "SEP"/"sep" both work,
+        // since DateTimeFormatter month parsing is case-sensitive here.
+        val normalised = cleaned.split('-', '/', '.', ' ').joinToString(
+            separator = " "
+        ) { token ->
+            if (token.length >= 3 && token.any { it.isLetter() }) {
+                token.lowercase().replaceFirstChar { it.uppercase() }
+            } else token
         }
-        // Fall back to ISO (lenient — lets users import an ISO-dated file too)
-        return parseOrNull(trimmed)?.toString()
+
+        for (fmt in IMPORT_DATE_FORMATS) {
+            // Try both the original cleaned string and the month-normalised one.
+            for (candidate in listOf(cleaned, normalised)) {
+                try {
+                    return LocalDate.parse(candidate, fmt).toString()
+                } catch (e: DateTimeParseException) {
+                    // try next
+                }
+            }
+        }
+        return null
     }
 }
