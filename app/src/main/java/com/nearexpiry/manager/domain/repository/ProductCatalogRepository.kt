@@ -10,6 +10,13 @@ interface ProductCatalogRepository {
     suspend fun lookup(barcode: String): ProductInfo?
 
     /**
+     * Returns product info for a given POS/Item Code (column B), or null if
+     * it's not in the bundled catalog. Used by CSV import to fill in
+     * ITEM_DESCRIPTION/UOM when those columns are blank.
+     */
+    suspend fun lookupByItemCode(itemCode: String): ProductInfo?
+
+    /**
      * Looks up [barcode] via Open Food Facts (network call). Returns null on
      * any error or if the product isn't found / has no usable name. Purely
      * additive — never modifies local data on its own.

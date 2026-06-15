@@ -53,6 +53,26 @@ class ProductCatalogRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun lookupByItemCode(itemCode: String): ProductInfo? {
+        val entry = dao.findByPosCode(itemCode) ?: return null
+        val name = entry.nameEn?.takeIf { it.isNotBlank() }
+        val nameArabic = entry.nameAr?.takeIf { it.isNotBlank() }
+        if (name == null && nameArabic == null) return null
+
+        val unit = when (entry.barcodeType?.uppercase()) {
+            "EA", "POS" -> entry.uom?.takeIf { it.isNotBlank() } ?: entry.barcodeType
+            else         -> entry.barcodeType?.takeIf { it.isNotBlank() } ?: entry.uom
+        }
+
+        return ProductInfo(
+            barcode = entry.barcode,
+            name = name,
+            nameArabic = nameArabic,
+            unit = unit,
+            itemCode = entry.posCode?.takeIf { it.isNotBlank() } ?: itemCode
+        )
+    }
+
     override suspend fun lookupOnline(barcode: String): ProductInfo? =
         OpenFoodFactsApi.fetchProduct(barcode)
 

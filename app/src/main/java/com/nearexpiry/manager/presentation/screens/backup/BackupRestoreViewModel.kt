@@ -21,7 +21,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class BackupRestoreViewModel @Inject constructor(
-    private val repository: ExpiryRepository
+    private val repository: ExpiryRepository,
+    private val csvImporter: CsvImporter
 ) : ViewModel() {
 
     data class BackupUiState(
@@ -80,7 +81,7 @@ class BackupRestoreViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null, success = false, csvImportResult = null) }
             try {
                 val result = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    CsvImporter.parseCsv(inputStream)
+                    csvImporter.parseCsv(inputStream)
                 } ?: CsvImporter.ImportResult(emptyList(), 0, 0)
 
                 result.imported.forEach { repository.insertItem(it) }

@@ -37,6 +37,30 @@ class ProductCatalogDao @Inject constructor(
         }
     }
 
+    /**
+     * Looks up a product by its POS/Item Code (column B in the source
+     * spreadsheet) — used by CSV import to fill in ITEM_DESCRIPTION/UOM
+     * when those columns are blank in the import file.
+     *
+     * Same EA/POS/CTN preference ordering as [findByBarcode], since the
+     * same pos_code can also have multiple barcode_type rows.
+     */
+    suspend fun findByPosCode(posCode: String): ProductCatalogEntry? = withContext(Dispatchers.IO) {
+        val db = openHelper.openReadable()
+        db.query(
+            "products",
+            columns,
+            "pos_code = ?",
+            arrayOf(posCode),
+            null,
+            null,
+            "CASE barcode_type WHEN 'EA' THEN 0 WHEN 'POS' THEN 1 WHEN 'CTN' THEN 2 ELSE 3 END",
+            "1"
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.toProductCatalogEntry() else null
+        }
+    }
+
     private fun Cursor.toProductCatalogEntry(): ProductCatalogEntry = ProductCatalogEntry(
         barcode = getString(0),
         posCode = getStringOrNull(1),

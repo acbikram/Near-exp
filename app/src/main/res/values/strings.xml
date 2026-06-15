@@ -87,7 +87,7 @@
     <string name="processing">Processing…</string>
     <string name="operation_successful">Operation successful</string>
     <string name="import_csv">Import CSV (Stock-Take)</string>
-    <string name="import_csv_description">Bulk-add items from a CSV file (Barcode, ExpiryDate, Quantity required; ItemCode/ProductName/Unit optional). Existing records are kept — imported rows are added as new items.</string>
+    <string name="import_csv_description">Bulk-add items from a CSV file with columns: POS Code, ITEM_DESCRIPTION, UOM, Qty, Expiry Date. POS Code, Qty, and Expiry Date are required. ITEM_DESCRIPTION and UOM are optional — if blank, they\'re filled in from the product catalog by POS Code when available. Existing records are kept — imported rows are added as new items.</string>
     <string name="import_csv_result_format">Imported %1$d item(s), skipped %2$d invalid row(s)</string>
 
     <!-- ── Detail screen ──────────────────────────────────────────────── -->
