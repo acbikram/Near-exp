@@ -80,11 +80,38 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = false, csvImportResult = null) }
             try {
-                val result = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val parsed = context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     csvImporter.parseCsv(inputStream)
                 } ?: CsvImporter.ImportResult(emptyList(), 0, 0)
 
-                result.imported.forEach { repository.insertItem(it) }
+                // Merge rule: if an item with the same barcode (POS code) +
+                // expiry date + unit already exists (from a prior scan/import,
+                // or an earlier row in this same batch), add to its quantity
+                // instead of inserting a duplicate. Different unit → kept as a
+                // separate row (and flagged in exports via the warning column).
+                var mergedCount = 0
+                for (entity in parsed.imported) {
+                    val existing = repository.findByBarcodeExpiryUnit(
+                        entity.barcode, entity.expiryDate, entity.unit
+                    )
+                    if (existing != null) {
+                        repository.updateItem(
+                            existing.copy(
+                                quantity = existing.quantity + entity.quantity,
+                                updatedAt = System.currentTimeMillis(),
+                                // Backfill description/itemCode if the existing row lacked it.
+                                productName = existing.productName ?: entity.productName,
+                                productNameArabic = existing.productNameArabic ?: entity.productNameArabic,
+                                itemCode = existing.itemCode ?: entity.itemCode
+                            ).toEntity()
+                        )
+                        mergedCount++
+                    } else {
+                        repository.insertItem(entity)
+                    }
+                }
+
+                val result = parsed.copy(merged = mergedCount)
 
                 _uiState.update {
                     it.copy(isLoading = false, success = true, csvImportResult = result)

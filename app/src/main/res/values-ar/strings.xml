@@ -89,8 +89,8 @@
     <string name="operation_successful">تمت العملية بنجاح</string>
     <string name="import_csv">استيراد CSV (جرد المخزون)</string>
     <string name="import_csv_description">إضافة عناصر بشكل مجمّع من ملف CSV بالأعمدة: POS Code، ITEM_DESCRIPTION، UOM، Qty، Expiry Date. رمز الصنف (POS Code) والكمية وتاريخ الانتهاء مطلوبة. الوصف (ITEM_DESCRIPTION) والوحدة (UOM) اختياريان — إذا تُركا فارغين، يتم تعبئتهما من كتالوج المنتجات حسب رمز الصنف عند توفره. يتم الاحتفاظ بالسجلات الحالية — تُضاف الصفوف المستوردة كعناصر جديدة.</string>
-    <string name="import_csv_result_format">تم استيراد %1$d عنصر، تم تجاوز %2$d صف غير صالح</string>
-    <string name="import_csv_result_detail_format">تم استيراد %1$d، تم تجاوز %2$d (تاريخ خاطئ: %3$d، كمية خاطئة: %4$d، بدون رمز: %5$d)</string>
+    <string name="import_csv_result_format">تمت إضافة %1$d عنصر جديد، ودُمج %2$d مع الموجود</string>
+    <string name="import_csv_result_detail_format">أُضيف %1$d، دُمج %2$d، تم تجاوز %3$d (تاريخ خاطئ: %4$d، كمية خاطئة: %5$d، بدون رمز: %6$d)</string>
 
     <!-- ── شاشة التفاصيل ──────────────────────────────────────────────── -->
     <string name="item_details">تفاصيل الصنف</string>

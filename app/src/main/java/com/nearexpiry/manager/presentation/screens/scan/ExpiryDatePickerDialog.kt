@@ -41,7 +41,7 @@ private const val VISIBLE_ITEMS = 5          // must be odd
 private const val PADDING_ITEMS = VISIBLE_ITEMS / 2   // = 2
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Date range: today → end of month that is 4 months ahead
+// Date range: today → end of month that is 6 months ahead (7 months total).
 // All dates in this range are selectable; today is shown first.
 // ─────────────────────────────────────────────────────────────────────────────
 

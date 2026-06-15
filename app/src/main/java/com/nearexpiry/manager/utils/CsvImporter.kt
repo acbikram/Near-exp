@@ -45,7 +45,9 @@ class CsvImporter @Inject constructor(
         /** Per-reason skip counts, for surfacing *why* rows were skipped. */
         val skippedMissingPosCode: Int = 0,
         val skippedBadDate: Int = 0,
-        val skippedBadQty: Int = 0
+        val skippedBadQty: Int = 0,
+        /** How many parsed rows were merged into an existing item (same barcode+expiry+unit). */
+        val merged: Int = 0
     )
 
     suspend fun parseCsv(inputStream: InputStream): ImportResult {

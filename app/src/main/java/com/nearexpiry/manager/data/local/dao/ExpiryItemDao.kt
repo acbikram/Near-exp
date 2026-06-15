@@ -19,6 +19,18 @@ interface ExpiryItemDao {
     @Query("SELECT * FROM expiry_items WHERE barcode = :barcode AND expiryDate = :expiryDate LIMIT 1")
     suspend fun findByBarcodeAndExpiry(barcode: String, expiryDate: String): ExpiryItemEntity?
 
+    /**
+     * Finds an existing row with the same barcode, expiry date, AND unit
+     * (NULL-safe). Used by CSV import to merge truly-identical rows.
+     */
+    @Query("""
+        SELECT * FROM expiry_items
+        WHERE barcode = :barcode AND expiryDate = :expiryDate
+          AND ((unit IS NULL AND :unit IS NULL) OR unit = :unit)
+        LIMIT 1
+    """)
+    suspend fun findByBarcodeExpiryUnit(barcode: String, expiryDate: String, unit: String?): ExpiryItemEntity?
+
     @Insert
     suspend fun insert(item: ExpiryItemEntity): Long
 

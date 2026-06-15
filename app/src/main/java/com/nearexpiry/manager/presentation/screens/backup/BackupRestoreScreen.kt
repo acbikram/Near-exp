@@ -139,20 +139,21 @@ fun BackupRestoreScreen(
         LaunchedEffect(Unit) {
             scope.launch {
                 val message = if (csvResult != null) {
-                    if (csvResult.skipped > 0) {
-                        context.getString(
+                    val added = csvResult.imported.size - csvResult.merged
+                    when {
+                        csvResult.skipped > 0 -> context.getString(
                             R.string.import_csv_result_detail_format,
-                            csvResult.imported.size,
+                            added,
+                            csvResult.merged,
                             csvResult.skipped,
                             csvResult.skippedBadDate,
                             csvResult.skippedBadQty,
                             csvResult.skippedMissingPosCode
                         )
-                    } else {
-                        context.getString(
+                        else -> context.getString(
                             R.string.import_csv_result_format,
-                            csvResult.imported.size,
-                            csvResult.skipped
+                            added,
+                            csvResult.merged
                         )
                     }
                 } else {

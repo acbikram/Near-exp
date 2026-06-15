@@ -8,6 +8,7 @@ interface ExpiryRepository {
     fun getAllItems(): Flow<List<ExpiryItem>>
     suspend fun getItemById(id: Long): ExpiryItem?
     suspend fun findByBarcodeAndExpiry(barcode: String, expiryDate: String): ExpiryItem?
+    suspend fun findByBarcodeExpiryUnit(barcode: String, expiryDate: String, unit: String?): ExpiryItem?
     suspend fun insertItem(item: ExpiryItemEntity): Long
     suspend fun updateItem(item: ExpiryItemEntity)
     suspend fun deleteItem(item: ExpiryItem)
