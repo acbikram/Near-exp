@@ -49,7 +49,7 @@ private data class PickerRange(val min: LocalDate, val max: LocalDate)
 
 private fun buildRange(): PickerRange {
     val today = LocalDate.now()
-    val maxMonth = today.plusMonths(4)
+    val maxMonth = today.plusMonths(6)
     val max = YearMonth.of(maxMonth.year, maxMonth.month).atEndOfMonth()
     return PickerRange(min = today, max = max)
 }
