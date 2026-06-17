@@ -41,6 +41,9 @@
     <string name="retry">Retry</string>
     <string name="done">Done</string>
     <string name="year">Year</string>
+    <string name="month_label">Month</string>
+    <string name="day_label">Day</string>
+    <string name="invalid_date_message">Enter a valid date (year, month 1–12, day must exist in that month)</string>
 
     <!-- ── Bottom navigation ──────────────────────────────────────────── -->
     <string name="scan">Scan</string>

@@ -40,6 +40,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
+import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.scan.components.BarcodeScannerOverlay
 import com.nearexpiry.manager.presentation.screens.scan.components.ScannerInactiveOverlay
 import com.nearexpiry.manager.presentation.screens.scan.components.ScannerView
@@ -451,18 +452,24 @@ private fun ManualBarcodeInputBox(
             OutlinedTextField(
                 value = barcodeText,
                 onValueChange = { v ->
-                    // Only allow digits — no decimals, no letters
-                    if (v.all { it.isDigit() }) {
-                        barcodeText = v
-                        error = null
-                    }
+                    // Keep only the digit characters from whatever the IME sends.
+                    // Filtering (rather than rejecting the whole value when any
+                    // non-digit appears) is far more robust across keyboards —
+                    // some number pads emit transient/composing characters that
+                    // would otherwise cause the field to stay empty.
+                    val digitsOnly = v.filter { it.isDigit() }
+                    barcodeText = digitsOnly
+                    error = null
                 },
                 label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = { error?.let { Text(it, color = ErrorRed) } },
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,   // digits only — no decimal key
+                    // Digit pad; the digit-filtering in onValueChange handles any
+                    // stray characters, which is what makes entry reliable across
+                    // keyboards that previously left the field empty.
+                    keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = { handleDone() }),
@@ -555,10 +562,6 @@ private fun RecentScanCard(
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
                 }
-                Text(
-                    text = formatTimestamp(item.createdAt),
-                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
-                )
             }
             IconButton(onClick = onEdit) {
                 Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit), tint = CyanAccent, modifier = Modifier.size(20.dp))
@@ -596,12 +599,10 @@ private fun EditScanItemDialog(
                     Text(text = productName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
                 Text(text = stringResource(R.string.barcode_format, barcode), style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray))
-                OutlinedTextField(
+                ExpiryDateField(
                     value = expiryDate,
                     onValueChange = onExpiryDateChange,
-                    label = { Text(stringResource(R.string.expiry_date_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = qtyText,
@@ -622,7 +623,3 @@ private fun EditScanItemDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
-
-private fun formatTimestamp(timestamp: Long): String =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault()))

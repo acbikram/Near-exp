@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
 import com.nearexpiry.manager.utils.LanguageManager
 import kotlinx.coroutines.launch
@@ -89,10 +90,9 @@ fun DetailScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    OutlinedTextField(
+                    ExpiryDateField(
                         value = uiState.expiryDate,
                         onValueChange = viewModel::updateExpiryDate,
-                        label = { Text(stringResource(R.string.expiry_date_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isSaving
                     )

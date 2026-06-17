@@ -41,6 +41,9 @@
     <string name="retry">إعادة المحاولة</string>
     <string name="done">تم</string>
     <string name="year">السنة</string>
+    <string name="month_label">الشهر</string>
+    <string name="day_label">اليوم</string>
+    <string name="invalid_date_message">أدخل تاريخاً صحيحاً (سنة، شهر ١٢–١، ويوم موجود في ذلك الشهر)</string>
 
     <!-- ── شريط التنقل السفلي ─────────────────────────────────────────── -->
     <string name="scan">مسح</string>

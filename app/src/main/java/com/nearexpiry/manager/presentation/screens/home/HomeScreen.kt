@@ -351,15 +351,6 @@ fun RecentItemCard(item: com.nearexpiry.manager.domain.model.ExpiryItem, onClick
                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )
             }
-            Text(
-                text = stringResource(R.string.scanned_format, formatTimestamp(item.createdAt)),
-                style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
-            )
         }
     }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault()))
 }
