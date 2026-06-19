@@ -1,0 +1,5 @@
+
+# Signing keystores (never commit private keys)
+*.jks
+*.keystore
+release.jks

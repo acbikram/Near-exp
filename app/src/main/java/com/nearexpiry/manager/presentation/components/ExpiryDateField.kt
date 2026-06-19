@@ -13,65 +13,70 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
-import androidx.compose.ui.res.stringResource
 import java.time.YearMonth
 
 /**
  * Edits an expiry date strictly in the stored "yyyy-MM-dd" format.
  *
- * Three separate numeric fields (Year / Month / Day) with fixed "-"
- * separators between them, so the separators can never be deleted or
- * mistyped. Each field accepts digits only and is range-validated:
- *  • year  : 4 digits, clamped to a sane window
- *  • month : 1–12
- *  • day   : 1–(last day of that month/year, leap-aware)
+ * Three numeric fields (Year / Month / Day) with fixed "-" separators, so the
+ * separators can't be deleted or mistyped. Each field is digits-only and
+ * range-validated:
+ *  - year  : 4 digits
+ *  - month : 1-12
+ *  - day   : 1-(last real day of that month/year, leap-aware)
  *
- * The combined value is reported via [onValueChange] only when all three
- * parts form a real calendar date; otherwise [isError] is surfaced and the
- * parent keeps the previous valid value.
+ * IMPORTANT: the three fields are the single source of truth while editing.
+ * The local state is seeded ONCE from the initial [value] and is NOT
+ * re-synced when the parent echoes a new value back through [onValueChange]
+ * - re-syncing on every keystroke is what made the field fight the user.
+ * [onValueChange] is fired with a full "yyyy-MM-dd" only when all three parts
+ * form a real date, and with "" whenever the date is incomplete/invalid so
+ * the parent can disable Save.
  */
 @Composable
 fun ExpiryDateField(
-    value: String,                 // current stored value "yyyy-MM-dd" (may be blank)
+    value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    // Split the incoming value once into editable parts.
-    val parts = remember(value) { splitDate(value) }
-    var year by remember(value) { mutableStateOf(parts[0]) }
-    var month by remember(value) { mutableStateOf(parts[1]) }
-    var day by remember(value) { mutableStateOf(parts[2]) }
+    // Seed ONCE from the initial value. rememberSaveable (no value key) keeps
+    // these stable across recompositions and config changes, so the parent's
+    // echoed value never resets what the user is typing.
+    val initial = remember { splitDate(value) }
+    var year by rememberSaveable { mutableStateOf(initial[0]) }
+    var month by rememberSaveable { mutableStateOf(initial[1]) }
+    var day by rememberSaveable { mutableStateOf(initial[2]) }
 
-    fun pushIfValid() {
-        val y = year.toIntOrNull()
-        val m = month.toIntOrNull()
-        val d = day.toIntOrNull()
-        if (y != null && m != null && d != null &&
-            year.length == 4 && m in 1..12
-        ) {
-            val maxDay = runCatching { YearMonth.of(y, m).lengthOfMonth() }.getOrDefault(31)
-            if (d in 1..maxDay) {
-                onValueChange("%04d-%02d-%02d".format(y, m, d))
-            }
-        }
-    }
-
+    // Derived validity for the CURRENT field contents.
     val y = year.toIntOrNull()
     val m = month.toIntOrNull()
-    val d = day.toIntOrNull()
-    val maxDayForState = if (y != null && m != null && m in 1..12)
+    val maxDay = if (y != null && m != null && m in 1..12)
         runCatching { YearMonth.of(y, m).lengthOfMonth() }.getOrDefault(31) else 31
+    val d = day.toIntOrNull()
+
     val yearOk = year.length == 4 && y != null
     val monthOk = m != null && m in 1..12
-    val dayOk = d != null && d in 1..maxDayForState
+    val dayOk = d != null && d in 1..maxDay
     val allValid = yearOk && monthOk && dayOk
+
+    // Push the combined result up. Emits a full date when valid, otherwise ""
+    // so the parent knows it's not yet savable.
+    fun emit() {
+        if (yearOk && monthOk && dayOk) {
+            onValueChange("%04d-%02d-%02d".format(y, m, d))
+        } else {
+            onValueChange("")
+        }
+    }
 
     Column(modifier = modifier) {
         Text(
@@ -79,33 +84,33 @@ fun ExpiryDateField(
             style = MaterialTheme.typography.labelMedium
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Year (4 digits)
             OutlinedTextField(
                 value = year,
                 onValueChange = { input ->
-                    val digits = input.filter { it.isDigit() }.take(4)
-                    year = digits
-                    pushIfValid()
+                    year = input.filter { it.isDigit() }.take(4)
+                    emit()
                 },
                 label = { Text(stringResource(R.string.year)) },
                 singleLine = true,
                 isError = year.isNotEmpty() && !yearOk,
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp)
+                modifier = Modifier.width(104.dp)
             )
             Text("-", modifier = Modifier.padding(horizontal = 6.dp), style = MaterialTheme.typography.titleLarge)
-            // Month (01–12)
             OutlinedTextField(
                 value = month,
                 onValueChange = { input ->
                     val digits = input.filter { it.isDigit() }.take(2)
-                    // Reject out-of-range months as they're typed.
                     val v = digits.toIntOrNull()
+                    // Allow empty or anything that can still become 1-12.
                     if (digits.isEmpty() || (v != null && v <= 12)) {
                         month = digits
-                        // Day might now be invalid for the new month → re-clamp on push.
-                        pushIfValid()
+                        // If the day now exceeds the new month's length, trim it.
+                        val newMax = if (y != null && v != null && v in 1..12)
+                            runCatching { YearMonth.of(y, v).lengthOfMonth() }.getOrDefault(31) else 31
+                        if ((day.toIntOrNull() ?: 0) > newMax) day = newMax.toString()
+                        emit()
                     }
                 },
                 label = { Text(stringResource(R.string.month_label)) },
@@ -113,18 +118,17 @@ fun ExpiryDateField(
                 isError = month.isNotEmpty() && !monthOk,
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(72.dp)
+                modifier = Modifier.width(80.dp)
             )
             Text("-", modifier = Modifier.padding(horizontal = 6.dp), style = MaterialTheme.typography.titleLarge)
-            // Day (01–lastDayOfMonth)
             OutlinedTextField(
                 value = day,
                 onValueChange = { input ->
                     val digits = input.filter { it.isDigit() }.take(2)
                     val v = digits.toIntOrNull()
-                    if (digits.isEmpty() || (v != null && v <= maxDayForState)) {
+                    if (digits.isEmpty() || (v != null && v <= maxDay)) {
                         day = digits
-                        pushIfValid()
+                        emit()
                     }
                 },
                 label = { Text(stringResource(R.string.day_label)) },
@@ -132,7 +136,7 @@ fun ExpiryDateField(
                 isError = day.isNotEmpty() && !dayOk,
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(72.dp)
+                modifier = Modifier.width(80.dp)
             )
         }
         if (!allValid && (year.isNotEmpty() || month.isNotEmpty() || day.isNotEmpty())) {

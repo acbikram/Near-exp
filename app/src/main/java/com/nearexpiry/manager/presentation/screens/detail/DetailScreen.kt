@@ -115,7 +115,7 @@ fun DetailScreen(
                         Button(
                             onClick = { viewModel.saveChanges() },
                             modifier = Modifier.weight(1f),
-                            enabled = !uiState.isSaving && uiState.quantityError == null
+                            enabled = !uiState.isSaving && uiState.quantityError == null && uiState.expiryDate.isNotBlank()
                         ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp))

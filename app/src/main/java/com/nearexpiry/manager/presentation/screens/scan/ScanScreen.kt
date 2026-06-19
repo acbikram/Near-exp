@@ -619,7 +619,11 @@ private fun EditScanItemDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.save), color = GreenAccent) } },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = expiryDate.isNotBlank()) {
+                Text(stringResource(R.string.save), color = GreenAccent)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

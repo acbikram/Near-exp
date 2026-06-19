@@ -20,13 +20,41 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release signing. The keystore + passwords come from environment
+    // variables that the GitHub Actions workflow populates from repo secrets
+    // (KEYSTORE_BASE64 is decoded to release.jks before the build). When those
+    // env vars are absent (e.g. a local debug build with no secrets), this
+    // config is left unconfigured and the release build falls back to the
+    // default debug signing, so local builds still work.
+    val keystoreFile = rootProject.file("release.jks")
+    val hasReleaseKeystore = keystoreFile.exists() &&
+        !System.getenv("KEYSTORE_PASSWORD").isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // Keep minify OFF: avoids ProGuard/R8 stripping reflection-based
+            // code (Hilt/Room/serialization) at runtime on sideloaded builds.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Use the fixed release key when available, so every CI build is
+            // signed identically and installs as an in-place update.
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
