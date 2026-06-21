@@ -55,6 +55,14 @@ fun BackupRestoreScreen(
         }
     }
 
+    val catalogUpdateLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.updateCatalog(context, uri)
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.backup_restore)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -97,6 +105,21 @@ fun BackupRestoreScreen(
                 ) {
                     Text(stringResource(R.string.import_csv))
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Text(
+                    stringResource(R.string.update_catalog_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = { catalogUpdateLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(stringResource(R.string.update_catalog))
+                }
             }
 
             if (uiState.isLoading) {
@@ -136,28 +159,32 @@ fun BackupRestoreScreen(
 
     if (uiState.success) {
         val csvResult = uiState.csvImportResult
+        val catalogCount = uiState.catalogUpdateCount
         LaunchedEffect(Unit) {
             scope.launch {
-                val message = if (csvResult != null) {
-                    val added = csvResult.imported.size - csvResult.merged
-                    when {
-                        csvResult.skipped > 0 -> context.getString(
-                            R.string.import_csv_result_detail_format,
-                            added,
-                            csvResult.merged,
-                            csvResult.skipped,
-                            csvResult.skippedBadDate,
-                            csvResult.skippedBadQty,
-                            csvResult.skippedMissingPosCode
-                        )
-                        else -> context.getString(
-                            R.string.import_csv_result_format,
-                            added,
-                            csvResult.merged
-                        )
+                val message = when {
+                    catalogCount != null ->
+                        context.getString(R.string.update_catalog_result_format, catalogCount)
+                    csvResult != null -> {
+                        val added = csvResult.imported.size - csvResult.merged
+                        when {
+                            csvResult.skipped > 0 -> context.getString(
+                                R.string.import_csv_result_detail_format,
+                                added,
+                                csvResult.merged,
+                                csvResult.skipped,
+                                csvResult.skippedBadDate,
+                                csvResult.skippedBadQty,
+                                csvResult.skippedMissingPosCode
+                            )
+                            else -> context.getString(
+                                R.string.import_csv_result_format,
+                                added,
+                                csvResult.merged
+                            )
+                        }
                     }
-                } else {
-                    operationSuccessMsg
+                    else -> operationSuccessMsg
                 }
                 snackbarHostState.showSnackbar(message)
                 viewModel.resetSuccess()

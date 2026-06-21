@@ -87,4 +87,9 @@ class ProductCatalogRepositoryImpl @Inject constructor(
             )
         )
     }
+
+    override suspend fun updateCatalog(inputStream: java.io.InputStream): Int =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            dao.importCatalog(inputStream)
+        }
 }

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class BackupRestoreViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val csvImporter: CsvImporter,
+    private val catalogRepository: ProductCatalogRepository,
     private val activeProjectManager: ActiveProjectManager
 ) : ViewModel() {
 
@@ -31,7 +33,9 @@ class BackupRestoreViewModel @Inject constructor(
         val error: String? = null,
         val success: Boolean = false,
         /** Set after a successful CSV import; null otherwise. */
-        val csvImportResult: CsvImporter.ImportResult? = null
+        val csvImportResult: CsvImporter.ImportResult? = null,
+        /** Product count after a successful catalog update; null otherwise. */
+        val catalogUpdateCount: Int? = null
     )
 
     private val _uiState = MutableStateFlow(BackupUiState())
@@ -129,11 +133,30 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Replaces the bundled product catalog from a user-selected CSV or
+     * products.db file. On success, [BackupUiState.catalogUpdateCount] holds
+     * the new product count.
+     */
+    fun updateCatalog(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false, catalogUpdateCount = null) }
+            try {
+                val count = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    catalogRepository.updateCatalog(inputStream)
+                } ?: 0
+                _uiState.update { it.copy(isLoading = false, success = true, catalogUpdateCount = count) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Catalog update failed") }
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
     fun resetSuccess() {
-        _uiState.update { it.copy(success = false, csvImportResult = null) }
+        _uiState.update { it.copy(success = false, csvImportResult = null, catalogUpdateCount = null) }
     }
 }

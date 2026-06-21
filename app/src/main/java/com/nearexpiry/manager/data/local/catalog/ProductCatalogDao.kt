@@ -61,6 +61,9 @@ class ProductCatalogDao @Inject constructor(
         }
     }
 
+    /** Read-only handle to the product catalog. Safe to call from a background thread. */
+    fun importCatalog(input: java.io.InputStream): Int = openHelper.importCatalog(input)
+
     private fun Cursor.toProductCatalogEntry(): ProductCatalogEntry = ProductCatalogEntry(
         barcode = getString(0),
         posCode = getStringOrNull(1),

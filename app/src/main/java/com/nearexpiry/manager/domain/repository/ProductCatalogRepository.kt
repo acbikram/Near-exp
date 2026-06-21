@@ -28,4 +28,10 @@ interface ProductCatalogRepository {
      * the same barcode resolve via [lookup] without another network call.
      */
     suspend fun saveCustomProduct(info: ProductInfo)
+
+    /**
+     * Replaces the bundled product catalog with a user-provided CSV or
+     * products.db file. Returns the number of products afterwards.
+     */
+    suspend fun updateCatalog(inputStream: java.io.InputStream): Int
 }
