@@ -29,8 +29,11 @@ class HomeViewModel @Inject constructor(
         val expiredCount: Int = 0,
         val expiringIn7Days: Int = 0,
         val expiringIn30Days: Int = 0,
-        val recentItems: List<ExpiryItem> = emptyList(),
+        /** All items expiring within 3 days from today (incl. already expired), soonest first. */
+        val expiringSoonItems: List<ExpiryItem> = emptyList(),
         val activeProjectName: String = "",
+        /** Colour tag of the active project (hex), used to tint the dashboard project name. */
+        val activeProjectColorHex: String = "",
         val error: String? = null
     )
 
@@ -45,8 +48,13 @@ class HomeViewModel @Inject constructor(
     private fun observeActiveProjectName() {
         viewModelScope.launch {
             activeProjectManager.activeProjectIdFlow.collect { id ->
-                val name = projectRepository.getProjectById(id)?.name ?: ""
-                _uiState.update { it.copy(activeProjectName = name) }
+                val project = projectRepository.getProjectById(id)
+                _uiState.update {
+                    it.copy(
+                        activeProjectName = project?.name ?: "",
+                        activeProjectColorHex = project?.colorHex ?: ""
+                    )
+                }
             }
         }
     }
@@ -77,7 +85,11 @@ class HomeViewModel @Inject constructor(
                         ExpiryDateUtils.isExpiringWithin(it.expiryDate, 30, today)
                     }
 
-                    val recentItems = allItems.sortedByDescending { it.createdAt }.take(5)
+                    // Items expiring within 3 days from today (includes any
+                    // already-expired), soonest expiry first.
+                    val expiringSoonItems = allItems
+                        .filter { ExpiryDateUtils.isExpiringWithin(it.expiryDate, 3, today) }
+                        .sortedBy { ExpiryDateUtils.parseOrNull(it.expiryDate) }
 
                     _uiState.update {
                         it.copy(
@@ -87,7 +99,7 @@ class HomeViewModel @Inject constructor(
                             expiredCount = expiredCount,
                             expiringIn7Days = expiringIn7Days,
                             expiringIn30Days = expiringIn30Days,
-                            recentItems = recentItems,
+                            expiringSoonItems = expiringSoonItems,
                             error = null
                         )
                     }

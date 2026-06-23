@@ -120,10 +120,14 @@ fun HomeScreen(
                             )
                         )
                         if (uiState.activeProjectName.isNotBlank()) {
+                            val projectColor = remember(uiState.activeProjectColorHex) {
+                                runCatching { Color(android.graphics.Color.parseColor(uiState.activeProjectColorHex)) }
+                                    .getOrDefault(OrangeAccent)
+                            }
                             Text(
                                 text = uiState.activeProjectName,
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    color = OrangeAccent,
+                                    color = projectColor,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             )
@@ -209,9 +213,9 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Recent scans section header (fixed, doesn't scroll) ──────────
+            // ── "Expiring in 3 Days" section header (fixed, doesn't scroll) ──
             Text(
-                text = stringResource(R.string.recent_scans),
+                text = stringResource(R.string.expiring_in_3_days),
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = CyanAccent,
                     fontWeight = FontWeight.Bold
@@ -220,7 +224,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Recent scans list — only this part scrolls ───────────────────
+            // ── Expiring-soon list — only this part scrolls ──────────────────
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -228,19 +232,19 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(uiState.recentItems) { item ->
+                items(uiState.expiringSoonItems) { item ->
                     RecentItemCard(
                         item = item,
                         onClick = { navController.navigate(Screen.Detail.passId(item.id)) }
                     )
                 }
-                if (uiState.recentItems.isEmpty()) {
+                if (uiState.expiringSoonItems.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(stringResource(R.string.no_recent_items), style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.no_items_expiring_soon), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
