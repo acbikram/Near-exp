@@ -9,14 +9,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Opens the read-only product catalog database that ships as an asset
- * (`app/src/main/assets/products.db`, built from Price_Tag_Master_CTN.xlsx,
- * ~135,725 products keyed by barcode).
+ * Manages the product catalog SQLite database.
  *
- * SQLite can't query a database directly inside the APK's assets, so on
- * first use we copy it into the app's databases directory. If you replace
- * `products.db` with an updated export later, bump [CATALOG_VERSION] so the
- * new copy gets picked up on the next app start.
+ * The catalog is NO LONGER bundled in the APK. The app starts with an empty
+ * `products` table; the user populates it by either:
+ *   • Settings → Backup & Restore → "Update Product Catalog" (CSV or .db), or
+ *   • Settings → Backup & Restore → "Get latest catalog from PC (WiFi)".
+ *
+ * Removing the bundled products.db drops the APK size dramatically.
+ *
+ * Schema (matches what Price_Tag_Final.py writes via export_master_to_mobile_db):
+ *   TABLE products (barcode TEXT NOT NULL, pos_code TEXT, name_en TEXT,
+ *                   name_ar TEXT, uom TEXT, barcode_type TEXT)
+ *   INDEX idx_products_barcode ON products(barcode)
  */
 @Singleton
 class ProductCatalogOpenHelper @Inject constructor(
@@ -25,54 +30,44 @@ class ProductCatalogOpenHelper @Inject constructor(
 
     companion object {
         private const val DB_NAME = "products.db"
-        private const val ASSET_PATH = "products.db"
-
-        // Internal SQLiteOpenHelper version - unrelated to CATALOG_VERSION below.
         private const val SQLITE_VERSION = 1
-
-        // Bump this whenever you ship a new products.db asset so the copy
-        // in app storage gets refreshed.
-        private const val CATALOG_VERSION = 1
-
-        // Written into the version file after a user imports their own catalog,
-        // so the bundled asset never overwrites it on a later launch.
-        private const val USER_IMPORTED_MARKER = "user-imported"
     }
 
     private val dbFile: File by lazy { context.getDatabasePath(DB_NAME) }
-    private val versionFile: File by lazy { File(dbFile.parentFile, "$DB_NAME.catalog_version") }
-
-    init {
-        copyDatabaseIfNeeded()
-    }
-
-    @Synchronized
-    private fun copyDatabaseIfNeeded() {
-        val currentMarker = versionFile.takeIf { it.exists() }?.readText()?.trim()
-        // Never overwrite a catalog the user imported themselves.
-        if (dbFile.exists() && currentMarker == USER_IMPORTED_MARKER) return
-        val currentVersion = currentMarker?.toIntOrNull()
-        if (dbFile.exists() && currentVersion == CATALOG_VERSION) return
-
-        dbFile.parentFile?.mkdirs()
-        context.assets.open(ASSET_PATH).use { input ->
-            dbFile.outputStream().use { output -> input.copyTo(output) }
-        }
-        versionFile.writeText(CATALOG_VERSION.toString())
-    }
 
     /** Read-only handle to the product catalog. Safe to call from a background thread. */
     fun openReadable(): SQLiteDatabase = readableDatabase
 
+    override fun onCreate(db: SQLiteDatabase) {
+        // Start with an empty catalog; lookups return null gracefully until
+        // the user imports one.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS products (" +
+                "barcode TEXT NOT NULL, pos_code TEXT, name_en TEXT, " +
+                "name_ar TEXT, uom TEXT, barcode_type TEXT)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)")
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // No-op: catalog refreshes happen via importCatalog().
+    }
+
+    /** Number of products currently in the catalog (0 if empty/missing). */
+    fun countProducts(): Int = try {
+        openReadable().rawQuery("SELECT COUNT(*) FROM products", null).use { c ->
+            if (c.moveToFirst()) c.getInt(0) else 0
+        }
+    } catch (_: Exception) { 0 }
+
+    fun isEmpty(): Boolean = countProducts() == 0
+
     /**
-     * Replaces the catalog contents from a user-provided file so products can
-     * be refreshed without rebuilding the app. Accepts either:
+     * Replaces the catalog contents from a user-provided file. Accepts either:
      *   • a CSV exported from the master — columns matched by header name:
-     *     Barcode, Pos Code, English Desc, [Arabic Desc], Prm Uom, Barcode Type
-     *     (header names are flexible; see [csvColumnIndex]), or
+     *     Barcode, Pos Code, English Desc, [Arabic Desc], Prm Uom, Barcode Type, or
      *   • a prebuilt products.db SQLite file (swapped in directly).
-     * Returns the number of products afterwards. Throws on an Excel/.xlsx file
-     * (the user must export it as CSV first).
+     * Returns the number of products afterwards. Throws on an Excel/.xlsx file.
      */
     @Synchronized
     fun importCatalog(rawInput: java.io.InputStream): Int {
@@ -115,23 +110,18 @@ class ProductCatalogOpenHelper @Inject constructor(
             tmp.copyTo(dbFile, overwrite = true)
             tmp.delete()
         }
-        // Mark the on-disk copy as user-supplied so the bundled asset doesn't
-        // overwrite it on next launch.
-        versionFile.writeText(USER_IMPORTED_MARKER)
         return count
     }
 
     /**
      * Rebuilds the `products` table from a CSV. Existing rows are cleared and
-     * replaced. Header names are matched case-insensitively and flexibly so
-     * exports with slightly different column titles still work.
+     * replaced. Header names are matched case-insensitively and flexibly.
      */
     private fun replaceWithCsv(input: java.io.InputStream): Int {
         val reader = input.bufferedReader(Charsets.UTF_8)
         val lines = reader.readLines()
         if (lines.isEmpty()) throw IllegalArgumentException("The CSV file is empty.")
 
-        // Strip a UTF-8 BOM from the header line if present.
         val headerLine = lines.first().removePrefix("\uFEFF")
         val header = parseCsvLine(headerLine).map { it.trim().lowercase() }
 
@@ -177,7 +167,6 @@ class ProductCatalogOpenHelper @Inject constructor(
         } finally {
             db.endTransaction()
         }
-        versionFile.writeText(USER_IMPORTED_MARKER)
         return count
     }
 
@@ -185,7 +174,6 @@ class ProductCatalogOpenHelper @Inject constructor(
         if (value.isNullOrEmpty()) stmt.bindNull(index) else stmt.bindString(index, value)
     }
 
-    /** Returns the index of the first header matching any of [names], or -1. */
     private fun csvColumnIndex(header: List<String>, vararg names: String): Int {
         for (name in names) {
             val idx = header.indexOf(name.lowercase())
@@ -204,7 +192,7 @@ class ProductCatalogOpenHelper @Inject constructor(
             val c = line[i]
             when {
                 c == '"' && inQuotes && i + 1 < line.length && line[i + 1] == '"' -> {
-                    sb.append('"'); i++   // escaped quote
+                    sb.append('"'); i++
                 }
                 c == '"' -> inQuotes = !inQuotes
                 c == ',' && !inQuotes -> { result.add(sb.toString()); sb.setLength(0) }
@@ -214,13 +202,5 @@ class ProductCatalogOpenHelper @Inject constructor(
         }
         result.add(sb.toString())
         return result
-    }
-
-    override fun onCreate(db: SQLiteDatabase) {
-        // No-op: the database is fully pre-populated and copied from assets above.
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // No-op: catalog refreshes are handled via copyDatabaseIfNeeded()/CATALOG_VERSION.
     }
 }

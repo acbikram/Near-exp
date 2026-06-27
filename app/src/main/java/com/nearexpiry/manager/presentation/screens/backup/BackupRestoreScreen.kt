@@ -120,6 +120,42 @@ fun BackupRestoreScreen(
                 ) {
                     Text(stringResource(R.string.update_catalog))
                 }
+
+                // ── Get latest catalog from PC over WiFi ─────────────────────
+                val wifiBusy = uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DISCOVERING ||
+                    uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING
+                Button(
+                    onClick = { viewModel.pullCatalogFromPc() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading && !wifiBusy
+                ) {
+                    Text(
+                        when (uiState.wifiState) {
+                            BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
+                            BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
+                            else -> stringResource(R.string.get_catalog_wifi)
+                        }
+                    )
+                }
+                if (wifiBusy) {
+                    if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING && uiState.wifiProgress > 0f) {
+                        LinearProgressIndicator(
+                            progress = { uiState.wifiProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                if (uiState.wifiStatus.isNotBlank()) {
+                    Text(
+                        uiState.wifiStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.ERROR)
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             if (uiState.isLoading) {
