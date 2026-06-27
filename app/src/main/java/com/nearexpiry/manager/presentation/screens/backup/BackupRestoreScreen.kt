@@ -37,11 +37,19 @@ fun BackupRestoreScreen(
         }
     }
 
+    val backupAllLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.backupAllProjects(context, uri)
+        }
+    }
+
     val restoreLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            viewModel.restoreFromUri(context, uri)
+            viewModel.restoreSmart(context, uri)
         }
     }
 
@@ -84,6 +92,13 @@ fun BackupRestoreScreen(
                     Text(stringResource(R.string.backup_database))
                 }
                 Button(
+                    onClick = { backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(stringResource(R.string.backup_all_projects))
+                }
+                Button(
                     onClick = { restoreLauncher.launch(arrayOf("application/json")) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
@@ -107,6 +122,19 @@ fun BackupRestoreScreen(
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // ── Catalog status indicator ─────────────────────────────────
+                Text(
+                    text = if (uiState.catalogCount > 0)
+                        stringResource(R.string.catalog_status_count, uiState.catalogCount)
+                    else
+                        stringResource(R.string.catalog_status_empty),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (uiState.catalogCount > 0)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                )
 
                 Text(
                     stringResource(R.string.update_catalog_description),

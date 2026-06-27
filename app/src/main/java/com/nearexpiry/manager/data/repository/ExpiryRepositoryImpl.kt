@@ -32,10 +32,6 @@ class ExpiryRepositoryImpl @Inject constructor(
         return dao.getItemById(id)?.toDomain()
     }
 
-    override suspend fun findByBarcodeAndExpiry(projectId: Long, barcode: String, expiryDate: String): ExpiryItem? {
-        return dao.findByBarcodeAndExpiry(projectId, barcode, expiryDate)?.toDomain()
-    }
-
     override suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
         return dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
     }

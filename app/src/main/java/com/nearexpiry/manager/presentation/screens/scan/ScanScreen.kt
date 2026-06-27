@@ -8,6 +8,10 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -226,6 +230,7 @@ fun ScanScreen(
                     uiState.showManualMode -> {
                         ManualBarcodeInputBox(
                             onBarcodeEntered = { viewModel.onManualBarcodeEntered(it) },
+                            onSearchByName   = { viewModel.openCatalogSearch() },
                             onDismiss        = { viewModel.exitManualMode() },
                             modifier         = Modifier.fillMaxSize()
                         )
@@ -338,6 +343,16 @@ fun ScanScreen(
     }
 
     // ── Dialogs ───────────────────────────────────────────────────────────
+    if (uiState.showCatalogSearch) {
+        CatalogSearchDialog(
+            query = uiState.catalogSearchQuery,
+            results = uiState.catalogSearchResults,
+            onQueryChange = { viewModel.onCatalogSearchQueryChange(it) },
+            onSelect = { viewModel.onCatalogProductSelected(it) },
+            onDismiss = { viewModel.dismissCatalogSearch() }
+        )
+    }
+
     if (uiState.showExpiryDialog) {
         ExpiryDatePickerDialog(
             onDateSelected = { date -> viewModel.onExpiryDateSelected(date) },
@@ -407,6 +422,7 @@ fun ScanScreen(
 @Composable
 private fun ManualBarcodeInputBox(
     onBarcodeEntered: (String) -> Unit,
+    onSearchByName: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -484,6 +500,13 @@ private fun ManualBarcodeInputBox(
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
             )
+            // Search the catalog by product name/POS code when a barcode won't scan.
+            TextButton(onClick = {
+                keyboardController?.hide()
+                onSearchByName()
+            }) {
+                Text(stringResource(R.string.search_by_name), color = CyanAccent)
+            }
             // No Save button — Enter/Done on the number pad is the only way to submit.
             // A Cancel link lets the user go back to camera mode.
             TextButton(onClick = {
@@ -624,6 +647,66 @@ private fun EditScanItemDialog(
                 Text(stringResource(R.string.save), color = GreenAccent)
             }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+}
+
+// ── Catalog name-search dialog (manual entry by product name) ──────────────
+
+@Composable
+private fun CatalogSearchDialog(
+    query: String,
+    results: List<com.nearexpiry.manager.domain.model.ProductInfo>,
+    onQueryChange: (String) -> Unit,
+    onSelect: (com.nearexpiry.manager.domain.model.ProductInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.search_by_name)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    label = { Text(stringResource(R.string.search_name_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                if (query.trim().length >= 2 && results.isEmpty()) {
+                    Text(
+                        stringResource(R.string.no_catalog_matches),
+                        style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                    )
+                }
+                LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                    items(results) { product ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(product) }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Text(
+                                product.name ?: product.nameArabic ?: product.barcode,
+                                style = MaterialTheme.typography.titleSmall.copy(color = Color.White)
+                            )
+                            val sub = listOfNotNull(
+                                product.itemCode?.takeIf { it.isNotBlank() }?.let { "POS $it" },
+                                product.unit?.takeIf { it.isNotBlank() },
+                                product.barcode.takeIf { it.isNotBlank() }
+                            ).joinToString(" · ")
+                            if (sub.isNotBlank()) {
+                                Text(sub, style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray))
+                            }
+                        }
+                        HorizontalDivider(color = SubtleGray.copy(alpha = 0.2f))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.screens.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
@@ -76,7 +77,11 @@ class HistoryViewModel @Inject constructor(
         /** Target chosen but awaiting Add/Replace choice because of a collision. */
         val pendingTargetProjectId: Long? = null,
         /** One-shot message after a copy/move completes, e.g. "Moved 5, merged 2". */
-        val copyMoveResult: String? = null
+        val copyMoveResult: String? = null,
+        /** Items just deleted, kept briefly so the user can Undo. Null = nothing to undo. */
+        val undoDeleteItems: List<ExpiryItem>? = null,
+        /** One-shot count to show in the Undo snackbar. */
+        val undoDeleteCount: Int = 0
     )
 
     enum class ProjectAction { COPY, MOVE }
@@ -343,12 +348,16 @@ class HistoryViewModel @Inject constructor(
     fun confirmDeleteSelected() {
         viewModelScope.launch {
             val ids = _uiState.value.selectedIds.toList()
+            // Snapshot the rows before deleting so the user can Undo.
+            val deleted = _uiState.value.allItems.filter { it.id in ids }
             repository.deleteItemsByIds(ids)
             _uiState.update {
                 it.copy(
                     showDeleteSelectedConfirm = false,
                     selectionMode = false,
-                    selectedIds = emptySet()
+                    selectedIds = emptySet(),
+                    undoDeleteItems = deleted,
+                    undoDeleteCount = deleted.size
                 )
             }
         }
@@ -368,16 +377,34 @@ class HistoryViewModel @Inject constructor(
 
     fun confirmDeleteFilter() {
         viewModelScope.launch {
-            val ids = _uiState.value.itemsInFilter.map { it.id }
+            val itemsToDelete = _uiState.value.itemsInFilter
+            val ids = itemsToDelete.map { it.id }
             repository.deleteItemsByIds(ids)
             _uiState.update {
                 it.copy(
                     showDeleteFilterConfirm = false,
                     selectionMode = false,
-                    selectedIds = emptySet()
+                    selectedIds = emptySet(),
+                    undoDeleteItems = itemsToDelete,
+                    undoDeleteCount = itemsToDelete.size
                 )
             }
         }
+    }
+
+    /** Re-inserts the most recently deleted items (Undo). */
+    fun undoDelete() {
+        val items = _uiState.value.undoDeleteItems ?: return
+        viewModelScope.launch {
+            // Re-insert as fresh rows (id = 0 → Room assigns new ids); all other
+            // data (project, qty, expiry, names, unit) is preserved.
+            items.forEach { repository.insertItem(it.toEntity().copy(id = 0)) }
+            _uiState.update { it.copy(undoDeleteItems = null, undoDeleteCount = 0) }
+        }
+    }
+
+    fun clearUndoDelete() {
+        _uiState.update { it.copy(undoDeleteItems = null, undoDeleteCount = 0) }
     }
 
     // ── Copy / Move selected items to another project ──────────────────────

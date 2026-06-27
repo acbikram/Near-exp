@@ -92,4 +92,29 @@ class ProductCatalogRepositoryImpl @Inject constructor(
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             dao.importCatalog(inputStream)
         }
+
+    override suspend fun catalogProductCount(): Int =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            dao.countProducts()
+        }
+
+    override suspend fun searchCatalog(query: String): List<ProductInfo> =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            dao.search(query).mapNotNull { entry ->
+                val name = entry.nameEn?.takeIf { it.isNotBlank() }
+                val nameArabic = entry.nameAr?.takeIf { it.isNotBlank() }
+                if (name == null && nameArabic == null) return@mapNotNull null
+                val unit = when (entry.barcodeType?.uppercase()) {
+                    "EA", "POS" -> entry.uom?.takeIf { it.isNotBlank() } ?: entry.barcodeType
+                    else         -> entry.barcodeType?.takeIf { it.isNotBlank() } ?: entry.uom
+                }
+                ProductInfo(
+                    barcode = entry.barcode,
+                    name = name,
+                    nameArabic = nameArabic,
+                    unit = unit,
+                    itemCode = entry.posCode?.takeIf { it.isNotBlank() }
+                )
+            }
+        }
 }

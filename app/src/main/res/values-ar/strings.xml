@@ -5,6 +5,8 @@
     <!-- ── عام ─────────────────────────────────────────────────────────── -->
     <string name="ok">حسناً</string>
     <string name="cancel">إلغاء</string>
+    <string name="undo">تراجع</string>
+    <string name="deleted_count_format">تم حذف %1$d عنصر</string>
     <string name="save">حفظ</string>
     <string name="delete">حذف</string>
     <string name="edit">تعديل</string>
@@ -120,7 +122,8 @@
 
     <!-- ── شاشة النسخ الاحتياطي والاستعادة ────────────────────────────── -->
     <string name="backup_restore">نسخ احتياطي واستعادة</string>
-    <string name="backup_database">نسخ احتياطي لقاعدة البيانات</string>
+    <string name="backup_database">نسخ احتياطي لهذا المشروع</string>
+    <string name="backup_all_projects">نسخ احتياطي لجميع المشاريع</string>
     <string name="restore_database">استعادة قاعدة البيانات</string>
     <string name="processing">جاري المعالجة…</string>
     <string name="operation_successful">تمت العملية بنجاح</string>
@@ -129,6 +132,8 @@
     <string name="update_catalog_description">استبدل كتالوج المنتجات المدمج بملف محدّث (CSV يحتوي على الباركود، رمز الصنف، الوصف الإنجليزي، الوصف العربي، الوحدة، نوع الباركود — أو ملف products.db جاهز). يُستخدم لتحديث المنتجات دون تحديث التطبيق.</string>
     <string name="update_catalog_result_format">تم تحديث الكتالوج — %1$d منتج</string>
     <string name="get_catalog_wifi">جلب أحدث كتالوج من الكمبيوتر (واي فاي)</string>
+    <string name="catalog_status_count">الكتالوج: %1$d منتج</string>
+    <string name="catalog_status_empty">الكتالوج فارغ — استورد ملفاً أو اسحب من الكمبيوتر</string>
     <string name="wifi_searching">جاري البحث عن الكمبيوتر…</string>
     <string name="wifi_downloading">جاري التنزيل…</string>
     <string name="import_csv_description">إضافة عناصر بشكل مجمّع من ملف CSV بالأعمدة: POS Code، ITEM_DESCRIPTION، UOM، Qty، Expiry Date. رمز الصنف (POS Code) والكمية وتاريخ الانتهاء مطلوبة. الوصف (ITEM_DESCRIPTION) والوحدة (UOM) اختياريان — إذا تُركا فارغين، يتم تعبئتهما من كتالوج المنتجات حسب رمز الصنف عند توفره. يتم الاحتفاظ بالسجلات الحالية — تُضاف الصفوف المستوردة كعناصر جديدة.</string>
@@ -168,6 +173,9 @@
     <string name="no_recent_scans">لا توجد عمليات مسح حديثة</string>
     <string name="delete_scan_confirm">هل أنت متأكد من حذف سجل المسح هذا؟</string>
     <string name="manual_entry">إدخال يدوي</string>
+    <string name="search_by_name">البحث بالاسم</string>
+    <string name="search_name_hint">اكتب اسم المنتج أو رمز الصنف</string>
+    <string name="no_catalog_matches">لا توجد منتجات مطابقة في الكتالوج</string>
     <string name="barcode_label">الباركود</string>
     <string name="please_enter_barcode">يرجى إدخال الباركود</string>
     <string name="edit_item">تعديل الصنف</string>
@@ -213,6 +221,10 @@
     <string name="notif_hard_title">🚨 ينتهي بعد 3 أيام!</string>
     <string name="notif_body_format">%1$s — %2$s · ينتهي في %3$s</string>
     <string name="notif_action_snooze">ذكرني غداً</string>
+    <string name="notif_tier_today_format">⚠️ %1$d عنصر ينتهي اليوم</string>
+    <string name="notif_tier_days_format">%1$d عنصر ينتهي خلال %2$d أيام</string>
+    <string name="notif_tier_line_format">%1$s — %2$s (ينتهي %3$s)</string>
+    <string name="notif_tier_more_format">+%1$d المزيد…</string>
 
     <!-- ── أسماء الأشهر (الميلادية) لنافذة اختيار التاريخ ──────────────── -->
     <string-array name="month_short_names">

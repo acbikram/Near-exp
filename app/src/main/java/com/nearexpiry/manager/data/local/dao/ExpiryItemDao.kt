@@ -19,13 +19,6 @@ interface ExpiryItemDao {
     @Query("SELECT * FROM expiry_items WHERE id = :id")
     suspend fun getItemById(id: Long): ExpiryItemEntity?
 
-    @Query("""
-        SELECT * FROM expiry_items
-        WHERE projectId = :projectId AND barcode = :barcode AND expiryDate = :expiryDate
-        LIMIT 1
-    """)
-    suspend fun findByBarcodeAndExpiry(projectId: Long, barcode: String, expiryDate: String): ExpiryItemEntity?
-
     /**
      * Finds an existing row in [projectId] with the same barcode, expiry date,
      * AND unit (NULL-safe). Used as the fallback duplicate check for items

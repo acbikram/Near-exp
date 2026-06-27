@@ -473,6 +473,24 @@ fun HistoryScreen(
         }
     }
 
+    // ── Undo-delete snackbar ─────────────────────────────────────────────
+    uiState.undoDeleteItems?.let { _ ->
+        val undoMsg = stringResource(R.string.deleted_count_format, uiState.undoDeleteCount)
+        val undoAction = stringResource(R.string.undo)
+        LaunchedEffect(uiState.undoDeleteItems) {
+            val result = snackbarHostState.showSnackbar(
+                message = undoMsg,
+                actionLabel = undoAction,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDelete()
+            } else {
+                viewModel.clearUndoDelete()
+            }
+        }
+    }
+
     // ── By Expiry Date: date picker ──────────────────────────────────────
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState()

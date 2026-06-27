@@ -1,7 +1,11 @@
 package com.nearexpiry.manager.utils
 
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,8 +16,11 @@ import javax.inject.Singleton
  * collect [activeProjectIdFlow] and re-query their data whenever the user
  * switches projects, so the whole app stays scoped to one inventory.
  *
- * On switch it validates the target still exists (a project could have been
- * deleted) and falls back to the first available project otherwise.
+ * The active id is also mirrored into an in-memory [cachedActiveProjectId]
+ * by collecting the DataStore flow once in an app-scoped coroutine. This lets
+ * [getActiveProjectId] return instantly without any blocking disk read on the
+ * caller's thread (previously it used runBlocking, which risked an ANR when
+ * called from the main thread).
  */
 @Singleton
 class ActiveProjectManager @Inject constructor(
@@ -22,9 +29,25 @@ class ActiveProjectManager @Inject constructor(
 ) {
     val activeProjectIdFlow: Flow<Long> = preferencesManager.activeProjectIdFlow
 
-    fun getActiveProjectId(): Long = preferencesManager.getActiveProjectId()
+    // Long writes/reads are atomic on the JVM; @Volatile guarantees visibility
+    // across threads. Seeded to the default project until the flow emits.
+    @Volatile
+    private var cachedActiveProjectId: Long = 1L
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // Keep the cache in sync with the persisted value for the app's lifetime.
+        scope.launch {
+            activeProjectIdFlow.collect { cachedActiveProjectId = it }
+        }
+    }
+
+    /** Instant, non-blocking read of the active project id. */
+    fun getActiveProjectId(): Long = cachedActiveProjectId
 
     suspend fun setActiveProject(id: Long) {
+        cachedActiveProjectId = id          // reflect immediately
         preferencesManager.setActiveProjectId(id)
     }
 
@@ -48,6 +71,8 @@ class ActiveProjectManager @Inject constructor(
         val current = preferencesManager.getActiveProjectId()
         if (projects.none { it.id == current }) {
             setActiveProject(projects.first().id)
+        } else {
+            cachedActiveProjectId = current
         }
     }
 }

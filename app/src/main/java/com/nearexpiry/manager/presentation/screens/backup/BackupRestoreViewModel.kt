@@ -9,6 +9,7 @@ import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
+import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
@@ -30,6 +31,7 @@ class BackupRestoreViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val csvImporter: CsvImporter,
     private val catalogRepository: ProductCatalogRepository,
+    private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -48,11 +50,25 @@ class BackupRestoreViewModel @Inject constructor(
         // ── WiFi catalog pull ────────────────────────────────────────────
         val wifiState: WifiCatalogState = WifiCatalogState.IDLE,
         val wifiStatus: String = "",
-        val wifiProgress: Float = 0f
+        val wifiProgress: Float = 0f,
+        /** Current catalog product count, for the status indicator. */
+        val catalogCount: Int = 0
     )
 
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
+
+    init {
+        refreshCatalogCount()
+    }
+
+    /** Reloads the catalog product count for the status indicator. */
+    fun refreshCatalogCount() {
+        viewModelScope.launch {
+            val count = runCatching { catalogRepository.catalogProductCount() }.getOrDefault(0)
+            _uiState.update { it.copy(catalogCount = count) }
+        }
+    }
 
     fun backupToUri(context: Context, uri: Uri) {
         viewModelScope.launch {
@@ -146,6 +162,72 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
+    /** Backs up EVERY project and its items into one JSON file. */
+    fun backupAllProjects(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false) }
+            try {
+                val projects = projectRepository.getAllProjectsOnce()
+                val bundles = projects.map { p ->
+                    val items = repository.getItemsOnce(p.id).map { it.toEntity() }
+                    com.nearexpiry.manager.utils.ProjectBackup(
+                        project = com.nearexpiry.manager.data.local.entity.ProjectEntity(
+                            id = p.id, name = p.name, colorHex = p.colorHex, createdAt = p.createdAt
+                        ),
+                        items = items
+                    )
+                }
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    JsonBackup.exportAllProjects(out, bundles)
+                }
+                _uiState.update { it.copy(isLoading = false, success = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Restores from a file that may be either a single-project backup or an
+     * all-projects backup — auto-detected. Single-project restores into the
+     * active project (replacing it). All-projects restore recreates each
+     * project by name and replaces its items.
+     */
+    fun restoreSmart(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false) }
+            try {
+                val text = context.contentResolver.openInputStream(uri)?.use {
+                    it.bufferedReader().readText()
+                } ?: throw IllegalStateException("Could not read file")
+
+                if (JsonBackup.isAllProjectsBackup(text)) {
+                    val backup = JsonBackup.importAllProjects(text.byteInputStream())
+                    val existing = projectRepository.getAllProjectsOnce().associateBy { it.name }
+                    for (bundle in backup.projects) {
+                        // Reuse a project of the same name if present, else create it.
+                        val targetId = existing[bundle.project.name]?.id
+                            ?: projectRepository.createProject(bundle.project.name, bundle.project.colorHex)
+                        repository.deleteAllInProject(targetId)
+                        bundle.items.forEach {
+                            repository.insertItem(it.copy(id = 0, projectId = targetId))
+                        }
+                    }
+                    activeProjectManager.ensureValidActiveProject()
+                } else {
+                    // Single-project backup → active project.
+                    val entities = JsonBackup.importFromJson(text.byteInputStream())
+                    val projectId = activeProjectManager.getActiveProjectId()
+                    repository.deleteAllInProject(projectId)
+                    entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
+                }
+                _uiState.update { it.copy(isLoading = false, success = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
     /**
      * Replaces the bundled product catalog from a user-selected CSV or
      * products.db file. On success, [BackupUiState.catalogUpdateCount] holds
@@ -158,7 +240,7 @@ class BackupRestoreViewModel @Inject constructor(
                 val count = context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     catalogRepository.updateCatalog(inputStream)
                 } ?: 0
-                _uiState.update { it.copy(isLoading = false, success = true, catalogUpdateCount = count) }
+                _uiState.update { it.copy(isLoading = false, success = true, catalogUpdateCount = count, catalogCount = count) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Catalog update failed") }
             }
@@ -210,7 +292,8 @@ class BackupRestoreViewModel @Inject constructor(
                         wifiProgress = 1f,
                         wifiStatus = "",
                         success = true,
-                        catalogUpdateCount = count
+                        catalogUpdateCount = count,
+                        catalogCount = count
                     )
                 }
             } catch (e: Exception) {

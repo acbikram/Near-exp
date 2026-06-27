@@ -34,4 +34,10 @@ interface ProductCatalogRepository {
      * products.db file. Returns the number of products afterwards.
      */
     suspend fun updateCatalog(inputStream: java.io.InputStream): Int
+
+    /** Current number of products in the catalog (0 if empty). */
+    suspend fun catalogProductCount(): Int
+
+    /** Searches the catalog by partial name/POS/barcode for manual entry. */
+    suspend fun searchCatalog(query: String): List<ProductInfo>
 }

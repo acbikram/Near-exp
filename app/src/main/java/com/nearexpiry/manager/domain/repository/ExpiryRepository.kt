@@ -8,7 +8,6 @@ interface ExpiryRepository {
     /** Items in a single project (the active inventory). */
     fun getAllItems(projectId: Long): Flow<List<ExpiryItem>>
     suspend fun getItemById(id: Long): ExpiryItem?
-    suspend fun findByBarcodeAndExpiry(projectId: Long, barcode: String, expiryDate: String): ExpiryItem?
     suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem?
 
     /**

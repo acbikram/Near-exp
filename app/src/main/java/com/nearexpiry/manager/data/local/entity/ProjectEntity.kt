@@ -2,6 +2,7 @@ package com.nearexpiry.manager.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * A Project is an isolated inventory. All [ExpiryItemEntity] rows belong to
@@ -12,6 +13,7 @@ import androidx.room.PrimaryKey
  * "Project 1" (id = 1) is created by the v6→v7 migration and all
  * pre-existing items are assigned to it, so upgrading users lose nothing.
  */
+@Serializable
 @Entity(tableName = "projects")
 data class ProjectEntity(
     @PrimaryKey(autoGenerate = true)

@@ -51,10 +51,10 @@ abstract class ExpiryDatabase : RoomDatabase() {
                             )
                         }
                     })
-                    // Safety net for any future version jump that doesn't ship
-                    // an explicit Migration (e.g. a skipped/forgotten one).
-                    // Explicit migrations above always take priority over this.
-                    .fallbackToDestructiveMigration()
+                    // NOTE: no fallbackToDestructiveMigration() — every schema
+                    // change MUST ship an explicit Migration. Without this, a
+                    // forgotten migration crashes loudly in testing instead of
+                    // silently wiping all of the user's inventory in production.
                     .build()
                 INSTANCE = instance
                 instance

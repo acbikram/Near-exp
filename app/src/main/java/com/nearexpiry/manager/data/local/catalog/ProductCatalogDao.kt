@@ -87,6 +87,35 @@ class ProductCatalogDao @Inject constructor(
     /** Read-only handle to the product catalog. Safe to call from a background thread. */
     fun importCatalog(input: java.io.InputStream): Int = openHelper.importCatalog(input)
 
+    /** Number of products currently in the catalog (0 if empty). */
+    fun countProducts(): Int = openHelper.countProducts()
+
+    /**
+     * Searches the catalog by partial English/Arabic name or POS/barcode.
+     * Returns up to [limit] matches, EA/POS preferred. Used by the manual-entry
+     * "search by name" flow when a barcode won't scan.
+     */
+    suspend fun search(query: String, limit: Int = 25): List<ProductCatalogEntry> = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isEmpty()) return@withContext emptyList()
+        val like = "%$q%"
+        val db = openHelper.openReadable()
+        db.query(
+            "products",
+            columns,
+            "name_en LIKE ? OR name_ar LIKE ? OR pos_code LIKE ? OR barcode LIKE ?",
+            arrayOf(like, like, like, like),
+            null,
+            null,
+            "CASE barcode_type WHEN 'EA' THEN 0 WHEN 'POS' THEN 1 WHEN 'CTN' THEN 2 ELSE 3 END",
+            limit.toString()
+        ).use { cursor ->
+            val out = ArrayList<ProductCatalogEntry>(cursor.count)
+            while (cursor.moveToNext()) out.add(cursor.toProductCatalogEntry())
+            out
+        }
+    }
+
     private fun Cursor.toProductCatalogEntry(): ProductCatalogEntry = ProductCatalogEntry(
         barcode = getString(0),
         posCode = getStringOrNull(1),

@@ -95,17 +95,27 @@ class ExpiryNotificationWorker @AssistedInject constructor(
         val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
         val items = dao.getAllItemsOnce(projectId)
 
+        // Bucket items into tiers by exact days-to-expiry.
+        val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
         for (item in items) {
             val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }
-                .getOrNull() ?: continue  // skip malformed dates
+                .getOrNull() ?: continue
+            val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
+            tiers[daysLeft]?.add(item.id)
+        }
 
-            val daysLeft = ChronoUnit.DAYS.between(today, expiryDate)
-
-            when (daysLeft.toInt()) {
-                15   -> NotificationHelper.postSoftNotification(appContext, item, 15, projectName)
-                7    -> NotificationHelper.postSoftNotification(appContext, item, 7, projectName)
-                3    -> NotificationHelper.postHardNotification(appContext, item, projectName)
-            }
+        // Fire tiers most-urgent first, staggered 15 min apart so they don't
+        // pile into one buzz:  today=0min, 3d=+15, 7d=+30, 15d=+45.
+        // Each tier is a separate one-time worker that posts ONE grouped
+        // notification. Empty tiers are skipped (and their delay slot is reused
+        // by simply not enqueuing them).
+        val order = listOf(0, 3, 7, 15)
+        var slot = 0
+        for (days in order) {
+            val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
+            val delayMin = slot * 15L
+            slot++
+            TierNotificationWorker.enqueue(appContext, days, ids, delayMin)
         }
 
         return Result.success()

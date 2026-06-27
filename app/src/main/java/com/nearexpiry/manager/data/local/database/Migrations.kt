@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /**
  * v1 -> v2: adds a composite index on (barcode, expiryDate).
  *
- * This index backs [com.nearexpiry.manager.data.local.dao.ExpiryItemDao.findByBarcodeAndExpiry],
+ * This index backs the duplicate-lookup queries (barcode + expiry),
  * which is called on every scan to detect duplicates. Without it, that
  * lookup is a full table scan that gets slower as the inventory grows.
  *

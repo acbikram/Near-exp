@@ -63,6 +63,10 @@ class ScanViewModel @Inject constructor(
         val onlineLookupState: OnlineLookupState = OnlineLookupState.IDLE,
         val onlineProductName: String? = null,
         val onlineProductNameArabic: String? = null,
+        // ── Catalog name-search (manual entry by product name) ──────────────
+        val showCatalogSearch: Boolean = false,
+        val catalogSearchQuery: String = "",
+        val catalogSearchResults: List<com.nearexpiry.manager.domain.model.ProductInfo> = emptyList(),
         val duplicateExistingQty: Double = 0.0,
         val duplicateNewQty: Double = 0.0,
         val duplicateItemId: Long = 0,
@@ -141,6 +145,52 @@ class ScanViewModel @Inject constructor(
         // doesn't block us (manual mode sets scannerInactive = true).
         _uiState.update { it.copy(showManualMode = false, scannerInactive = false) }
         onBarcodeScanned(trimmed)
+    }
+
+    // ── Catalog name-search (manual entry by product name) ──────────────────
+
+    fun openCatalogSearch() {
+        _uiState.update {
+            it.copy(showCatalogSearch = true, catalogSearchQuery = "", catalogSearchResults = emptyList())
+        }
+    }
+
+    fun dismissCatalogSearch() {
+        _uiState.update { it.copy(showCatalogSearch = false) }
+    }
+
+    fun onCatalogSearchQueryChange(query: String) {
+        _uiState.update { it.copy(catalogSearchQuery = query) }
+        viewModelScope.launch {
+            // Ignore stale results if the query changed while searching.
+            val results = if (query.trim().length < 2) emptyList()
+                          else productCatalogRepository.searchCatalog(query)
+            if (_uiState.value.catalogSearchQuery == query) {
+                _uiState.update { it.copy(catalogSearchResults = results) }
+            }
+        }
+    }
+
+    /** User picked a product from the name-search; proceed as if it was scanned. */
+    fun onCatalogProductSelected(product: com.nearexpiry.manager.domain.model.ProductInfo) {
+        stopScanner()
+        _uiState.update {
+            it.copy(
+                showCatalogSearch = false,
+                showManualMode = false,
+                detectedBarcode = product.barcode,
+                scannerInactive = true,
+                pendingBarcode = product.barcode,
+                pendingProductName = product.name,
+                pendingProductNameArabic = product.nameArabic,
+                pendingUnit = product.unit,
+                pendingItemCode = product.itemCode,
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
+                showExpiryDialog = true
+            )
+        }
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
