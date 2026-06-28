@@ -221,10 +221,20 @@
     <string name="notif_hard_title">🚨 ينتهي بعد 3 أيام!</string>
     <string name="notif_body_format">%1$s — %2$s · ينتهي في %3$s</string>
     <string name="notif_action_snooze">ذكرني غداً</string>
-    <string name="notif_tier_today_format">⚠️ %1$d عنصر ينتهي اليوم</string>
-    <string name="notif_tier_days_format">%1$d عنصر ينتهي خلال %2$d أيام</string>
-    <string name="notif_tier_line_format">%1$s — %2$s (ينتهي %3$s)</string>
-    <string name="notif_tier_more_format">+%1$d المزيد…</string>
+    <string name="notif_update_title">يتوفر تحديث</string>
+    <string name="notif_update_body_format">الإصدار %1$s متاح — اضغط للتحديث.</string>
+    <string name="check_for_updates">التحقق من التحديثات</string>
+    <string name="current_version_format">الإصدار الحالي: %1$s</string>
+    <string name="checking_for_updates">جاري التحقق…</string>
+    <string name="update_available_format">يتوفر تحديث: v%1$s</string>
+    <string name="update_now">حدّث الآن</string>
+    <string name="you_have_latest">لديك أحدث إصدار</string>
+    <string name="update_check_failed_format">فشل التحقق من التحديث: %1$s</string>
+    <string name="downloading_update">جاري تنزيل التحديث…</string>
+    <string name="app_updates">تحديثات التطبيق</string>
+    <string name="notif_item_today_format">⚠️ %1$s ينتهي اليوم</string>
+    <string name="notif_item_days_format">%1$s ينتهي خلال %2$d أيام</string>
+    <string name="notif_item_body_format">%1$s · ينتهي %2$s</string>
 
     <!-- ── أسماء الأشهر (الميلادية) لنافذة اختيار التاريخ ──────────────── -->
     <string-array name="month_short_names">

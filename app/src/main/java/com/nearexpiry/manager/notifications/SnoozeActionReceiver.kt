@@ -22,24 +22,26 @@ class SnoozeActionReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_SNOOZE = "com.nearexpiry.manager.ACTION_SNOOZE_REMINDER"
+        const val EXTRA_ITEM_ID = "extra_item_id"
         const val EXTRA_DAYS_LEFT = "extra_days_left"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_SNOOZE) return
 
+        val itemId = intent.getLongExtra(EXTRA_ITEM_ID, -1L)
         val daysLeft = intent.getIntExtra(EXTRA_DAYS_LEFT, -1)
-        if (daysLeft == -1) return
+        if (itemId == -1L || daysLeft == -1) return
 
-        // Dismiss the tier notification the user just snoozed.
-        NotificationManagerCompat.from(context).cancel(NotificationHelper.tierNotifId(daysLeft))
+        // Dismiss the single notification the user just snoozed.
+        NotificationManagerCompat.from(context).cancel(NotificationHelper.notifId(itemId, daysLeft))
 
-        // Re-evaluate this tier ~24 hours from now and re-notify what's still
-        // relevant (items not deleted, still in this tier's window).
+        // Re-check this item ~24 hours from now and re-notify if still relevant
+        // (not deleted, not yet expired).
         val request = OneTimeWorkRequestBuilder<SnoozedReminderWorker>()
             .setInitialDelay(24, TimeUnit.HOURS)
             .setInputData(
-                workDataOf(SnoozedReminderWorker.KEY_DAYS to daysLeft)
+                workDataOf(SnoozedReminderWorker.KEY_ITEM_ID to itemId)
             )
             .build()
 

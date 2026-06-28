@@ -24,48 +24,32 @@ object NotificationHelper {
     fun notifId(itemId: Long, daysLeft: Int): Int =
         ((itemId and 0xFFFFF) * 100 + daysLeft).toInt()
 
-    /** Stable notification id for a whole tier (today/3/7/15). */
-    fun tierNotifId(daysLeft: Int): Int = 700_000 + daysLeft
-
     /**
-     * Posts ONE grouped notification summarizing all [items] in a tier
-     * ([daysLeft] = 0 today, 3, 7, or 15). Most-urgent tiers (0 and 3 days)
-     * use the hard/high-priority channel; 7 and 15 days use the soft channel.
-     * A "Remind me tomorrow" action is added for the 3/7/15-day tiers (not
-     * for the already-expiring "today" tier).
+     * Posts ONE notification for a single [item] at the given [daysLeft] tier
+     * (0 today, 3, 7, or 15). Most-urgent tiers (0 and 3 days) use the
+     * hard/high-priority channel; 7 and 15 days use the soft channel. A
+     * "Remind me tomorrow" action is added for the 3/7/15-day tiers (not for
+     * the already-expiring "today" tier).
      */
-    fun postTierNotification(
+    fun postItemNotification(
         context: Context,
         daysLeft: Int,
-        items: List<ExpiryItemEntity>,
+        item: ExpiryItemEntity,
         projectName: String
     ) {
-        if (items.isEmpty()) return
-
         val isHard = daysLeft <= 3
         val channel = if (isHard) CHANNEL_HARD else CHANNEL_SOFT
 
+        val name = displayName(item)
+        val qty = formatQty(context, item.quantity, item.unit)
         val titleBase = when (daysLeft) {
-            0    -> context.getString(R.string.notif_tier_today_format, items.size)
-            else -> context.getString(R.string.notif_tier_days_format, items.size, daysLeft)
+            0    -> context.getString(R.string.notif_item_today_format, name)
+            else -> context.getString(R.string.notif_item_days_format, name, daysLeft)
         }
         val title = withProject(titleBase, projectName)
-
-        // Body: up to 6 item lines, then "+N more".
-        val lines = items.take(6).map { item ->
-            val name = displayName(item)
-            val qty = formatQty(context, item.quantity, item.unit)
-            context.getString(R.string.notif_tier_line_format, name, qty, item.expiryDate)
-        }
-        val inbox = NotificationCompat.InboxStyle().setBigContentTitle(title)
-        lines.forEach { inbox.addLine(it) }
-        if (items.size > 6) {
-            inbox.setSummaryText(context.getString(R.string.notif_tier_more_format, items.size - 6))
-        }
-        val body = lines.firstOrNull().orEmpty()
+        val body = context.getString(R.string.notif_item_body_format, qty, item.expiryDate)
 
         val builder = baseBuilder(context, channel, title, body)
-            .setStyle(inbox)
             .setPriority(if (isHard) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
 
         if (isHard) {
@@ -73,32 +57,44 @@ object NotificationHelper {
                 .setVibrate(longArrayOf(0, 300, 150, 300))
         }
 
-        // "Remind me tomorrow" for 3/7/15-day tiers (not the already-expiring today tier).
+        // "Remind me tomorrow" for 3/7/15-day items (not the already-expiring today tier).
         if (daysLeft >= 3) {
-            builder.addAction(snoozeTierAction(context, daysLeft, projectName))
+            builder.addAction(snoozeItemAction(context, item.id, daysLeft))
         }
 
-        NotificationManagerCompat.from(context).notify(tierNotifId(daysLeft), builder.build())
+        NotificationManagerCompat.from(context).notify(notifId(item.id, daysLeft), builder.build())
     }
 
     /** Prefixes a notification title with the project name when present. */
     private fun withProject(title: String, projectName: String): String =
         if (projectName.isBlank()) title else "[$projectName] $title"
 
+    /** Notifies that a newer app version is available; tapping opens the app. */
+    fun postUpdateAvailableNotification(context: Context, versionName: String) {
+        createChannels(context)
+        val title = context.getString(R.string.notif_update_title)
+        val body = context.getString(R.string.notif_update_body_format, versionName)
+        val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        NotificationManagerCompat.from(context).notify(800_000, notif)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * "Remind me tomorrow" action for a tier notification. Re-shows the same
-     * tier ~24h later via [SnoozeActionReceiver] → [SnoozedReminderWorker].
+     * "Remind me tomorrow" action for a single item. Re-shows that item
+     * ~24h later via [SnoozeActionReceiver] → [SnoozedReminderWorker].
      */
-    private fun snoozeTierAction(context: Context, daysLeft: Int, projectName: String): NotificationCompat.Action {
+    private fun snoozeItemAction(context: Context, itemId: Long, daysLeft: Int): NotificationCompat.Action {
         val snoozeIntent = Intent(context, SnoozeActionReceiver::class.java).apply {
             action = SnoozeActionReceiver.ACTION_SNOOZE
+            putExtra(SnoozeActionReceiver.EXTRA_ITEM_ID, itemId)
             putExtra(SnoozeActionReceiver.EXTRA_DAYS_LEFT, daysLeft)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            tierNotifId(daysLeft),
+            notifId(itemId, daysLeft),
             snoozeIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

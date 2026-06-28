@@ -351,6 +351,95 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ── App Updates ──────────────────────────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape  = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.app_updates),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = CyanAccent,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.current_version_format, uiState.currentVersionName),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SubtleGray
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        when (uiState.updateState) {
+                            SettingsViewModel.UpdateState.AVAILABLE,
+                            SettingsViewModel.UpdateState.DOWNLOADING -> {
+                                Text(
+                                    stringResource(R.string.update_available_format, uiState.updateVersionName),
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (uiState.updateState == SettingsViewModel.UpdateState.DOWNLOADING) {
+                                    Spacer(Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { uiState.updateProgress },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Button(
+                                    onClick = { viewModel.downloadAndInstallUpdate() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.DOWNLOADING
+                                ) {
+                                    Text(
+                                        if (uiState.updateState == SettingsViewModel.UpdateState.DOWNLOADING)
+                                            stringResource(R.string.downloading_update)
+                                        else
+                                            stringResource(R.string.update_now)
+                                    )
+                                }
+                            }
+                            else -> {
+                                Button(
+                                    onClick = { viewModel.checkForUpdate() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.CHECKING,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SurfaceVariant,
+                                        contentColor   = CyanAccent
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        if (uiState.updateState == SettingsViewModel.UpdateState.CHECKING)
+                                            stringResource(R.string.checking_for_updates)
+                                        else
+                                            stringResource(R.string.check_for_updates)
+                                    )
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                when (uiState.updateState) {
+                                    SettingsViewModel.UpdateState.UP_TO_DATE -> Text(
+                                        stringResource(R.string.you_have_latest),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SubtleGray
+                                    )
+                                    SettingsViewModel.UpdateState.ERROR -> Text(
+                                        stringResource(R.string.update_check_failed_format, uiState.updateError),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ErrorRed
+                                    )
+                                    else -> {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

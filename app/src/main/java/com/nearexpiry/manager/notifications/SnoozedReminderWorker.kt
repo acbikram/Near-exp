@@ -8,30 +8,28 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.utils.ExpiryDateUtils
-import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Fires ~24 hours after the user taps "Remind me tomorrow" on a tier expiry
- * notification (see [SnoozeActionReceiver]).
+ * Fires ~24 hours after the user taps "Remind me tomorrow" on an individual
+ * expiry notification (see [SnoozeActionReceiver]).
  *
- * Re-evaluates that whole tier for the active project: items deleted in the
- * meantime are dropped, and only items still within (or past) the tier's
- * window are re-notified. If nothing is left relevant, no notification posts.
+ * Re-checks that single item: if it was deleted in the meantime, or has
+ * already expired, nothing is posted. Otherwise it re-notifies the item at
+ * its current days-to-expiry tier.
  */
 @HiltWorker
 class SnoozedReminderWorker @AssistedInject constructor(
     @Assisted appContext: android.content.Context,
     @Assisted params: WorkerParameters,
-    private val database: ExpiryDatabase,
-    private val preferencesManager: PreferencesManager
+    private val database: ExpiryDatabase
 ) : CoroutineWorker(appContext, params) {
 
     companion object {
-        const val KEY_DAYS = "days"
+        const val KEY_ITEM_ID = "item_id"
     }
 
     override suspend fun doWork(): Result {
@@ -43,27 +41,21 @@ class SnoozedReminderWorker @AssistedInject constructor(
             if (!granted) return Result.success()
         }
 
-        val days = inputData.getInt(KEY_DAYS, -1)
-        if (days < 0) return Result.success()
+        val itemId = inputData.getLong(KEY_ITEM_ID, -1L)
+        if (itemId == -1L) return Result.success()
+
+        // Item deleted (sold/used) — nothing to remind about.
+        val item = database.expiryItemDao().getItemById(itemId) ?: return Result.success()
+
+        val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate) ?: return Result.success()
+        val daysLeft = ChronoUnit.DAYS.between(LocalDate.now(), expiry).toInt()
+        // Past expiry by now — the daily worker's "today" tier (or the user
+        // already handling it) takes over from here.
+        if (daysLeft < 0) return Result.success()
 
         NotificationHelper.createChannels(applicationContext)
-
-        val today = LocalDate.now()
-        val projectId = preferencesManager.getActiveProjectId()
-        val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
-        val items = database.expiryItemDao().getAllItemsOnce(projectId)
-
-        // Re-collect the items that still belong to this tier. For the "today"
-        // (0) tier we also keep already-expired items so the reminder still
-        // surfaces them; for forward tiers we match the exact day bucket.
-        val tierItems = items.filter { item ->
-            val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate) ?: return@filter false
-            val left = ChronoUnit.DAYS.between(today, expiry).toInt()
-            if (days == 0) left <= 0 else left == days
-        }
-        if (tierItems.isEmpty()) return Result.success()
-
-        NotificationHelper.postTierNotification(applicationContext, days, tierItems, projectName)
+        val projectName = database.projectDao().getProjectById(item.projectId)?.name ?: ""
+        NotificationHelper.postItemNotification(applicationContext, daysLeft, item, projectName)
         return Result.success()
     }
 }

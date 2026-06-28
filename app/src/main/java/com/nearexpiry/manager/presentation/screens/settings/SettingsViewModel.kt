@@ -7,9 +7,14 @@ import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
+import com.nearexpiry.manager.utils.AppUpdater
+import com.nearexpiry.manager.notifications.NotificationHelper
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.BuildConfig
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +43,8 @@ class SettingsViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
-    private val activeProjectManager: ActiveProjectManager
+    private val activeProjectManager: ActiveProjectManager,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     /** A project plus a small summary for the Settings list. */
@@ -48,12 +54,23 @@ class SettingsViewModel @Inject constructor(
         val nearestExpiry: String?
     )
 
+    /** Update-check lifecycle for the "Check for Updates" row. */
+    enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, ERROR }
+
     data class SettingsUiState(
         val scanSound: Boolean = true,
         val vibration: Boolean = true,
         val projects: List<ProjectSummary> = emptyList(),
         val activeProjectId: Long = 1L,
-        val message: String? = null
+        val message: String? = null,
+        // ── App update ───────────────────────────────────────────────────
+        val currentVersionName: String = BuildConfig.VERSION_NAME,
+        val updateState: UpdateState = UpdateState.IDLE,
+        val updateVersionName: String = "",
+        val updateNotes: String = "",
+        val updateApkUrl: String = "",
+        val updateProgress: Float = 0f,
+        val updateError: String = ""
     )
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -171,5 +188,58 @@ class SettingsViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    // ── App update (GitHub Releases) ───────────────────────────────────────
+
+    fun checkForUpdate() {
+        _uiState.update { it.copy(updateState = UpdateState.CHECKING, updateError = "") }
+        viewModelScope.launch {
+            when (val r = AppUpdater.check(
+                currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                currentVersionName = BuildConfig.VERSION_NAME
+            )) {
+                is AppUpdater.CheckResult.UpdateAvailable -> {
+                    _uiState.update {
+                        it.copy(
+                            updateState = UpdateState.AVAILABLE,
+                            updateVersionName = r.info.versionName,
+                            updateNotes = r.info.notes,
+                            updateApkUrl = r.info.apkUrl
+                        )
+                    }
+                    // Also raise a notification pointing back into the app.
+                    NotificationHelper.postUpdateAvailableNotification(appContext, r.info.versionName)
+                }
+                AppUpdater.CheckResult.UpToDate ->
+                    _uiState.update { it.copy(updateState = UpdateState.UP_TO_DATE) }
+                AppUpdater.CheckResult.NoRelease ->
+                    _uiState.update { it.copy(updateState = UpdateState.UP_TO_DATE) }
+                is AppUpdater.CheckResult.Error ->
+                    _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = r.message) }
+            }
+        }
+    }
+
+    fun downloadAndInstallUpdate() {
+        val url = _uiState.value.updateApkUrl
+        if (url.isBlank()) return
+        _uiState.update { it.copy(updateState = UpdateState.DOWNLOADING, updateProgress = 0f) }
+        viewModelScope.launch {
+            try {
+                AppUpdater.downloadAndInstall(appContext, url) { p ->
+                    _uiState.update { it.copy(updateProgress = p) }
+                }
+                // Installer launched; reset back to AVAILABLE so the row is usable
+                // again if the user cancels the system install prompt.
+                _uiState.update { it.copy(updateState = UpdateState.AVAILABLE) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = e.message ?: "Download failed") }
+            }
+        }
+    }
+
+    fun dismissUpdateState() {
+        _uiState.update { it.copy(updateState = UpdateState.IDLE, updateError = "") }
     }
 }

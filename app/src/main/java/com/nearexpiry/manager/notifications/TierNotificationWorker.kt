@@ -74,7 +74,10 @@ class TierNotificationWorker @AssistedInject constructor(
         val projectId = items.first().projectId
         val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
 
-        NotificationHelper.postTierNotification(appContext, days, items, projectName)
+        // Individual notification per item (fired together as this tier's wave).
+        items.forEach { item ->
+            NotificationHelper.postItemNotification(appContext, days, item, projectName)
+        }
         return Result.success()
     }
 }

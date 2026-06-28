@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v4
 
@@ -51,3 +53,38 @@ jobs:
       with:
         name: app-release-apk
         path: app/build/outputs/apk/release/app-release*.apk
+
+    # Read versionName / versionCode straight from the Gradle file so the
+    # release tag encodes both. The in-app updater parses "+<versionCode>"
+    # from the tag to decide if a newer build exists.
+    - name: Read version
+      id: ver
+      run: |
+        VN=$(grep -E 'versionName = ' app/build.gradle.kts | head -1 | sed -E 's/.*versionName = "([^"]+)".*/\1/')
+        VC=$(grep -E 'versionCode = ' app/build.gradle.kts | head -1 | sed -E 's/.*versionCode = ([0-9]+).*/\1/')
+        echo "version_name=$VN" >> "$GITHUB_OUTPUT"
+        echo "version_code=$VC" >> "$GITHUB_OUTPUT"
+        echo "Detected versionName=$VN versionCode=$VC"
+
+    # Give the APK a versioned name for the release asset.
+    - name: Stage release APK
+      if: github.event_name == 'push'
+      run: |
+        mkdir -p release-out
+        SRC=$(ls app/build/outputs/apk/release/app-release*.apk | head -1)
+        cp "$SRC" "release-out/NearExpiry-v${{ steps.ver.outputs.version_name }}.apk"
+
+    # Publish (or overwrite) a GitHub Release tagged v<name>+<code> with the
+    # signed APK attached. The in-app "Check for Updates" finds this.
+    - name: Publish GitHub Release
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ steps.ver.outputs.version_name }}+${{ steps.ver.outputs.version_code }}
+        name: Near Expiry v${{ steps.ver.outputs.version_name }}
+        body: |
+          Automated release.
+          versionCode: ${{ steps.ver.outputs.version_code }}
+        files: release-out/NearExpiry-v${{ steps.ver.outputs.version_name }}.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

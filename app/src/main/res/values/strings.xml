@@ -221,10 +221,20 @@
     <string name="notif_hard_title">🚨 Expires in 3 Days!</string>
     <string name="notif_body_format">%1$s — %2$s · Expires %3$s</string>
     <string name="notif_action_snooze">Remind me tomorrow</string>
-    <string name="notif_tier_today_format">⚠️ %1$d item(s) expire today</string>
-    <string name="notif_tier_days_format">%1$d item(s) expiring in %2$d days</string>
-    <string name="notif_tier_line_format">%1$s — %2$s (exp %3$s)</string>
-    <string name="notif_tier_more_format">+%1$d more…</string>
+    <string name="notif_update_title">Update available</string>
+    <string name="notif_update_body_format">Version %1$s is available — tap to update.</string>
+    <string name="check_for_updates">Check for Updates</string>
+    <string name="current_version_format">Current version: %1$s</string>
+    <string name="checking_for_updates">Checking…</string>
+    <string name="update_available_format">Update available: v%1$s</string>
+    <string name="update_now">Update Now</string>
+    <string name="you_have_latest">You have the latest version</string>
+    <string name="update_check_failed_format">Update check failed: %1$s</string>
+    <string name="downloading_update">Downloading update…</string>
+    <string name="app_updates">App Updates</string>
+    <string name="notif_item_today_format">⚠️ %1$s expires today</string>
+    <string name="notif_item_days_format">%1$s expiring in %2$d days</string>
+    <string name="notif_item_body_format">%1$s · exp %2$s</string>
 
     <!-- ── Month names (Gregorian) for date picker ─────────────────────── -->
     <string-array name="month_short_names">
