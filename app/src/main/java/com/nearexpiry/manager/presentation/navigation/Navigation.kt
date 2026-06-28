@@ -31,8 +31,13 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun NearExpiryNavHost(modifier: Modifier = Modifier) {
+fun NearExpiryNavHost(modifier: Modifier = Modifier, openUpdates: Boolean = false) {
     val navController = rememberNavController()
+    androidx.compose.runtime.LaunchedEffect(openUpdates) {
+        if (openUpdates) {
+            navController.navigate(Screen.Settings.route)
+        }
+    }
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,

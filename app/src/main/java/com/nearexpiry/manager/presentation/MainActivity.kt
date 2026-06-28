@@ -33,13 +33,14 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val openUpdates = intent?.getBooleanExtra("open_updates", false) == true
         setContent {
             NearExpiryManagerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NearExpiryNavHost()
+                    NearExpiryNavHost(openUpdates = openUpdates)
 
                     // ── First-launch language picker ─────────────────────────
                     val showLanguagePrompt by firstLaunchViewModel.showLanguagePrompt.collectAsState()

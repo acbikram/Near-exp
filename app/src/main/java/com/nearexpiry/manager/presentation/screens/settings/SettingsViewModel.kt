@@ -58,8 +58,6 @@ class SettingsViewModel @Inject constructor(
     enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, ERROR }
 
     data class SettingsUiState(
-        val scanSound: Boolean = true,
-        val vibration: Boolean = true,
         val projects: List<ProjectSummary> = emptyList(),
         val activeProjectId: Long = 1L,
         val message: String? = null,
@@ -77,16 +75,6 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            preferencesManager.scanSoundFlow.collect { sound ->
-                _uiState.update { it.copy(scanSound = sound) }
-            }
-        }
-        viewModelScope.launch {
-            preferencesManager.vibrationFlow.collect { vibration ->
-                _uiState.update { it.copy(vibration = vibration) }
-            }
-        }
         observeProjects()
     }
 
@@ -122,14 +110,6 @@ class SettingsViewModel @Inject constructor(
             .filter { !it.isBefore(today) }
             .minOrNull()
             ?.let { ExpiryDateUtils.toCsvDate(it.toString()) }
-    }
-
-    fun toggleScanSound(enabled: Boolean) {
-        viewModelScope.launch { preferencesManager.setScanSound(enabled) }
-    }
-
-    fun toggleVibration(enabled: Boolean) {
-        viewModelScope.launch { preferencesManager.setVibration(enabled) }
     }
 
     /** Clears all records in the *active* project only. */

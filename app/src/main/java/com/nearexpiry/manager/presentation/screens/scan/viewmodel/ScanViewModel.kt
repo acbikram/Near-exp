@@ -204,8 +204,9 @@ class ScanViewModel @Inject constructor(
         // We don't know yet if it's new or duplicate (that requires a DB lookup),
         // so we play a single "detected" beep immediately, then correct to double
         // if it turns out to be a duplicate once the user confirms quantity.
-        if (preferencesManager.isScanSoundEnabled()) soundManager.playSingleBeep()
-        if (preferencesManager.isVibrationEnabled()) vibrateSingle()
+        // Beep + vibrate on scan are always on.
+        soundManager.playSingleBeep()
+        vibrateSingle()
 
         // ── Show barcode on camera screen + go standby immediately ──────────
         _uiState.update {
@@ -389,8 +390,8 @@ class ScanViewModel @Inject constructor(
             )
             if (existing != null) {
                 // ── Duplicate: play extra beep + haptic (single was already played on detection)
-                if (preferencesManager.isScanSoundEnabled()) soundManager.playDoubleBeep()
-                if (preferencesManager.isVibrationEnabled()) vibrateDouble()
+                soundManager.playDoubleBeep()
+                vibrateDouble()
                 _uiState.update {
                     it.copy(
                         duplicateExistingQty = existing.quantity,

@@ -69,15 +69,30 @@ object NotificationHelper {
     private fun withProject(title: String, projectName: String): String =
         if (projectName.isBlank()) title else "[$projectName] $title"
 
-    /** Notifies that a newer app version is available; tapping opens the app. */
+    /** Notifies that a newer app version is available; tapping opens the update screen. */
     fun postUpdateAvailableNotification(context: Context, versionName: String) {
         createChannels(context)
         val title = context.getString(R.string.notif_update_title)
         val body = context.getString(R.string.notif_update_body_format, versionName)
-        val notif = baseBuilder(context, CHANNEL_SOFT, title, body)
+
+        // Tapping opens MainActivity with an extra that routes to Settings → App Updates.
+        val launchIntent = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+            ?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("open_updates", true)
+            }
+        val contentPi = launchIntent?.let {
+            PendingIntent.getActivity(
+                context, 801_000, it,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
+
+        val builder = baseBuilder(context, CHANNEL_SOFT, title, body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
-        NotificationManagerCompat.from(context).notify(800_000, notif)
+        if (contentPi != null) builder.setContentIntent(contentPi)
+        NotificationManagerCompat.from(context).notify(800_000, builder.build())
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

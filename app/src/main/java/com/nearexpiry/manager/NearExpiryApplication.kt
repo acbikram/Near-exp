@@ -5,7 +5,10 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.notifications.NotificationHelper
+import com.nearexpiry.manager.notifications.UpdateCheckWorker
 import com.nearexpiry.manager.utils.ActiveProjectManager
+import com.nearexpiry.manager.utils.AppUpdater
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +24,9 @@ class NearExpiryApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var activeProjectManager: ActiveProjectManager
 
+    @Inject
+    lateinit var preferencesManager: PreferencesManager
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -32,9 +38,26 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         NotificationHelper.createChannels(this)
         // Schedule the daily 8 AM expiry check (KEEP policy — won't reset on restart).
         ExpiryNotificationWorker.schedule(this)
+        // Schedule the daily background update check.
+        UpdateCheckWorker.schedule(this)
         // If the previously-active project was deleted, fall back to a valid one.
         CoroutineScope(Dispatchers.IO).launch {
             activeProjectManager.ensureValidActiveProject()
+        }
+        // On-launch update check, throttled to at most once per day.
+        CoroutineScope(Dispatchers.IO).launch {
+            val now = System.currentTimeMillis()
+            val last = preferencesManager.getLastUpdateCheck()
+            if (now - last >= 24 * 60 * 60 * 1000L) {
+                val result = AppUpdater.check(
+                    currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                    currentVersionName = BuildConfig.VERSION_NAME
+                )
+                preferencesManager.setLastUpdateCheck(now)
+                if (result is AppUpdater.CheckResult.UpdateAvailable) {
+                    NotificationHelper.postUpdateAvailableNotification(this@NearExpiryApplication, result.info.versionName)
+                }
+            }
         }
     }
 }

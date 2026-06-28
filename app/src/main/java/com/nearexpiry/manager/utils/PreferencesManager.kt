@@ -24,6 +24,14 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val vibrationKey = booleanPreferencesKey("vibration")
     private val languagePromptShownKey = booleanPreferencesKey("language_prompt_shown")
     private val activeProjectIdKey = longPreferencesKey("active_project_id")
+    private val lastUpdateCheckKey = longPreferencesKey("last_update_check")
+
+    suspend fun getLastUpdateCheck(): Long =
+        context.dataStore.data.first()[lastUpdateCheckKey] ?: 0L
+
+    suspend fun setLastUpdateCheck(timestamp: Long) {
+        context.dataStore.edit { it[lastUpdateCheckKey] = timestamp }
+    }
 
     /** The currently selected project. Defaults to 1 ("Project 1"). */
     val activeProjectIdFlow: Flow<Long> = context.dataStore.data.map { prefs ->
