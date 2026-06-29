@@ -138,15 +138,67 @@ object AppUpdater {
         return 0
     }
 
+    private const val APK_DIR = "updates"
+
+    private fun updatesDir(context: Context): File =
+        File(context.cacheDir, APK_DIR).apply { mkdirs() }
+
+    /** Versioned filename so we can tell which version a stored APK is. */
+    private fun apkFileFor(context: Context, versionName: String): File =
+        File(updatesDir(context), "near-expiry-$versionName.apk")
+
     /**
-     * Downloads the APK to cache and launches the system installer.
-     * [onProgress] reports 0f..1f. Throws on failure.
+     * Returns the already-downloaded APK for [versionName] if it exists and is
+     * non-empty, else null. Lets the UI show "Install" instead of re-downloading.
      */
-    suspend fun downloadAndInstall(
+    fun downloadedApk(context: Context, versionName: String): File? =
+        apkFileFor(context, versionName).takeIf { it.exists() && it.length() > 0 }
+
+    /**
+     * Deletes stored update APKs that are no longer useful — specifically any
+     * whose version is the same as or older than [currentVersionName] (they've
+     * already been installed, or are obsolete). APKs for a *newer* version are
+     * kept so the user can tap "Install" without re-downloading.
+     *
+     * This is how we approximate "delete after install" — Android gives no
+     * reliable install-finished callback, so we clean up on the next launch:
+     * if the user installed the update, this launch IS that new version and the
+     * matching APK is now "same version" → deleted.
+     */
+    fun cleanupInstalledApks(context: Context, currentVersionName: String) {
+        updatesDir(context).listFiles()?.forEach { f ->
+            if (!f.name.endsWith(".apk")) return@forEach
+            val v = f.name.removePrefix("near-expiry-").removeSuffix(".apk")
+            if (compareVersionNames(v, currentVersionName) <= 0) f.delete()
+        }
+    }
+
+    /**
+     * Deletes any stored update APKs except the one for [keepVersionName]
+     * (pass null to delete all).
+     */
+    fun cleanupOldApks(context: Context, keepVersionName: String?) {
+        val keep = keepVersionName?.let { apkFileFor(context, it).name }
+        updatesDir(context).listFiles()?.forEach { f ->
+            if (f.name.endsWith(".apk") && f.name != keep) f.delete()
+        }
+    }
+
+    /**
+     * Downloads the APK for [versionName] from [apkUrl] to cache, reporting
+     * 0f..1f progress. Returns the saved file. If a valid file already exists
+     * it is reused (no re-download).
+     */
+    suspend fun download(
         context: Context,
         apkUrl: String,
+        versionName: String,
         onProgress: (Float) -> Unit = {}
-    ) = withContext(Dispatchers.IO) {
+    ): File = withContext(Dispatchers.IO) {
+        downloadedApk(context, versionName)?.let {
+            onProgress(1f)
+            return@withContext it
+        }
         val conn = (URL(apkUrl).openConnection() as HttpURLConnection).apply {
             setRequestProperty("User-Agent", "NearExpiry-Updater")
             connectTimeout = 20000
@@ -159,12 +211,14 @@ object AppUpdater {
         }
         val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
 
-        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-        val apkFile = File(dir, "near-expiry-update.apk")
-        if (apkFile.exists()) apkFile.delete()
+        // Download to a .part file first, then rename — so a half-finished
+        // download is never mistaken for a complete one.
+        val target = apkFileFor(context, versionName)
+        val part = File(target.path + ".part")
+        if (part.exists()) part.delete()
 
         conn.inputStream.use { input ->
-            apkFile.outputStream().use { output ->
+            part.outputStream().use { output ->
                 val buf = ByteArray(64 * 1024)
                 var downloaded = 0L
                 while (true) {
@@ -176,8 +230,14 @@ object AppUpdater {
                 }
             }
         }
+        if (target.exists()) target.delete()
+        part.renameTo(target)
+        onProgress(1f)
+        target
+    }
 
-        // Launch the system installer via FileProvider (Android 7+).
+    /** Launches the system installer for an already-downloaded [apkFile]. */
+    suspend fun install(context: Context, apkFile: File) = withContext(Dispatchers.Main) {
         val apkUri = FileProvider.getUriForFile(
             context, "${context.packageName}.fileprovider", apkFile
         )
@@ -186,8 +246,17 @@ object AppUpdater {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        withContext(Dispatchers.Main) {
-            context.startActivity(installIntent)
-        }
+        context.startActivity(installIntent)
+    }
+
+    /** Downloads (or reuses) then immediately installs. */
+    suspend fun downloadAndInstall(
+        context: Context,
+        apkUrl: String,
+        versionName: String,
+        onProgress: (Float) -> Unit = {}
+    ) {
+        val file = download(context, apkUrl, versionName, onProgress)
+        install(context, file)
     }
 }

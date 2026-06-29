@@ -55,7 +55,7 @@ class SettingsViewModel @Inject constructor(
     )
 
     /** Update-check lifecycle for the "Check for Updates" row. */
-    enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, ERROR }
+    enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, DOWNLOADED, ERROR }
 
     data class SettingsUiState(
         val projects: List<ProjectSummary> = emptyList(),
@@ -68,6 +68,8 @@ class SettingsViewModel @Inject constructor(
         val updateNotes: String = "",
         val updateApkUrl: String = "",
         val updateProgress: Float = 0f,
+        /** 0..100 for the progress label. */
+        val updateProgressPercent: Int = 0,
         val updateError: String = ""
     )
 
@@ -172,7 +174,8 @@ class SettingsViewModel @Inject constructor(
 
     // ── App update (GitHub Releases) ───────────────────────────────────────
 
-    fun checkForUpdate() {
+    /** Whether a check is currently meaningful (not mid-download/install). */
+    fun checkForUpdate(autoStartDownload: Boolean = false) {
         _uiState.update { it.copy(updateState = UpdateState.CHECKING, updateError = "") }
         viewModelScope.launch {
             when (val r = AppUpdater.check(
@@ -180,16 +183,21 @@ class SettingsViewModel @Inject constructor(
                 currentVersionName = BuildConfig.VERSION_NAME
             )) {
                 is AppUpdater.CheckResult.UpdateAvailable -> {
+                    // If we already downloaded this exact version, offer Install only.
+                    val already = AppUpdater.downloadedApk(appContext, r.info.versionName) != null
                     _uiState.update {
                         it.copy(
-                            updateState = UpdateState.AVAILABLE,
+                            updateState = if (already) UpdateState.DOWNLOADED else UpdateState.AVAILABLE,
                             updateVersionName = r.info.versionName,
                             updateNotes = r.info.notes,
-                            updateApkUrl = r.info.apkUrl
+                            updateApkUrl = r.info.apkUrl,
+                            updateProgress = if (already) 1f else 0f,
+                            updateProgressPercent = if (already) 100 else 0
                         )
                     }
-                    // Also raise a notification pointing back into the app.
                     NotificationHelper.postUpdateAvailableNotification(appContext, r.info.versionName)
+                    // Coming from the notification's "Update Now": start at once.
+                    if (autoStartDownload && !already) downloadUpdate()
                 }
                 AppUpdater.CheckResult.UpToDate ->
                     _uiState.update { it.copy(updateState = UpdateState.UP_TO_DATE) }
@@ -201,21 +209,45 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun downloadAndInstallUpdate() {
+    /** Downloads the APK (with progress), then marks it ready to install. */
+    fun downloadUpdate() {
         val url = _uiState.value.updateApkUrl
-        if (url.isBlank()) return
-        _uiState.update { it.copy(updateState = UpdateState.DOWNLOADING, updateProgress = 0f) }
+        val version = _uiState.value.updateVersionName
+        if (url.isBlank() || version.isBlank()) return
+
+        // Already downloaded → skip straight to install.
+        if (AppUpdater.downloadedApk(appContext, version) != null) {
+            installUpdate()
+            return
+        }
+
+        _uiState.update { it.copy(updateState = UpdateState.DOWNLOADING, updateProgress = 0f, updateProgressPercent = 0) }
         viewModelScope.launch {
             try {
-                AppUpdater.downloadAndInstall(appContext, url) { p ->
-                    _uiState.update { it.copy(updateProgress = p) }
+                AppUpdater.download(appContext, url, version) { p ->
+                    _uiState.update { it.copy(updateProgress = p, updateProgressPercent = (p * 100).toInt()) }
                 }
-                // Installer launched; reset back to AVAILABLE so the row is usable
-                // again if the user cancels the system install prompt.
-                _uiState.update { it.copy(updateState = UpdateState.AVAILABLE) }
+                _uiState.update { it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100) }
+                // Immediately launch the installer once downloaded.
+                installUpdate()
             } catch (e: Exception) {
                 _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = e.message ?: "Download failed") }
             }
+        }
+    }
+
+    /** Launches the installer for the already-downloaded APK (no re-download). */
+    fun installUpdate() {
+        val version = _uiState.value.updateVersionName
+        val file = AppUpdater.downloadedApk(appContext, version)
+        if (file == null) {
+            // Nothing stored (e.g. cleaned up) — fall back to downloading.
+            downloadUpdate()
+            return
+        }
+        viewModelScope.launch {
+            runCatching { AppUpdater.install(appContext, file) }
+                .onFailure { _uiState.update { s -> s.copy(updateState = UpdateState.ERROR, updateError = it.message ?: "Install failed") } }
         }
     }
 

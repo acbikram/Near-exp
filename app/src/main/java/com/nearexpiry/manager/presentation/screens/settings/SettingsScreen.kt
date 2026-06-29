@@ -37,11 +37,17 @@ import com.nearexpiry.manager.utils.LanguageManager
 @Composable
 fun SettingsScreen(
     navController: NavController,
+    autoStartUpdate: Boolean = false,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
+
+    // Arrived from the notification's "Update Now": check + auto-start download.
+    LaunchedEffect(autoStartUpdate) {
+        if (autoStartUpdate) viewModel.checkForUpdate(autoStartDownload = true)
+    }
 
     // Surface the "cannot delete the last project" message as a toast.
     val cannotDeleteMsg = stringResource(R.string.project_cannot_delete_last)
@@ -49,24 +55,6 @@ fun SettingsScreen(
         if (uiState.message == "CANNOT_DELETE_LAST") {
             android.widget.Toast.makeText(context, cannotDeleteMsg, android.widget.Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
-        }
-    }
-
-    // ── Notification permission (Android 13+) ────────────────────────────────
-    var hasNotifPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            else true
-        )
-    }
-    val notifPermLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasNotifPermission = granted
-        if (granted) {
-            ExpiryNotificationWorker.schedule(context)
         }
     }
 
@@ -170,79 +158,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Expiry Notifications ─────────────────────────────────────────
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape  = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(R.string.expiry_notifications),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.notifications_description),
-                            style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
-                        )
-                        Spacer(Modifier.height(12.dp))
-
-                        NotifInfoRow(
-                            label = stringResource(R.string.days_away_15),
-                            sublabel = stringResource(R.string.soft_reminder),
-                            color = GreenAccent
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        NotifInfoRow(
-                            label = stringResource(R.string.days_away_7),
-                            sublabel = stringResource(R.string.soft_reminder),
-                            color = OrangeAccent
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        NotifInfoRow(
-                            label = stringResource(R.string.days_away_3),
-                            sublabel = stringResource(R.string.urgent_alert_desc),
-                            color = ErrorRed
-                        )
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotifPermission) {
-                            Spacer(Modifier.height(12.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                stringResource(R.string.notif_permission_required),
-                                style = MaterialTheme.typography.bodySmall.copy(color = ErrorRed)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Button(
-                                onClick = {
-                                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = CyanAccent.copy(alpha = 0.15f),
-                                    contentColor = CyanAccent
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(stringResource(R.string.grant_notification_permission))
-                            }
-                        } else if (hasNotifPermission) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                stringResource(R.string.notifications_enabled),
-                                style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
-                            )
-                        }
-                    }
-                }
-            }
-
-
             // ── Data Management ────────────────────────────────────────────────
             item {
                 Card(
@@ -305,7 +220,8 @@ fun SettingsScreen(
 
                         when (uiState.updateState) {
                             SettingsViewModel.UpdateState.AVAILABLE,
-                            SettingsViewModel.UpdateState.DOWNLOADING -> {
+                            SettingsViewModel.UpdateState.DOWNLOADING,
+                            SettingsViewModel.UpdateState.DOWNLOADED -> {
                                 Text(
                                     stringResource(R.string.update_available_format, uiState.updateVersionName),
                                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent),
@@ -317,18 +233,33 @@ fun SettingsScreen(
                                         progress = { uiState.updateProgress },
                                         modifier = Modifier.fillMaxWidth()
                                     )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        stringResource(R.string.downloading_percent_format, uiState.updateProgressPercent),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SubtleGray
+                                    )
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 Button(
-                                    onClick = { viewModel.downloadAndInstallUpdate() },
+                                    onClick = {
+                                        when (uiState.updateState) {
+                                            SettingsViewModel.UpdateState.DOWNLOADED -> viewModel.installUpdate()
+                                            SettingsViewModel.UpdateState.AVAILABLE -> viewModel.downloadUpdate()
+                                            else -> {}
+                                        }
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = uiState.updateState != SettingsViewModel.UpdateState.DOWNLOADING
                                 ) {
                                     Text(
-                                        if (uiState.updateState == SettingsViewModel.UpdateState.DOWNLOADING)
-                                            stringResource(R.string.downloading_update)
-                                        else
-                                            stringResource(R.string.update_now)
+                                        when (uiState.updateState) {
+                                            SettingsViewModel.UpdateState.DOWNLOADING ->
+                                                stringResource(R.string.downloading_percent_format, uiState.updateProgressPercent)
+                                            SettingsViewModel.UpdateState.DOWNLOADED ->
+                                                stringResource(R.string.install_update)
+                                            else -> stringResource(R.string.update_now)
+                                        }
                                     )
                                 }
                             }
@@ -416,14 +347,4 @@ private fun LanguageOptionRow(label: String, selected: Boolean, onClick: () -> U
 }
 
 @Composable
-private fun NotifInfoRow(label: String, sublabel: String, color: androidx.compose.ui.graphics.Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column {
-            Text(label, style = MaterialTheme.typography.bodyMedium.copy(color = color))
-            Text(sublabel, style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray))
-        }
-    }
-}
+private fun NotifInfoRowRemoved() {}

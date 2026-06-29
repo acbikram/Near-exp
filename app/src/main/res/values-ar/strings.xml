@@ -228,6 +228,13 @@
     <string name="checking_for_updates">جاري التحقق…</string>
     <string name="update_available_format">يتوفر تحديث: v%1$s</string>
     <string name="update_now">حدّث الآن</string>
+    <string name="install_update">تثبيت التحديث</string>
+    <string name="downloading_percent_format">جاري التنزيل… %1$d%%</string>
+    <string name="ignore">تجاهل</string>
+    <string name="notif_perm_dialog_title">تفعيل الإشعارات</string>
+    <string name="notif_perm_dialog_body">يحتاج تطبيق قرب انتهاء الصلاحية إلى إذن الإشعارات لتنبيهك بالمنتجات القريبة من انتهاء الصلاحية وتحديثات التطبيق. يرجى تفعيل الإشعارات من الإعدادات.</string>
+    <string name="notif_perm_open_settings">فتح الإعدادات</string>
+    <string name="notif_perm_later">لاحقاً</string>
     <string name="you_have_latest">لديك أحدث إصدار</string>
     <string name="update_check_failed_format">فشل التحقق من التحديث: %1$s</string>
     <string name="downloading_update">جاري تنزيل التحديث…</string>

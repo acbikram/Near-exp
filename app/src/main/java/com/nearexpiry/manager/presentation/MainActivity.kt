@@ -1,7 +1,12 @@
 package com.nearexpiry.manager.presentation
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,48 +14,127 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
+import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
 import com.nearexpiry.manager.presentation.navigation.NearExpiryNavHost
 import com.nearexpiry.manager.presentation.theme.NearExpiryManagerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * Extends AppCompatActivity (not plain ComponentActivity) so that
- * AppCompatDelegate.setApplicationLocales(...) (used for the in-app
- * English/Arabic language switch in Settings) can correctly wrap this
- * activity's resources with the chosen locale and trigger a recreate on
- * API levels below 33. On API 33+ the system LocaleManager handles this
- * directly, but AppCompatActivity is still required for consistent
- * behavior across all supported OS versions (minSdk 29).
+ * Extends AppCompatActivity (not plain ComponentActivity) so the in-app
+ * English/Arabic locale switch works across API levels.
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private val firstLaunchViewModel: FirstLaunchViewModel by viewModels()
 
+    // True when we should show the "enable notifications in Settings" dialog
+    // (i.e. the user has hard-denied, so the system won't show the prompt again).
+    private val showNotifSettingsDialog = mutableStateOf(false)
+
+    // Avoid re-launching the system prompt repeatedly within one resume.
+    private var permissionRequestedThisResume = false
+
+    private val notifPermLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val canAskAgain = shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+            showNotifSettingsDialog.value = !canAskAgain
+        } else {
+            showNotifSettingsDialog.value = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val openUpdates = intent?.getBooleanExtra("open_updates", false) == true
+        val autoUpdate = intent?.getBooleanExtra("auto_update", false) == true
         setContent {
             NearExpiryManagerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NearExpiryNavHost(openUpdates = openUpdates)
+                    NearExpiryNavHost(openUpdates = openUpdates, autoUpdate = autoUpdate)
 
-                    // ── First-launch language picker ─────────────────────────
                     val showLanguagePrompt by firstLaunchViewModel.showLanguagePrompt.collectAsState()
                     if (showLanguagePrompt) {
                         FirstLaunchLanguageDialog(
                             onDismiss = { firstLaunchViewModel.onLanguagePromptDismissed() }
                         )
                     }
+
+                    if (showNotifSettingsDialog.value) {
+                        NotificationPermissionDialog(
+                            onOpenSettings = { openAppNotificationSettings() },
+                            onDismiss = { showNotifSettingsDialog.value = false }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        permissionRequestedThisResume = false
+        ensureNotificationPermission()
+    }
+
+    /**
+     * On every launch/resume, if notification permission isn't granted, prompt
+     * for it. Once granted this is a no-op. On Android < 13 the permission is
+     * implicit so there's nothing to do.
+     */
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        val granted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.POST_NOTIFICATIONS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (granted) {
+            showNotifSettingsDialog.value = false
+            return
+        }
+
+        val canAskViaSystem = shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) ||
+            !hasRequestedNotifBefore()
+
+        if (canAskViaSystem && !permissionRequestedThisResume) {
+            permissionRequestedThisResume = true
+            markNotifRequested()
+            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            showNotifSettingsDialog.value = true
+        }
+    }
+
+    private fun openAppNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        runCatching { startActivity(intent) }.onFailure {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.fromParts("package", packageName, null)
+                }
+            )
+        }
+    }
+
+    private fun hasRequestedNotifBefore(): Boolean =
+        getSharedPreferences("perm_flags", MODE_PRIVATE).getBoolean("notif_requested", false)
+
+    private fun markNotifRequested() {
+        getSharedPreferences("perm_flags", MODE_PRIVATE).edit()
+            .putBoolean("notif_requested", true).apply()
     }
 }

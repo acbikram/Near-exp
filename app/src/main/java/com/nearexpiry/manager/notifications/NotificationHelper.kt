@@ -75,23 +75,48 @@ object NotificationHelper {
         val title = context.getString(R.string.notif_update_title)
         val body = context.getString(R.string.notif_update_body_format, versionName)
 
-        // Tapping opens MainActivity with an extra that routes to Settings → App Updates.
-        val launchIntent = context.packageManager
-            .getLaunchIntentForPackage(context.packageName)
-            ?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra("open_updates", true)
-            }
-        val contentPi = launchIntent?.let {
-            PendingIntent.getActivity(
-                context, 801_000, it,
+        // Tapping the body → open Settings → App Updates (no auto-download).
+        fun launchPi(requestCode: Int, autoStart: Boolean): PendingIntent? {
+            val launch = context.packageManager
+                .getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra("open_updates", true)
+                    putExtra("auto_update", autoStart)
+                } ?: return null
+            return PendingIntent.getActivity(
+                context, requestCode, launch,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
         }
 
+        // "Update Now" → open update screen AND start the download automatically.
+        val updateNowPi = launchPi(801_001, autoStart = true)
+        // "Ignore" → dismiss; the daily/launch check will notify again later.
+        val ignorePi = PendingIntent.getBroadcast(
+            context, 801_002,
+            Intent(context, UpdateIgnoreReceiver::class.java).apply {
+                action = UpdateIgnoreReceiver.ACTION_IGNORE
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val builder = baseBuilder(context, CHANNEL_SOFT, title, body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        if (contentPi != null) builder.setContentIntent(contentPi)
+            .setAutoCancel(true)
+        launchPi(801_000, autoStart = false)?.let { builder.setContentIntent(it) }
+        if (updateNowPi != null) {
+            builder.addAction(
+                R.drawable.ic_launcher_foreground,
+                context.getString(R.string.update_now),
+                updateNowPi
+            )
+        }
+        builder.addAction(
+            R.drawable.ic_launcher_foreground,
+            context.getString(R.string.ignore),
+            ignorePi
+        )
         NotificationManagerCompat.from(context).notify(800_000, builder.build())
     }
 

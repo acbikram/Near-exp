@@ -40,6 +40,12 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         ExpiryNotificationWorker.schedule(this)
         // Schedule the daily background update check.
         UpdateCheckWorker.schedule(this)
+        // Delete update APKs already installed (version <= current). APKs for a
+        // newer, downloaded-but-not-yet-installed version are kept so the user
+        // can tap "Install" without re-downloading. This approximates
+        // "delete after install": if they installed it, this launch is that new
+        // version, so the matching APK is now same-version → removed.
+        AppUpdater.cleanupInstalledApks(this, BuildConfig.VERSION_NAME)
         // If the previously-active project was deleted, fall back to a valid one.
         CoroutineScope(Dispatchers.IO).launch {
             activeProjectManager.ensureValidActiveProject()
