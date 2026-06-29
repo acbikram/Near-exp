@@ -355,6 +355,7 @@ fun ScanScreen(
 
     if (uiState.showExpiryDialog) {
         ExpiryDatePickerDialog(
+            initialDate = uiState.initialExpiryDate,
             onDateSelected = { date -> viewModel.onExpiryDateSelected(date) },
             onDismiss = { viewModel.dismissDialog() },
             productName = pendingDisplayName,

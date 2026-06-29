@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,25 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val languagePromptShownKey = booleanPreferencesKey("language_prompt_shown")
     private val activeProjectIdKey = longPreferencesKey("active_project_id")
     private val lastUpdateCheckKey = longPreferencesKey("last_update_check")
+
+    // Remembers the last expiry date picked on the Scan screen, and the day it
+    // was saved, so a batch of same-expiry items pre-fills — but only for the
+    // same calendar day (first scan of a new day defaults to today).
+    private val lastExpiryDateKey = stringPreferencesKey("last_expiry_date")        // "yyyy-MM-dd"
+    private val lastExpirySavedDayKey = stringPreferencesKey("last_expiry_saved_day") // "yyyy-MM-dd"
+
+    suspend fun getLastExpiryForToday(todayIso: String): String? {
+        val prefs = context.dataStore.data.first()
+        val savedDay = prefs[lastExpirySavedDayKey]
+        return if (savedDay == todayIso) prefs[lastExpiryDateKey] else null
+    }
+
+    suspend fun setLastExpiry(expiryIso: String, todayIso: String) {
+        context.dataStore.edit {
+            it[lastExpiryDateKey] = expiryIso
+            it[lastExpirySavedDayKey] = todayIso
+        }
+    }
 
     suspend fun getLastUpdateCheck(): Long =
         context.dataStore.data.first()[lastUpdateCheckKey] ?: 0L

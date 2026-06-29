@@ -54,6 +54,8 @@ class ScanViewModel @Inject constructor(
         val showDuplicateDialog: Boolean = false,
         val pendingBarcode: String = "",
         val pendingExpiryDate: String = "",
+        /** Pre-fill date for the expiry picker: last-picked date earlier today, else "" (today). */
+        val initialExpiryDate: String = "",
         val pendingProductName: String? = null,
         val pendingProductNameArabic: String? = null,
         val pendingUnit: String? = null,
@@ -93,6 +95,7 @@ class ScanViewModel @Inject constructor(
     init {
         loadRecentScans()
         startInactivityTimer()
+        refreshInitialExpiry()
         // Reload the recent-scans list whenever the user switches projects.
         viewModelScope.launch {
             activeProjectManager.activeProjectIdFlow.collect { id ->
@@ -191,6 +194,7 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog = true
             )
         }
+        refreshInitialExpiry()
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
@@ -224,6 +228,7 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog = true
             )
         }
+        refreshInitialExpiry()
 
         viewModelScope.launch {
             val product = productCatalogRepository.lookup(barcode)
@@ -302,11 +307,30 @@ class ScanViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Loads the expiry date to pre-fill the picker with: the last date picked
+     * earlier *today*, or "" (meaning default to today) on the first scan of a
+     * new day. Call right before showing the expiry dialog.
+     */
+    private fun refreshInitialExpiry() {
+        viewModelScope.launch {
+            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val remembered = preferencesManager.getLastExpiryForToday(todayIso) ?: ""
+            _uiState.update { it.copy(initialExpiryDate = remembered) }
+        }
+    }
+
     fun onExpiryDateSelected(date: LocalDate) {
         val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        // Remember this pick for the rest of today so the next scan pre-fills it.
+        viewModelScope.launch {
+            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            preferencesManager.setLastExpiry(formatted, todayIso)
+        }
         _uiState.update {
             it.copy(
                 pendingExpiryDate = formatted,
+                initialExpiryDate = formatted,
                 showExpiryDialog = false,
                 showQuantityDialog = true
             )

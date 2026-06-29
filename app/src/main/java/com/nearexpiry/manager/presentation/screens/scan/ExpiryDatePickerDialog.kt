@@ -83,6 +83,7 @@ private fun buildAllDates(range: PickerRange): List<LocalDate> {
 fun ExpiryDatePickerDialog(
     onDateSelected: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
+    initialDate: String = "",
     productName: String? = null,
     onlineLookupState: com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState =
         com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.IDLE,
@@ -103,8 +104,18 @@ fun ExpiryDatePickerDialog(
     // = dayOfMonth - 1). Previously this defaulted to 0 (the 1st of the
     // month) instead of today.
     val today = remember { LocalDate.now() }
-    var selectedMonthIdx by remember { mutableIntStateOf(0) }
-    var selectedDayIdx   by remember { mutableIntStateOf(today.dayOfMonth - 1) }
+
+    // Default to today, unless a valid in-range initialDate was provided (the
+    // last expiry picked earlier today), in which case start there.
+    val startDate = remember(initialDate, range) {
+        val parsed = runCatching { if (initialDate.isNotBlank()) LocalDate.parse(initialDate) else null }.getOrNull()
+        if (parsed != null && !parsed.isBefore(range.min) && !parsed.isAfter(range.max)) parsed else today
+    }
+    val startMonthIdx = remember(startDate) {
+        months.indexOfFirst { it.first == startDate.year && it.second == startDate.monthValue }.coerceAtLeast(0)
+    }
+    var selectedMonthIdx by remember { mutableIntStateOf(startMonthIdx) }
+    var selectedDayIdx   by remember { mutableIntStateOf(startDate.dayOfMonth - 1) }
 
     // Days available for the currently selected month
     val currentMonthYear = months[selectedMonthIdx]
