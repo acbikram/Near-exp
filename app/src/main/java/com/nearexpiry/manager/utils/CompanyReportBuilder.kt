@@ -28,7 +28,7 @@ object CompanyReportBuilder {
         return when (u) {
             "PCS" -> "PCS"
             "CTN" -> "CTN"
-            "KGS", "KG" -> "Kg"
+            "KGS", "KG" -> "KGS"
             "PKT" -> "PKT"
             "OFR", "OFFER" -> "PKT"
             "" -> "PCS"
@@ -69,18 +69,27 @@ object CompanyReportBuilder {
         selectedMonths: Set<YearMonth>,
         area: String,
         branchId: String,
-        branchName: String
+        branchName: String,
+        arabic: Boolean = false
     ): List<CompanyReportExcel.Row> {
         return items.mapNotNull { item ->
             val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate) ?: return@mapNotNull null
             val ym = YearMonth(expiry.year, expiry.monthValue)
             if (ym !in selectedMonths) return@mapNotNull null
+            // Description: Arabic name when app is Arabic (fallback to English), else English.
+            val description = if (arabic) {
+                item.productNameArabic?.takeIf { it.isNotBlank() }
+                    ?: item.productName?.takeIf { it.isNotBlank() }
+                    ?: ""
+            } else {
+                item.productName?.takeIf { it.isNotBlank() } ?: ""
+            }
             item to CompanyReportExcel.Row(
                 area = area,
                 branchId = branchId,
                 branchName = branchName,
                 posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode,
-                description = item.productName?.takeIf { it.isNotBlank() } ?: "",
+                description = description,
                 uom = mapUom(item.unit),
                 qty = item.quantity,
                 expiryExcelSerial = toExcelSerial(expiry)

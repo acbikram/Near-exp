@@ -127,7 +127,7 @@ object CompanyReportExcel {
 <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
 <xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>"""
@@ -185,7 +185,7 @@ object CompanyReportExcel {
 
         // Single signature labels row, then the closing bordered row (closed table base).
         val sigRow = r
-        sb.append("""<row r="$sigRow" ht="29.45" customHeight="1"><c r="A$sigRow" s="5" t="inlineStr"><is><t>${esc(SIGNATURE_TEXT)}</t></is></c>""")
+        sb.append("""<row r="$sigRow" ht="60" customHeight="1"><c r="A$sigRow" s="5" t="inlineStr"><is><t>${esc(SIGNATURE_TEXT)}</t></is></c>""")
         for (col in 2..10) sb.append("""<c r="${colLetter(col)}$sigRow" s="5"/>""")
         sb.append("</row>\n")
 

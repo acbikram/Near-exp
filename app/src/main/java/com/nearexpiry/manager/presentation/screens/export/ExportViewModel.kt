@@ -14,6 +14,7 @@ import com.nearexpiry.manager.utils.BranchDirectory
 import com.nearexpiry.manager.utils.CompanyReportBuilder
 import com.nearexpiry.manager.utils.CompanyReportExcel
 import com.nearexpiry.manager.utils.CsvExporter
+import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
@@ -344,7 +345,8 @@ class ExportViewModel @Inject constructor(
                     selectedMonths = selectedMonths,
                     area = _uiState.value.pendingBranchArea,
                     branchId = id,
-                    branchName = _uiState.value.pendingBranchName
+                    branchName = _uiState.value.pendingBranchName,
+                    arabic = LanguageManager.isArabic()
                 )
                 if (rows.isEmpty()) {
                     _uiState.update { it.copy(isExporting = false, error = "No items in the selected months.") }
