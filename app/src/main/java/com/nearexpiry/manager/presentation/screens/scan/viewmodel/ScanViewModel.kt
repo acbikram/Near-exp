@@ -14,6 +14,7 @@ import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.model.ProductInfo
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
+import com.nearexpiry.manager.utils.EmbeddedBarcode
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
