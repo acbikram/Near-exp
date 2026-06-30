@@ -68,6 +68,8 @@ class ExportViewModel @Inject constructor(
         // ── Company Near-Expiry report ───────────────────────────────────
         /** Shows the Branch ID prompt before generating the company report. */
         val showBranchIdDialog: Boolean = false,
+        /** Where the generated report should go once built: SHARE sheet or send to PC. */
+        val reportDestination: ReportDestination = ReportDestination.SHARE,
         /** Last-used Branch ID, pre-filled into the prompt. */
         val lastBranchId: String = "",
         /** Shows the month-selection step after a valid Branch ID. */
@@ -270,11 +272,16 @@ class ExportViewModel @Inject constructor(
 
     // ── Company Near-Expiry report (.xlsm) ─────────────────────────────────
 
-    /** Opens the Branch ID prompt, pre-filling the last-used ID. */
-    fun startCompanyReport() {
+    enum class ReportDestination { SHARE, PC }
+
+    /** Opens the Branch ID prompt, pre-filling the last-used ID. [destination]
+     *  decides whether the generated file is shared or sent to the PC. */
+    fun startCompanyReport(destination: ReportDestination = ReportDestination.SHARE) {
         viewModelScope.launch {
             val last = preferencesManager.getLastBranchId()
-            _uiState.update { it.copy(showBranchIdDialog = true, lastBranchId = last) }
+            _uiState.update {
+                it.copy(showBranchIdDialog = true, lastBranchId = last, reportDestination = destination)
+            }
         }
     }
 
@@ -359,16 +366,23 @@ class ExportViewModel @Inject constructor(
                     FileOutputStream(f).use { out -> CompanyReportExcel.write(out, rows, title) }
                     f
                 }
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 val label = selectedMonths.sorted().joinToString(", ") {
                     java.time.Month.of(it.month)
                         .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
                 }
+                // Store the file regardless, then route by destination.
                 _uiState.update {
-                    it.copy(isExporting = false, reportFileUri = uri,
+                    it.copy(isExporting = false,
                         reportFilePath = file.absolutePath,
                         reportFileName = file.name,
                         reportSummary = "${rows.size} items · $label")
+                }
+                if (_uiState.value.reportDestination == ReportDestination.PC) {
+                    // Send straight to the PC over WiFi (no share sheet).
+                    sendReportToPc()
+                } else {
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    _uiState.update { it.copy(reportFileUri = uri) }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message) }

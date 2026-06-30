@@ -106,6 +106,7 @@
     <string name="save_csv">حفظ ملف CSV</string>
     <string name="share_csv">مشاركة ملف CSV</string>
     <string name="company_report_button">تقرير قرب انتهاء الصلاحية للشركة</string>
+    <string name="make_excel_file">إنشاء ملف Excel</string>
     <string name="company_report_desc">إنشاء ملف Excel لتقديم قرب انتهاء الصلاحية للشركة للأصناف التي تنتهي من الشهر القادم وحتى الشهرين التاليين.</string>
     <string name="branch_id_title">أدخل رقم الفرع</string>
     <string name="branch_id_hint">يتم تعبئة المنطقة واسم الفرع تلقائياً من هذا الرقم.</string>

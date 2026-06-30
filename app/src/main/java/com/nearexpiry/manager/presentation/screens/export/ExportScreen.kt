@@ -222,32 +222,31 @@ fun ExportScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Button(
-                        onClick = { viewModel.startCompanyReport() },
+                        onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.SHARE) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Description, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.company_report_button))
+                        Text(stringResource(R.string.make_excel_file))
                     }
-                    // Send-to-PC appears once a report has been generated.
-                    if (uiState.reportFilePath != null) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { viewModel.sendReportToPc() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
-                                      uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
-                        ) {
-                            Icon(Icons.Default.Computer, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                when (uiState.sendToPcState) {
-                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
-                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
-                                    else -> stringResource(R.string.send_to_pc)
-                                }
-                            )
-                        }
+                    // Send-to-PC is always available; it runs the same branch/month
+                    // flow, then sends the generated file to the PC over WiFi.
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.PC) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
+                                  uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
+                    ) {
+                        Icon(Icons.Default.Computer, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            when (uiState.sendToPcState) {
+                                ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                else -> stringResource(R.string.send_to_pc)
+                            }
+                        )
                     }
                 }
             }
@@ -317,7 +316,7 @@ fun ExportScreen(
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.company_report_button)))
+            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.make_excel_file)))
             viewModel.consumeReportFileUri()
         }
     }
