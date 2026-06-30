@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.clickable
+import com.nearexpiry.manager.utils.CompanyReportBuilder
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -290,7 +292,7 @@ fun ExportScreen(
     uiState.reportFileUri?.let { uri ->
         LaunchedEffect(uri) {
             val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/vnd.ms-excel.sheet.macroEnabled.12"
+                type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -334,14 +336,69 @@ fun ExportScreen(
             },
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.generateCompanyReport(context, branchId) },
+                    onClick = { viewModel.validateBranchAndPickMonths(branchId) },
                     enabled = branchId.isNotBlank()
+                ) {
+                    Text(stringResource(R.string.next))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissBranchIdDialog() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // ── Month selection step ───────────────────────────────────────────────
+    if (uiState.showMonthPicker) {
+        val selected = remember(uiState.availableMonths) {
+            mutableStateListOf<CompanyReportBuilder.YearMonth>()
+        }
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissMonthPicker() },
+            title = { Text(stringResource(R.string.select_months_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.select_months_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    uiState.availableMonths.forEach { ym ->
+                        val checked = selected.contains(ym)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (checked) selected.remove(ym) else selected.add(ym)
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = {
+                                    if (it) selected.add(ym) else selected.remove(ym)
+                                }
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(ym.label())
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.generateForMonths(context, selected.toSet()) },
+                    enabled = selected.isNotEmpty()
                 ) {
                     Text(stringResource(R.string.generate))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.dismissBranchIdDialog() }) {
+                TextButton(onClick = { viewModel.dismissMonthPicker() }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

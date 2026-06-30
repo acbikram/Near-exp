@@ -184,20 +184,28 @@ object CompanyReportExcel {
             r++
         }
 
-        // Signature row + closing row (the "closed table" bottom).
+        // Signature labels row, an empty merged signing row, then the closing
+        // bordered row (the "closed table" base).
         val sigRow = r
         sb.append("""<row r="$sigRow" ht="29.45" customHeight="1"><c r="A$sigRow" s="5" t="inlineStr"><is><t>${esc(SIGNATURE_TEXT)}</t></is></c>""")
         for (col in 2..10) sb.append("""<c r="${colLetter(col)}$sigRow" s="5"/>""")
         sb.append("</row>\n")
-        val closeRow = r + 1
+
+        // Empty merged row (A:J) — the physical space to sign.
+        val signRow = r + 1
+        sb.append("""<row r="$signRow" ht="29.45" customHeight="1">""")
+        for (col in 1..10) sb.append("""<c r="${colLetter(col)}$signRow" s="3"/>""")
+        sb.append("</row>\n")
+
+        val closeRow = r + 2
         sb.append("""<row r="$closeRow" ht="29.45" customHeight="1">""")
         for (col in 1..10) sb.append("""<c r="${colLetter(col)}$closeRow" s="3"/>""")
         sb.append("</row>\n")
 
         sb.append("</sheetData>\n")
 
-        // Merge title across A1:J1 and the signature row across A{sig}:J{sig}.
-        sb.append("""<mergeCells count="2"><mergeCell ref="A1:J1"/><mergeCell ref="A$sigRow:J$sigRow"/></mergeCells>
+        // Merge title (A1:J1), the signature labels row, and the empty signing row.
+        sb.append("""<mergeCells count="3"><mergeCell ref="A1:J1"/><mergeCell ref="A$sigRow:J$sigRow"/><mergeCell ref="A$signRow:J$signRow"/></mergeCells>
 """)
 
         // Data-validation dropdown on column J for the data rows: only "Near expir".

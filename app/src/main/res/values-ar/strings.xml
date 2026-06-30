@@ -111,6 +111,9 @@
     <string name="branch_id_hint">يتم تعبئة المنطقة واسم الفرع تلقائياً من هذا الرقم.</string>
     <string name="branch_id_label">رقم الفرع</string>
     <string name="generate">إنشاء</string>
+    <string name="next">التالي</string>
+    <string name="select_months_title">اختر الأشهر</string>
+    <string name="select_months_hint">اختر أشهر انتهاء الصلاحية المراد تضمينها في التقرير.</string>
     <string name="exporting">جاري التصدير…</string>
     <string name="export_successful">تم التصدير بنجاح</string>
     <string name="export_selected_data_only">تصدير البيانات المحددة فقط</string>

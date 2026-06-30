@@ -111,6 +111,9 @@
     <string name="branch_id_hint">Area and Branch Name are filled automatically from this ID.</string>
     <string name="branch_id_label">Branch ID</string>
     <string name="generate">Generate</string>
+    <string name="next">Next</string>
+    <string name="select_months_title">Select Months</string>
+    <string name="select_months_hint">Choose which expiry months to include in the report.</string>
     <string name="exporting">Exporting…</string>
     <string name="export_successful">Export successful</string>
     <string name="export_selected_data_only">Export Selected Data Only</string>

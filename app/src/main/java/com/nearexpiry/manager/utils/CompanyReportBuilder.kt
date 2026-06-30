@@ -20,31 +20,6 @@ object CompanyReportBuilder {
     /** Excel's day 0 is 1899-12-30 (the well-known 1900 date-system base). */
     private val EXCEL_EPOCH: LocalDate = LocalDate.of(1899, 12, 30)
 
-    data class Window(val start: LocalDate, val endInclusive: LocalDate) {
-        /** The three month numbers in the window, e.g. [8, 9, 10]. */
-        val months: List<Int>
-            get() {
-                val list = ArrayList<Int>(3)
-                var m = start
-                while (!m.isAfter(endInclusive)) {
-                    if (list.isEmpty() || list.last() != m.monthValue) list.add(m.monthValue)
-                    m = m.plusMonths(1).withDayOfMonth(1)
-                }
-                return list.distinct()
-            }
-    }
-
-    /**
-     * Window = 1st of next month .. last day of the month three months out
-     * (i.e. next month + the following two months).
-     */
-    fun reportWindow(today: LocalDate = LocalDate.now()): Window {
-        val start = today.plusMonths(1).withDayOfMonth(1)
-        val lastMonthStart = start.plusMonths(2)              // 3rd month in the window
-        val end = lastMonthStart.withDayOfMonth(lastMonthStart.lengthOfMonth())
-        return Window(start, end)
-    }
-
     private fun toExcelSerial(date: LocalDate): Long =
         ChronoUnit.DAYS.between(EXCEL_EPOCH, date)
 
@@ -61,22 +36,46 @@ object CompanyReportBuilder {
         }
     }
 
+    /** A year-month the user can pick, e.g. (2026, 8). */
+    data class YearMonth(val year: Int, val month: Int) : Comparable<YearMonth> {
+        override fun compareTo(other: YearMonth): Int =
+            if (year != other.year) year - other.year else month - other.month
+
+        fun label(): String {
+            val m = java.time.Month.of(month)
+                .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+            return "$m $year"
+        }
+        /** "08 2026" style token for filenames. */
+        fun token(): String = month.toString().padStart(2, '0')
+    }
+
     /**
-     * Builds the rows for [items] that fall in the report [window], pre-filled
-     * with the given branch info. Items outside the window are excluded. Result
-     * is sorted by expiry date ascending (soonest first).
+     * Every distinct expiry year-month present in [items], sorted chronologically
+     * (soonest first). These are the options shown in the month picker.
+     */
+    fun availableMonths(items: List<ExpiryItem>): List<YearMonth> =
+        items.mapNotNull { item ->
+            ExpiryDateUtils.parseOrNull(item.expiryDate)?.let { YearMonth(it.year, it.monthValue) }
+        }.distinct().sorted()
+
+    /**
+     * Builds rows for [items] whose expiry falls in one of [selectedMonths],
+     * pre-filled with branch info. Sorted by **scan order** (createdAt ascending)
+     * so the first-scanned item is the first row and the last-scanned is last.
      */
     fun buildRows(
         items: List<ExpiryItem>,
-        window: Window,
+        selectedMonths: Set<YearMonth>,
         area: String,
         branchId: String,
         branchName: String
     ): List<CompanyReportExcel.Row> {
         return items.mapNotNull { item ->
             val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate) ?: return@mapNotNull null
-            if (expiry.isBefore(window.start) || expiry.isAfter(window.endInclusive)) return@mapNotNull null
-            CompanyReportExcel.Row(
+            val ym = YearMonth(expiry.year, expiry.monthValue)
+            if (ym !in selectedMonths) return@mapNotNull null
+            item to CompanyReportExcel.Row(
                 area = area,
                 branchId = branchId,
                 branchName = branchName,
@@ -86,15 +85,21 @@ object CompanyReportBuilder {
                 qty = item.quantity,
                 expiryExcelSerial = toExcelSerial(expiry)
             )
-        }.sortedBy { it.expiryExcelSerial }
+        }
+            .sortedBy { it.first.createdAt }   // scan order: first scanned → first row
+            .map { it.second }
     }
 
-    /** Filename like "Near_Expiry_1102_08,09 & 10 2026.xlsm". */
-    fun fileName(branchId: String, window: Window): String {
-        val months = window.months.joinToString(",") { it.toString().padStart(2, '0') }
-        // Render as "08,09 & 10" — replace the last comma with " & ".
-        val pretty = months.substringBeforeLast(",") + " & " + months.substringAfterLast(",")
-        val year = window.endInclusive.year
-        return "Near_Expiry_${branchId}_$pretty $year.xlsm"
+    /** Filename like "Near_Expiry_1102_08,09 & 10 2026.xlsx" from selected months. */
+    fun fileName(branchId: String, selectedMonths: Set<YearMonth>): String {
+        val sorted = selectedMonths.sorted()
+        val year = sorted.lastOrNull()?.year ?: LocalDate.now().year
+        val tokens = sorted.map { it.token() }
+        val pretty = when {
+            tokens.isEmpty() -> ""
+            tokens.size == 1 -> tokens.first()
+            else -> tokens.dropLast(1).joinToString(",") + " & " + tokens.last()
+        }
+        return "Near_Expiry_${branchId}_$pretty $year.xlsx"
     }
 }

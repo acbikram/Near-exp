@@ -68,9 +68,17 @@ class ExportViewModel @Inject constructor(
         val showBranchIdDialog: Boolean = false,
         /** Last-used Branch ID, pre-filled into the prompt. */
         val lastBranchId: String = "",
-        /** Set when a generated .xlsm is ready to share (separate from CSV uri). */
+        /** Shows the month-selection step after a valid Branch ID. */
+        val showMonthPicker: Boolean = false,
+        /** Branch resolved from the entered ID, carried into the month step. */
+        val pendingBranchId: String = "",
+        val pendingBranchName: String = "",
+        val pendingBranchArea: String = "",
+        /** Distinct expiry months available in the project (chronological). */
+        val availableMonths: List<CompanyReportBuilder.YearMonth> = emptyList(),
+        /** Set when a generated .xlsx is ready to share (separate from CSV uri). */
         val reportFileUri: Uri? = null,
-        /** Human summary after a successful report (e.g. "12 items · Aug, Sep, Oct 2026"). */
+        /** Human summary after a successful report. */
         val reportSummary: String? = null,
 
         // ── Selective export ────────────────────────────────────────────
@@ -265,13 +273,17 @@ class ExportViewModel @Inject constructor(
         _uiState.update { it.copy(showBranchIdDialog = false) }
     }
 
+    fun dismissMonthPicker() {
+        _uiState.update { it.copy(showMonthPicker = false) }
+    }
+
     /**
-     * Validates [branchId] against the bundled branch directory and, if valid,
-     * generates the company .xlsm for the active project's items in the report
-     * window (1st of next month .. last day three months out). On an unknown
-     * Branch ID, stops and surfaces an error instead of exporting.
+     * Validates [branchId] against the bundled branch directory. On success,
+     * resolves the branch and opens the month-selection step listing every
+     * expiry month present in the active project. On an unknown Branch ID,
+     * stops and surfaces an error instead of proceeding.
      */
-    fun generateCompanyReport(context: Context, branchId: String) {
+    fun validateBranchAndPickMonths(branchId: String) {
         viewModelScope.launch {
             val id = branchId.trim()
             val branch = branchDirectory.lookup(id)
@@ -285,40 +297,64 @@ class ExportViewModel @Inject constructor(
                 return@launch
             }
             preferencesManager.setLastBranchId(id)
-            _uiState.update { it.copy(showBranchIdDialog = false, isExporting = true, error = null) }
+            val months = CompanyReportBuilder.availableMonths(_uiState.value.allItems)
+            if (months.isEmpty()) {
+                _uiState.update {
+                    it.copy(showBranchIdDialog = false, error = "This project has no items to report.")
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    showBranchIdDialog = false,
+                    showMonthPicker = true,
+                    pendingBranchId = id,
+                    pendingBranchName = branch.name,
+                    pendingBranchArea = branch.area,
+                    availableMonths = months
+                )
+            }
+        }
+    }
+
+    /**
+     * Generates the company .xlsx for the active project's items whose expiry
+     * falls in [selectedMonths], sorted by scan order (first scanned → first
+     * row). Branch info comes from the previously-validated Branch ID.
+     */
+    fun generateForMonths(context: Context, selectedMonths: Set<CompanyReportBuilder.YearMonth>) {
+        viewModelScope.launch {
+            if (selectedMonths.isEmpty()) {
+                _uiState.update { it.copy(showMonthPicker = false, error = "Please select at least one month.") }
+                return@launch
+            }
+            val id = _uiState.value.pendingBranchId
+            _uiState.update { it.copy(showMonthPicker = false, isExporting = true, error = null) }
             try {
-                val window = CompanyReportBuilder.reportWindow()
-                // Use ALL items in the active project; the builder filters to the window.
-                val items = _uiState.value.allItems
                 val rows = CompanyReportBuilder.buildRows(
-                    items = items,
-                    window = window,
-                    area = branch.area,
+                    items = _uiState.value.allItems,
+                    selectedMonths = selectedMonths,
+                    area = _uiState.value.pendingBranchArea,
                     branchId = id,
-                    branchName = branch.name
+                    branchName = _uiState.value.pendingBranchName
                 )
                 if (rows.isEmpty()) {
-                    _uiState.update {
-                        it.copy(isExporting = false,
-                            error = "No items expiring between ${window.start} and ${window.endInclusive}.")
-                    }
+                    _uiState.update { it.copy(isExporting = false, error = "No items in the selected months.") }
                     return@launch
                 }
                 val uri = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    val file = File(dir, CompanyReportBuilder.fileName(id, window))
+                    val file = File(dir, CompanyReportBuilder.fileName(id, selectedMonths))
                     FileOutputStream(file).use { out -> CompanyReportExcel.write(out, rows) }
                     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 }
-                val monthsLabel = window.months.joinToString(", ") { m ->
-                    java.time.Month.of(m).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
+                val label = selectedMonths.sorted().joinToString(", ") {
+                    java.time.Month.of(it.month)
+                        .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
                 }
                 _uiState.update {
-                    it.copy(
-                        isExporting = false,
-                        reportFileUri = uri,
-                        reportSummary = "${rows.size} items · $monthsLabel ${window.endInclusive.year}"
-                    )
+                    it.copy(isExporting = false, reportFileUri = uri,
+                        reportSummary = "${rows.size} items · $label")
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message) }
