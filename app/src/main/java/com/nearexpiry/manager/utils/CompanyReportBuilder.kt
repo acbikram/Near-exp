@@ -102,4 +102,17 @@ object CompanyReportBuilder {
         }
         return "Near_Expiry_${branchId}_$pretty $year.xlsx"
     }
+
+    /** Title like "Near Expiry Form Jubail 2 (Month Of 07, 08 & 09 2026)". */
+    fun title(branchName: String, selectedMonths: Set<YearMonth>): String {
+        val sorted = selectedMonths.sorted()
+        val year = sorted.lastOrNull()?.year ?: LocalDate.now().year
+        val tokens = sorted.map { it.token() }
+        val pretty = when {
+            tokens.isEmpty() -> ""
+            tokens.size == 1 -> tokens.first()
+            else -> tokens.dropLast(1).joinToString(", ") + " & " + tokens.last()
+        }
+        return "Near Expiry Form $branchName (Month Of $pretty $year)"
+    }
 }

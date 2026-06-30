@@ -60,6 +60,9 @@ class ScanViewModel @Inject constructor(
         val pendingProductNameArabic: String? = null,
         val pendingUnit: String? = null,
         val pendingItemCode: String? = null,
+        /** For "22" embedded barcodes: the quantity parsed from the barcode, so
+         *  the quantity dialog is skipped and only expiry is asked. Null otherwise. */
+        val pendingEmbeddedQty: Double? = null,
         // Online fallback lookup (Open Food Facts), for barcodes not in the
         // bundled catalog or saved custom products.
         val onlineLookupState: OnlineLookupState = OnlineLookupState.IDLE,
@@ -84,7 +87,9 @@ class ScanViewModel @Inject constructor(
         val showDeleteConfirmDialog: Boolean = false,
         val deleteItemId: Long = 0,
         // Manual barcode entry mode
-        val showManualMode: Boolean = false
+        val showManualMode: Boolean = false,
+        /** Transient error to surface (e.g. embedded barcode item not in catalog). */
+        val scanError: String? = null
     )
 
     private val _uiState = MutableStateFlow(ScanUiState())
@@ -204,13 +209,16 @@ class ScanViewModel @Inject constructor(
         if (_uiState.value.pendingBarcode.isNotEmpty()) return  // already processing one
         stopScanner()
 
-        // ── Instant feedback on detection ───────────────────────────────────
-        // We don't know yet if it's new or duplicate (that requires a DB lookup),
-        // so we play a single "detected" beep immediately, then correct to double
-        // if it turns out to be a duplicate once the user confirms quantity.
         // Beep + vibrate on scan are always on.
         soundManager.playSingleBeep()
         vibrateSingle()
+
+        // ── "22" embedded-weight barcode → parse item code + quantity ───────
+        val embedded = EmbeddedBarcode.parse(barcode)
+        if (embedded != null) {
+            handleEmbeddedBarcode(embedded)
+            return
+        }
 
         // ── Show barcode on camera screen + go standby immediately ──────────
         _uiState.update {
@@ -242,6 +250,48 @@ class ScanViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Handles a parsed "22" embedded-weight barcode: looks the item code up in
+     * the catalog (same as a normal scan). If found, pre-fills name/unit/code
+     * and the barcode's quantity, then asks only for the expiry date. If the
+     * item code isn't in the catalog, warns the user and does not create it.
+     */
+    private fun handleEmbeddedBarcode(parsed: EmbeddedBarcode.Parsed) {
+        viewModelScope.launch {
+            val product = productCatalogRepository.lookup(parsed.itemCode)
+            if (product == null) {
+                // Not in catalog → warn, reset, resume scanning.
+                _uiState.update {
+                    it.copy(
+                        scanError = "Item code ${parsed.itemCode} not found in catalog.",
+                        pendingBarcode = "",
+                        detectedBarcode = "",
+                        scannerInactive = false
+                    )
+                }
+                startInactivityTimer()
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    detectedBarcode = parsed.itemCode,
+                    scannerInactive = true,
+                    pendingBarcode = parsed.itemCode,
+                    pendingProductName = product.name,
+                    pendingProductNameArabic = product.nameArabic,
+                    pendingUnit = product.unit,
+                    pendingItemCode = product.itemCode ?: parsed.itemCode,
+                    pendingEmbeddedQty = parsed.quantity,
+                    onlineLookupState = OnlineLookupState.IDLE,
+                    onlineProductName = null,
+                    onlineProductNameArabic = null,
+                    showExpiryDialog = true
+                )
+            }
+            refreshInitialExpiry()
         }
     }
 
@@ -327,6 +377,16 @@ class ScanViewModel @Inject constructor(
             val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             preferencesManager.setLastExpiry(formatted, todayIso)
         }
+        val embeddedQty = _uiState.value.pendingEmbeddedQty
+        if (embeddedQty != null) {
+            // "22" barcode: quantity came from the barcode → skip the quantity
+            // dialog and save directly.
+            _uiState.update {
+                it.copy(pendingExpiryDate = formatted, initialExpiryDate = formatted, showExpiryDialog = false)
+            }
+            onQuantityConfirmed(embeddedQty)
+            return
+        }
         _uiState.update {
             it.copy(
                 pendingExpiryDate = formatted,
@@ -335,6 +395,10 @@ class ScanViewModel @Inject constructor(
                 showQuantityDialog = true
             )
         }
+    }
+
+    fun clearScanError() {
+        _uiState.update { it.copy(scanError = null) }
     }
 
     fun dismissDialog() {
@@ -350,6 +414,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                pendingEmbeddedQty = null,
                 onlineLookupState = OnlineLookupState.IDLE,
                 onlineProductName = null,
                 onlineProductNameArabic = null,
@@ -371,6 +436,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                pendingEmbeddedQty = null,
                 onlineLookupState = OnlineLookupState.IDLE,
                 onlineProductName = null,
                 onlineProductNameArabic = null,
@@ -392,6 +458,7 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                pendingEmbeddedQty = null,
                 onlineLookupState = OnlineLookupState.IDLE,
                 onlineProductName = null,
                 onlineProductNameArabic = null,
@@ -450,6 +517,7 @@ class ScanViewModel @Inject constructor(
                         pendingProductNameArabic = null,
                         pendingUnit = null,
                         pendingItemCode = null,
+                        pendingEmbeddedQty = null,
                         detectedBarcode    = "",
                         scannerInactive    = false
                     )
@@ -490,6 +558,7 @@ class ScanViewModel @Inject constructor(
                     pendingProductNameArabic = null,
                     pendingUnit = null,
                     pendingItemCode = null,
+                    pendingEmbeddedQty = null,
                     detectedBarcode     = "",
                     scannerInactive     = false
                 )

@@ -100,6 +100,14 @@ fun ScanScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // Surface scan errors (e.g. embedded "22" barcode item not in catalog).
+    uiState.scanError?.let { msg ->
+        LaunchedEffect(msg) {
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.clearScanError()
+        }
+    }
+
     LaunchedEffect(hasCameraPermission, scannerInactive, lifecycleOwner) {
         if (hasCameraPermission && !scannerInactive && !isCameraBound) {
             try {

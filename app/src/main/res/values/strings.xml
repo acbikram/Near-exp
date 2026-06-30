@@ -114,6 +114,11 @@
     <string name="next">Next</string>
     <string name="select_months_title">Select Months</string>
     <string name="select_months_hint">Choose which expiry months to include in the report.</string>
+    <string name="send_to_pc">Send To PC (WiFi)</string>
+    <string name="searching_pc">Searching for PC…</string>
+    <string name="sending_to_pc">Sending…</string>
+    <string name="pc_not_connected_title">PC Not Connected</string>
+    <string name="pc_not_connected_body">No PC was found on your WiFi. Make sure your PC and phone are on the same WiFi network and the Price Tag app\'s WiFi receiver is turned on, then come back and tap Send To PC (WiFi) again.</string>
     <string name="exporting">Exporting…</string>
     <string name="export_successful">Export successful</string>
     <string name="export_selected_data_only">Export Selected Data Only</string>

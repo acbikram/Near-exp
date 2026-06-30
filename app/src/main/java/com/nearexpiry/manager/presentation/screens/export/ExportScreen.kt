@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -228,6 +229,26 @@ fun ExportScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.company_report_button))
                     }
+                    // Send-to-PC appears once a report has been generated.
+                    if (uiState.reportFilePath != null) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.sendReportToPc() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
+                                      uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
+                        ) {
+                            Icon(Icons.Default.Computer, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                when (uiState.sendToPcState) {
+                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                    else -> stringResource(R.string.send_to_pc)
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -308,6 +329,39 @@ fun ExportScreen(
                 viewModel.clearReportSummary()
             }
         }
+    }
+
+    // ── Send-to-PC result handling ─────────────────────────────────────────
+    when (uiState.sendToPcState) {
+        ExportViewModel.SendToPcState.SUCCESS -> {
+            LaunchedEffect(uiState.sendToPcMessage) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(uiState.sendToPcMessage)
+                    viewModel.resetSendToPc()
+                }
+            }
+        }
+        ExportViewModel.SendToPcState.ERROR -> {
+            LaunchedEffect(uiState.sendToPcMessage) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(uiState.sendToPcMessage)
+                    viewModel.resetSendToPc()
+                }
+            }
+        }
+        ExportViewModel.SendToPcState.NOT_CONNECTED -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.resetSendToPc() },
+                title = { Text(stringResource(R.string.pc_not_connected_title)) },
+                text = { Text(stringResource(R.string.pc_not_connected_body)) },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.resetSendToPc() }) {
+                        Text(stringResource(R.string.ok))
+                    }
+                }
+            )
+        }
+        else -> {}
     }
 
     // ── Branch ID prompt ───────────────────────────────────────────────────

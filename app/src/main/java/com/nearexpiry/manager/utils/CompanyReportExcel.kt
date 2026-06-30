@@ -43,7 +43,7 @@ object CompanyReportExcel {
         "Supervisor                                                       " +
         "Accountant                                                               Area manager"
 
-    fun write(out: OutputStream, rows: List<Row>) {
+    fun write(out: OutputStream, rows: List<Row>, title: String) {
         val zip = ZipOutputStream(out)
 
         zip.putNextEntry(ZipEntry("[Content_Types].xml"))
@@ -62,7 +62,7 @@ object CompanyReportExcel {
         zip.write(styles().toByteArray()); zip.closeEntry()
 
         zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"))
-        zip.write(sheet(rows).toByteArray()); zip.closeEntry()
+        zip.write(sheet(rows, title).toByteArray()); zip.closeEntry()
 
         zip.finish()
         zip.flush()
@@ -98,24 +98,23 @@ object CompanyReportExcel {
     // ── Styles ─────────────────────────────────────────────────────────────
     // Style indexes (s="..."):
     //  0 = default
-    //  1 = title (Calibri 24 bold, centered)
-    //  2 = header (Calibri 11 bold, centered, thin border, grey fill)
-    //  3 = data text cell (thin border, centered)
-    //  4 = data date cell (thin border, centered, d-mmm-yy)
+    //  1 = title (Calibri 24 bold, centered, light-blue fill)
+    //  2 = header (Calibri 11 bold, centered, thin border, light-blue fill)
+    //  3 = data text cell (bold, thin border, centered)
+    //  4 = data date cell (bold, thin border, centered, dd-mmm-yy)
     //  5 = signature (Calibri 11 bold, centered)
     private fun styles() = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="1"><numFmt numFmtId="164" formatCode="d\-mmm\-yy;@"/></numFmts>
-<fonts count="4">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="[${'$'}-409]dd\-mmm\-yy;@"/></numFmts>
+<fonts count="3">
 <font><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="24"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
-<font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="24"/><name val="Calibri"/></font>
 </fonts>
 <fills count="3">
 <fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill>
 </fills>
 <borders count="2">
 <border><left/><right/><top/><bottom/><diagonal/></border>
@@ -124,37 +123,37 @@ object CompanyReportExcel {
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
 <cellXfs count="6">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
-<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-<xf numFmtId="164" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>"""
 
     // ── Worksheet ──────────────────────────────────────────────────────────
 
-    private fun sheet(rows: List<Row>): String {
+    private fun sheet(rows: List<Row>, title: String): String {
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <cols>
-<col min="1" max="1" width="4.71" customWidth="1"/>
-<col min="2" max="2" width="10.29" customWidth="1"/>
-<col min="3" max="3" width="12.86" customWidth="1"/>
-<col min="4" max="4" width="24.57" customWidth="1"/>
-<col min="5" max="5" width="17" customWidth="1"/>
+<col min="1" max="1" width="5" customWidth="1"/>
+<col min="2" max="2" width="9" customWidth="1"/>
+<col min="3" max="3" width="9" customWidth="1"/>
+<col min="4" max="4" width="12" customWidth="1"/>
+<col min="5" max="5" width="10" customWidth="1"/>
 <col min="6" max="6" width="54.71" customWidth="1"/>
-<col min="7" max="7" width="6.14" customWidth="1"/>
-<col min="8" max="8" width="8.29" customWidth="1"/>
-<col min="9" max="9" width="15.71" customWidth="1"/>
-<col min="10" max="10" width="20.14" customWidth="1"/>
+<col min="7" max="7" width="6" customWidth="1"/>
+<col min="8" max="8" width="6" customWidth="1"/>
+<col min="9" max="9" width="12" customWidth="1"/>
+<col min="10" max="10" width="11" customWidth="1"/>
 </cols>
 <sheetData>
 """)
         // Row 1 — title (merged A1:J1)
-        sb.append("""<row r="1" ht="40.15" customHeight="1"><c r="A1" s="1" t="inlineStr"><is><t>Near Expiry Form </t></is></c>""")
+        sb.append("""<row r="1" ht="40.15" customHeight="1"><c r="A1" s="1" t="inlineStr"><is><t>${esc(title)}</t></is></c>""")
         for (col in 2..10) sb.append("""<c r="${colLetter(col)}1" s="1"/>""")
         sb.append("</row>\n")
 
@@ -184,28 +183,16 @@ object CompanyReportExcel {
             r++
         }
 
-        // Signature labels row, an empty merged signing row, then the closing
-        // bordered row (the "closed table" base).
+        // Single signature labels row, then the closing bordered row (closed table base).
         val sigRow = r
         sb.append("""<row r="$sigRow" ht="29.45" customHeight="1"><c r="A$sigRow" s="5" t="inlineStr"><is><t>${esc(SIGNATURE_TEXT)}</t></is></c>""")
         for (col in 2..10) sb.append("""<c r="${colLetter(col)}$sigRow" s="5"/>""")
         sb.append("</row>\n")
 
-        // Empty merged row (A:J) — the physical space to sign.
-        val signRow = r + 1
-        sb.append("""<row r="$signRow" ht="29.45" customHeight="1">""")
-        for (col in 1..10) sb.append("""<c r="${colLetter(col)}$signRow" s="3"/>""")
-        sb.append("</row>\n")
-
-        val closeRow = r + 2
-        sb.append("""<row r="$closeRow" ht="29.45" customHeight="1">""")
-        for (col in 1..10) sb.append("""<c r="${colLetter(col)}$closeRow" s="3"/>""")
-        sb.append("</row>\n")
-
         sb.append("</sheetData>\n")
 
-        // Merge title (A1:J1), the signature labels row, and the empty signing row.
-        sb.append("""<mergeCells count="3"><mergeCell ref="A1:J1"/><mergeCell ref="A$sigRow:J$sigRow"/><mergeCell ref="A$signRow:J$signRow"/></mergeCells>
+        // Merge title (A1:J1) and the signature row (A{sig}:J{sig}).
+        sb.append("""<mergeCells count="2"><mergeCell ref="A1:J1"/><mergeCell ref="A$sigRow:J$sigRow"/></mergeCells>
 """)
 
         // Data-validation dropdown on column J for the data rows: only "Near expir".
@@ -246,9 +233,9 @@ object CompanyReportExcel {
     }
 
     /** Convenience for callers that want bytes. */
-    fun toBytes(rows: List<Row>): ByteArray {
+    fun toBytes(rows: List<Row>, title: String): ByteArray {
         val bos = ByteArrayOutputStream()
-        write(bos, rows)
+        write(bos, rows, title)
         return bos.toByteArray()
     }
 }

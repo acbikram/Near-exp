@@ -34,6 +34,7 @@ object LocalFileServer {
     const val DISCOVERY_PORT = 8765
     const val TCP_PORT       = 8765
     private val MAGIC_GDB     = "PTAGGDB1".toByteArray(Charsets.US_ASCII)
+    private val MAGIC_XLSX    = "PTAGXLSX".toByteArray(Charsets.US_ASCII)
     private val DISCOVERY_REQ = "PTAGWHO1".toByteArray(Charsets.US_ASCII)
 
     data class PcInfo(val name: String, val ip: String, val port: Int) {
@@ -136,4 +137,62 @@ object LocalFileServer {
             baos.toByteArray()
         }
     }
+
+    /**
+     * Sends an .xlsx report file to [pc] using the PTAGXLSX protocol:
+     *   Phone → PC : "PTAGXLSX" + nameLen(4 BE) + nameBytes(UTF-8) +
+     *                fileLen(4 BE) + fileBytes
+     *   PC → Phone : "OK" (2 bytes) on success
+     *
+     * The PC saves it to its "Near Expiry Reports" folder. Throws on failure.
+     */
+    suspend fun sendXlsxToPc(
+        pc: PcInfo,
+        fileName: String,
+        fileBytes: ByteArray,
+        onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }
+    ) = withContext(Dispatchers.IO) {
+        Socket(pc.ip, pc.port).use { sock ->
+            sock.soTimeout = 60_000
+            val out = sock.getOutputStream()
+            val inp = sock.getInputStream()
+
+            val nameBytes = fileName.toByteArray(Charsets.UTF_8)
+            out.write(MAGIC_XLSX)
+            out.write(intToBE(nameBytes.size))
+            out.write(nameBytes)
+            out.write(intToBE(fileBytes.size))
+
+            // Stream the file in chunks with progress.
+            val total = fileBytes.size.toLong()
+            var sent = 0L
+            val chunk = 65536
+            while (sent < total) {
+                val end = minOf(sent + chunk, total).toInt()
+                out.write(fileBytes, sent.toInt(), end - sent.toInt())
+                sent = end.toLong()
+                onProgress(sent, total)
+            }
+            out.flush()
+
+            // Await "OK".
+            val ack = ByteArray(2)
+            var read = 0
+            while (read < 2) {
+                val n = inp.read(ack, read, 2 - read)
+                if (n < 0) break
+                read += n
+            }
+            if (read < 2 || ack[0] != 'O'.code.toByte() || ack[1] != 'K'.code.toByte()) {
+                throw IOException("PC did not confirm receipt")
+            }
+        }
+    }
+
+    private fun intToBE(v: Int): ByteArray = byteArrayOf(
+        ((v ushr 24) and 0xFF).toByte(),
+        ((v ushr 16) and 0xFF).toByte(),
+        ((v ushr 8) and 0xFF).toByte(),
+        (v and 0xFF).toByte()
+    )
 }

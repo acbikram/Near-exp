@@ -14,6 +14,7 @@ import com.nearexpiry.manager.utils.BranchDirectory
 import com.nearexpiry.manager.utils.CompanyReportBuilder
 import com.nearexpiry.manager.utils.CompanyReportExcel
 import com.nearexpiry.manager.utils.CsvExporter
+import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -78,8 +79,15 @@ class ExportViewModel @Inject constructor(
         val availableMonths: List<CompanyReportBuilder.YearMonth> = emptyList(),
         /** Set when a generated .xlsx is ready to share (separate from CSV uri). */
         val reportFileUri: Uri? = null,
+        /** Absolute path of the last generated report (for Send-to-PC). */
+        val reportFilePath: String? = null,
+        /** Filename of the last generated report. */
+        val reportFileName: String? = null,
         /** Human summary after a successful report. */
         val reportSummary: String? = null,
+        // ── Send to PC (WiFi) ────────────────────────────────────────────
+        val sendToPcState: SendToPcState = SendToPcState.IDLE,
+        val sendToPcMessage: String = "",
 
         // ── Selective export ────────────────────────────────────────────
         val useSelectiveExport: Boolean = false,
@@ -342,18 +350,22 @@ class ExportViewModel @Inject constructor(
                     _uiState.update { it.copy(isExporting = false, error = "No items in the selected months.") }
                     return@launch
                 }
-                val uri = withContext(Dispatchers.IO) {
+                val title = CompanyReportBuilder.title(_uiState.value.pendingBranchName, selectedMonths)
+                val file = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    val file = File(dir, CompanyReportBuilder.fileName(id, selectedMonths))
-                    FileOutputStream(file).use { out -> CompanyReportExcel.write(out, rows) }
-                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    val f = File(dir, CompanyReportBuilder.fileName(id, selectedMonths))
+                    FileOutputStream(f).use { out -> CompanyReportExcel.write(out, rows, title) }
+                    f
                 }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 val label = selectedMonths.sorted().joinToString(", ") {
                     java.time.Month.of(it.month)
                         .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
                 }
                 _uiState.update {
                     it.copy(isExporting = false, reportFileUri = uri,
+                        reportFilePath = file.absolutePath,
+                        reportFileName = file.name,
                         reportSummary = "${rows.size} items · $label")
                 }
             } catch (e: Exception) {
@@ -364,6 +376,46 @@ class ExportViewModel @Inject constructor(
 
     fun consumeReportFileUri() {
         _uiState.update { it.copy(reportFileUri = null) }
+    }
+
+    // ── Send to PC (WiFi) ──────────────────────────────────────────────────
+
+    enum class SendToPcState { IDLE, SEARCHING, SENDING, SUCCESS, NOT_CONNECTED, ERROR }
+
+    /**
+     * Sends the last-generated report to the PC over WiFi (PTAGXLSX). If no PC
+     * is found on the LAN, sets [SendToPcState.NOT_CONNECTED] so the UI can show
+     * connection instructions. The PC must be running Price_Tag_Final.py with
+     * its WiFi receiver on, on the same network.
+     */
+    fun sendReportToPc() {
+        val path = _uiState.value.reportFilePath
+        val name = _uiState.value.reportFileName
+        if (path == null || name == null) {
+            _uiState.update { it.copy(sendToPcState = SendToPcState.ERROR, sendToPcMessage = "Generate a report first.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(sendToPcState = SendToPcState.SEARCHING, sendToPcMessage = "") }
+            val pcs = LocalFileServer.discoverPcs()
+            if (pcs.isEmpty()) {
+                _uiState.update { it.copy(sendToPcState = SendToPcState.NOT_CONNECTED) }
+                return@launch
+            }
+            val pc = pcs.first()
+            _uiState.update { it.copy(sendToPcState = SendToPcState.SENDING, sendToPcMessage = "Sending to ${pc.name}…") }
+            try {
+                val bytes = withContext(Dispatchers.IO) { File(path).readBytes() }
+                LocalFileServer.sendXlsxToPc(pc, name, bytes)
+                _uiState.update { it.copy(sendToPcState = SendToPcState.SUCCESS, sendToPcMessage = "Sent to ${pc.name}") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(sendToPcState = SendToPcState.ERROR, sendToPcMessage = e.message ?: "Send failed") }
+            }
+        }
+    }
+
+    fun resetSendToPc() {
+        _uiState.update { it.copy(sendToPcState = SendToPcState.IDLE, sendToPcMessage = "") }
     }
 
     fun clearReportSummary() {

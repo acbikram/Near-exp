@@ -114,6 +114,11 @@
     <string name="next">التالي</string>
     <string name="select_months_title">اختر الأشهر</string>
     <string name="select_months_hint">اختر أشهر انتهاء الصلاحية المراد تضمينها في التقرير.</string>
+    <string name="send_to_pc">إرسال إلى الكمبيوتر (واي فاي)</string>
+    <string name="searching_pc">جاري البحث عن الكمبيوتر…</string>
+    <string name="sending_to_pc">جاري الإرسال…</string>
+    <string name="pc_not_connected_title">الكمبيوتر غير متصل</string>
+    <string name="pc_not_connected_body">لم يتم العثور على كمبيوتر على شبكة الواي فاي. تأكد من أن الكمبيوتر والهاتف على نفس الشبكة وأن مستقبل الواي فاي في تطبيق Price Tag قيد التشغيل، ثم عُد واضغط إرسال إلى الكمبيوتر (واي فاي) مرة أخرى.</string>
     <string name="exporting">جاري التصدير…</string>
     <string name="export_successful">تم التصدير بنجاح</string>
     <string name="export_selected_data_only">تصدير البيانات المحددة فقط</string>
