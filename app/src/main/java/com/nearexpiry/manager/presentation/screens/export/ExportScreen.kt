@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -207,6 +210,23 @@ fun ExportScreen(
                         Text(stringResource(R.string.share_csv))
                     }
                 }
+                item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text(
+                        stringResource(R.string.company_report_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Button(
+                        onClick = { viewModel.startCompanyReport() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.company_report_button))
+                    }
+                }
             }
 
             // Loading overlay
@@ -264,6 +284,68 @@ fun ExportScreen(
             context.startActivity(Intent.createChooser(sendIntent, shareCsvLabel))
             viewModel.consumeShareFileUri()
         }
+    }
+
+    // ── Company report: share the generated .xlsm ──────────────────────────
+    uiState.reportFileUri?.let { uri ->
+        LaunchedEffect(uri) {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/vnd.ms-excel.sheet.macroEnabled.12"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.company_report_button)))
+            viewModel.consumeReportFileUri()
+        }
+    }
+
+    uiState.reportSummary?.let { summary ->
+        LaunchedEffect(summary) {
+            scope.launch {
+                snackbarHostState.showSnackbar(summary)
+                viewModel.clearReportSummary()
+            }
+        }
+    }
+
+    // ── Branch ID prompt ───────────────────────────────────────────────────
+    if (uiState.showBranchIdDialog) {
+        var branchId by remember(uiState.lastBranchId) { mutableStateOf(uiState.lastBranchId) }
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissBranchIdDialog() },
+            title = { Text(stringResource(R.string.branch_id_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.branch_id_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = branchId,
+                        onValueChange = { branchId = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.branch_id_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.generateCompanyReport(context, branchId) },
+                    enabled = branchId.isNotBlank()
+                ) {
+                    Text(stringResource(R.string.generate))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissBranchIdDialog() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 

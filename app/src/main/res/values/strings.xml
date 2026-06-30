@@ -105,6 +105,12 @@
     <string name="total_records_count_format">Total records: %1$d</string>
     <string name="save_csv">Save CSV</string>
     <string name="share_csv">Share CSV</string>
+    <string name="company_report_button">Company Near-Expiry Report</string>
+    <string name="company_report_desc">Generate the company\'s Excel near-expiry submission for items expiring next month through the following two months.</string>
+    <string name="branch_id_title">Enter Branch ID</string>
+    <string name="branch_id_hint">Area and Branch Name are filled automatically from this ID.</string>
+    <string name="branch_id_label">Branch ID</string>
+    <string name="generate">Generate</string>
     <string name="exporting">Exporting…</string>
     <string name="export_successful">Export successful</string>
     <string name="export_selected_data_only">Export Selected Data Only</string>

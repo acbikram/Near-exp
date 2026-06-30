@@ -32,6 +32,14 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     // same calendar day (first scan of a new day defaults to today).
     private val lastExpiryDateKey = stringPreferencesKey("last_expiry_date")        // "yyyy-MM-dd"
     private val lastExpirySavedDayKey = stringPreferencesKey("last_expiry_saved_day") // "yyyy-MM-dd"
+    private val lastBranchIdKey = stringPreferencesKey("last_branch_id")
+
+    suspend fun getLastBranchId(): String =
+        context.dataStore.data.first()[lastBranchIdKey] ?: ""
+
+    suspend fun setLastBranchId(id: String) {
+        context.dataStore.edit { it[lastBranchIdKey] = id }
+    }
 
     suspend fun getLastExpiryForToday(todayIso: String): String? {
         val prefs = context.dataStore.data.first()

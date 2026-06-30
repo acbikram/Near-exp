@@ -10,8 +10,12 @@ import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
+import com.nearexpiry.manager.utils.BranchDirectory
+import com.nearexpiry.manager.utils.CompanyReportBuilder
+import com.nearexpiry.manager.utils.CompanyReportExcel
 import com.nearexpiry.manager.utils.CsvExporter
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,7 +48,9 @@ val EXPORT_UNIT_CHIPS = EXPORT_UNIT_OPTIONS + EXPORT_UNIT_OTHER
 class ExportViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
-    private val activeProjectManager: ActiveProjectManager
+    private val activeProjectManager: ActiveProjectManager,
+    private val branchDirectory: BranchDirectory,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     data class ExportUiState(
@@ -57,6 +63,15 @@ class ExportViewModel @Inject constructor(
         val projectName: String = "",
         /** Set once a CSV has been written to a shareable cache file; consumed by the UI to launch a share sheet. */
         val shareFileUri: Uri? = null,
+        // ── Company Near-Expiry report ───────────────────────────────────
+        /** Shows the Branch ID prompt before generating the company report. */
+        val showBranchIdDialog: Boolean = false,
+        /** Last-used Branch ID, pre-filled into the prompt. */
+        val lastBranchId: String = "",
+        /** Set when a generated .xlsm is ready to share (separate from CSV uri). */
+        val reportFileUri: Uri? = null,
+        /** Human summary after a successful report (e.g. "12 items · Aug, Sep, Oct 2026"). */
+        val reportSummary: String? = null,
 
         // ── Selective export ────────────────────────────────────────────
         val useSelectiveExport: Boolean = false,
@@ -234,6 +249,89 @@ class ExportViewModel @Inject constructor(
                 _uiState.update { it.copy(isExporting = false, error = e.message) }
             }
         }
+    }
+
+    // ── Company Near-Expiry report (.xlsm) ─────────────────────────────────
+
+    /** Opens the Branch ID prompt, pre-filling the last-used ID. */
+    fun startCompanyReport() {
+        viewModelScope.launch {
+            val last = preferencesManager.getLastBranchId()
+            _uiState.update { it.copy(showBranchIdDialog = true, lastBranchId = last) }
+        }
+    }
+
+    fun dismissBranchIdDialog() {
+        _uiState.update { it.copy(showBranchIdDialog = false) }
+    }
+
+    /**
+     * Validates [branchId] against the bundled branch directory and, if valid,
+     * generates the company .xlsm for the active project's items in the report
+     * window (1st of next month .. last day three months out). On an unknown
+     * Branch ID, stops and surfaces an error instead of exporting.
+     */
+    fun generateCompanyReport(context: Context, branchId: String) {
+        viewModelScope.launch {
+            val id = branchId.trim()
+            val branch = branchDirectory.lookup(id)
+            if (branch == null) {
+                _uiState.update {
+                    it.copy(
+                        showBranchIdDialog = false,
+                        error = "Branch ID \"$id\" not found. Please check the ID and try again."
+                    )
+                }
+                return@launch
+            }
+            preferencesManager.setLastBranchId(id)
+            _uiState.update { it.copy(showBranchIdDialog = false, isExporting = true, error = null) }
+            try {
+                val window = CompanyReportBuilder.reportWindow()
+                // Use ALL items in the active project; the builder filters to the window.
+                val items = _uiState.value.allItems
+                val rows = CompanyReportBuilder.buildRows(
+                    items = items,
+                    window = window,
+                    area = branch.area,
+                    branchId = id,
+                    branchName = branch.name
+                )
+                if (rows.isEmpty()) {
+                    _uiState.update {
+                        it.copy(isExporting = false,
+                            error = "No items expiring between ${window.start} and ${window.endInclusive}.")
+                    }
+                    return@launch
+                }
+                val uri = withContext(Dispatchers.IO) {
+                    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+                    val file = File(dir, CompanyReportBuilder.fileName(id, window))
+                    FileOutputStream(file).use { out -> CompanyReportExcel.write(out, rows) }
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                }
+                val monthsLabel = window.months.joinToString(", ") { m ->
+                    java.time.Month.of(m).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
+                }
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        reportFileUri = uri,
+                        reportSummary = "${rows.size} items · $monthsLabel ${window.endInclusive.year}"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isExporting = false, error = e.message) }
+            }
+        }
+    }
+
+    fun consumeReportFileUri() {
+        _uiState.update { it.copy(reportFileUri = null) }
+    }
+
+    fun clearReportSummary() {
+        _uiState.update { it.copy(reportSummary = null) }
     }
 
     /** Called by the UI once it has launched the share sheet for [shareFileUri]. */
