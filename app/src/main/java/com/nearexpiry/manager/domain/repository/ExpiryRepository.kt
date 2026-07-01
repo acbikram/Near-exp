@@ -18,6 +18,8 @@ interface ExpiryRepository {
      * scanned barcodes.
      */
     suspend fun findDuplicate(projectId: Long, itemCode: String?, barcode: String, expiryDate: String, unit: String?): ExpiryItem?
+    /** All entries for the same item (by code/barcode, ignoring expiry) in a project. */
+    suspend fun findAllForItem(projectId: Long, itemCode: String?, barcode: String): List<ExpiryItem>
     suspend fun insertItem(item: ExpiryItemEntity): Long
     suspend fun updateItem(item: ExpiryItemEntity)
     suspend fun deleteItem(item: ExpiryItem)

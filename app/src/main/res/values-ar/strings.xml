@@ -5,6 +5,12 @@
     <!-- ── عام ─────────────────────────────────────────────────────────── -->
     <string name="ok">حسناً</string>
     <string name="cancel">إلغاء</string>
+    <string name="existing_item_title">الصنف مضاف مسبقاً</string>
+    <string name="existing_item_hint">هذا الصنف موجود بالفعل في هذا المشروع. اختر إجراءً لتاريخ موجود، أو أضفه بتاريخ انتهاء جديد.</string>
+    <string name="existing_entry_line">الصلاحية %1$s — الكمية %2$s %3$s</string>
+    <string name="add_qty">إضافة كمية</string>
+    <string name="replace_qty">استبدال الكمية</string>
+    <string name="add_new_expiry_date">إضافة تاريخ صلاحية جديد</string>
     <string name="undo">تراجع</string>
     <string name="deleted_count_format">تم حذف %1$d عنصر</string>
     <string name="save">حفظ</string>

@@ -49,6 +49,22 @@ interface ExpiryItemDao {
     @Query("SELECT COUNT(*) FROM expiry_items WHERE projectId = :projectId")
     suspend fun getCount(projectId: Long): Int
 
+    /**
+     * All entries for the same item in a project, ignoring expiry — matched by
+     * item code when present, otherwise by barcode. Used to show existing
+     * expiry dates + quantities when re-scanning an item. Newest first.
+     */
+    @Query("""
+        SELECT * FROM expiry_items
+        WHERE projectId = :projectId
+          AND (
+                (:itemCode IS NOT NULL AND :itemCode != '' AND itemCode = :itemCode)
+             OR ((:itemCode IS NULL OR :itemCode = '') AND barcode = :barcode)
+          )
+        ORDER BY createdAt DESC
+    """)
+    suspend fun findAllForItem(projectId: Long, itemCode: String?, barcode: String): List<ExpiryItemEntity>
+
     // ── Writes ────────────────────────────────────────────────────────────────
 
     @Insert

@@ -152,6 +152,8 @@ fun ScanScreen(
     val dialogsShowing = uiState.showExpiryDialog ||
         uiState.showQuantityDialog ||
         uiState.showDuplicateDialog ||
+        uiState.showExistingItemDialog ||
+        uiState.showExistingQtyDialog ||
         uiState.showEditDialog ||
         uiState.showDeleteConfirmDialog
 
@@ -391,6 +393,26 @@ fun ScanScreen(
             onResolve = { mode -> viewModel.resolveDuplicate(mode) },
             onDismiss = { viewModel.dismissDuplicateDialog() },
             productName = pendingDisplayName
+        )
+    }
+
+    if (uiState.showExistingItemDialog) {
+        ExistingItemDialog(
+            productName = pendingDisplayName,
+            entries = uiState.existingEntries,
+            onAddQty = { id -> viewModel.existingChooseQtyAction(id, addMode = true) },
+            onReplaceQty = { id -> viewModel.existingChooseQtyAction(id, addMode = false) },
+            onAddNewDate = { viewModel.existingAddNewDate() },
+            onDismiss = { viewModel.dismissExistingItemDialog() }
+        )
+    }
+
+    if (uiState.showExistingQtyDialog) {
+        QuantityInputDialog(
+            onQuantityConfirmed = { quantity -> viewModel.onExistingQtyConfirmed(quantity) },
+            onDismiss = { viewModel.dismissExistingQtyDialog() },
+            productName = pendingDisplayName,
+            unit = uiState.pendingUnit
         )
     }
 

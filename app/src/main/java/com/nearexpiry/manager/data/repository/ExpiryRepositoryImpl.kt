@@ -47,6 +47,11 @@ class ExpiryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun findAllForItem(projectId: Long, itemCode: String?, barcode: String): List<ExpiryItem> {
+        val code = itemCode?.takeIf { it.isNotBlank() }
+        return dao.findAllForItem(projectId, code, barcode).map { it.toDomain() }
+    }
+
     override suspend fun insertItem(item: ExpiryItemEntity): Long {
         return dao.insert(item)
     }

@@ -53,6 +53,16 @@ class ScanViewModel @Inject constructor(
         val showExpiryDialog: Boolean = false,
         val showQuantityDialog: Boolean = false,
         val showDuplicateDialog: Boolean = false,
+        /** Shows the "item already exists" chooser (all existing entries for the item). */
+        val showExistingItemDialog: Boolean = false,
+        /** Existing entries for the just-scanned item in this project (all expiry dates). */
+        val existingEntries: List<com.nearexpiry.manager.domain.model.ExpiryItem> = emptyList(),
+        /** When adding/replacing qty on a chosen existing entry, the entry's id. */
+        val existingTargetId: Long = 0,
+        /** Shows a quantity prompt for add/replace on an existing entry. */
+        val showExistingQtyDialog: Boolean = false,
+        /** True = add to existing qty; false = replace. */
+        val existingQtyAddMode: Boolean = true,
         val pendingBarcode: String = "",
         val pendingExpiryDate: String = "",
         /** Pre-fill date for the expiry picker: last-picked date earlier today, else "" (today). */
@@ -221,7 +231,7 @@ class ScanViewModel @Inject constructor(
             return
         }
 
-        // ── Show barcode on camera screen + go standby immediately ──────────
+        // ── Resolve catalog + check for existing entries before asking expiry ─
         _uiState.update {
             it.copy(
                 detectedBarcode  = barcode,
@@ -231,25 +241,34 @@ class ScanViewModel @Inject constructor(
                 pendingProductNameArabic = null,
                 pendingUnit = null,
                 pendingItemCode = null,
+                pendingEmbeddedQty = null,
                 onlineLookupState = OnlineLookupState.IDLE,
                 onlineProductName = null,
-                onlineProductNameArabic = null,
-                showExpiryDialog = true
+                onlineProductNameArabic = null
             )
         }
-        refreshInitialExpiry()
 
         viewModelScope.launch {
             val product = productCatalogRepository.lookup(barcode)
-            if (_uiState.value.pendingBarcode == barcode) {
-                _uiState.update {
-                    it.copy(
-                        pendingProductName = product?.name,
-                        pendingProductNameArabic = product?.nameArabic,
-                        pendingUnit = product?.unit,
-                        pendingItemCode = product?.itemCode
-                    )
-                }
+            if (_uiState.value.pendingBarcode != barcode) return@launch
+            _uiState.update {
+                it.copy(
+                    pendingProductName = product?.name,
+                    pendingProductNameArabic = product?.nameArabic,
+                    pendingUnit = product?.unit,
+                    pendingItemCode = product?.itemCode
+                )
+            }
+            // Same item already in this project? (by item code, else barcode)
+            val projectId = activeProjectManager.getActiveProjectId()
+            val existing = repository.findAllForItem(projectId, product?.itemCode, barcode)
+            if (existing.isNotEmpty()) {
+                soundManager.playDoubleBeep()
+                vibrateDouble()
+                _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
+            } else {
+                _uiState.update { it.copy(showExpiryDialog = true) }
+                refreshInitialExpiry()
             }
         }
     }
@@ -288,13 +307,99 @@ class ScanViewModel @Inject constructor(
                     pendingEmbeddedQty = parsed.quantity,
                     onlineLookupState = OnlineLookupState.IDLE,
                     onlineProductName = null,
-                    onlineProductNameArabic = null,
-                    showExpiryDialog = true
+                    onlineProductNameArabic = null
                 )
             }
-            refreshInitialExpiry()
+            // Same item already in this project? Show existing-entry chooser.
+            val projectId = activeProjectManager.getActiveProjectId()
+            val existing = repository.findAllForItem(
+                projectId, product.itemCode ?: parsed.itemCode, parsed.itemCode
+            )
+            if (existing.isNotEmpty()) {
+                soundManager.playDoubleBeep()
+                vibrateDouble()
+                _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
+            } else {
+                _uiState.update { it.copy(showExpiryDialog = true) }
+                refreshInitialExpiry()
+            }
         }
     }
+
+    // ── Existing-item chooser actions ──────────────────────────────────────
+
+    /** User chose "add another expiry date" → proceed to the normal expiry flow. */
+    fun existingAddNewDate() {
+        _uiState.update { it.copy(showExistingItemDialog = false, showExpiryDialog = true) }
+        refreshInitialExpiry()
+    }
+
+    /**
+     * User chose Add or Replace quantity on an existing entry [entryId].
+     * For embedded "22" barcodes the quantity is known, so apply immediately;
+     * otherwise prompt for the quantity to add/replace.
+     */
+    fun existingChooseQtyAction(entryId: Long, addMode: Boolean) {
+        val embeddedQty = _uiState.value.pendingEmbeddedQty
+        if (embeddedQty != null) {
+            applyExistingQty(entryId, addMode, embeddedQty)
+        } else {
+            _uiState.update {
+                it.copy(
+                    showExistingItemDialog = false,
+                    showExistingQtyDialog = true,
+                    existingTargetId = entryId,
+                    existingQtyAddMode = addMode
+                )
+            }
+        }
+    }
+
+    /** Confirms the typed quantity for the add/replace on the chosen entry. */
+    fun onExistingQtyConfirmed(quantity: Double) {
+        val state = _uiState.value
+        applyExistingQty(state.existingTargetId, state.existingQtyAddMode, quantity)
+    }
+
+    private fun applyExistingQty(entryId: Long, addMode: Boolean, quantity: Double) {
+        viewModelScope.launch {
+            val existing = repository.getItemById(entryId) ?: return@launch
+            val newQty = if (addMode) existing.quantity + quantity else quantity
+            repository.updateItem(
+                existing.copy(quantity = newQty, updatedAt = System.currentTimeMillis()).toEntity()
+            )
+            loadRecentScans()
+            resetAfterScan()
+        }
+    }
+
+    /** Clears all pending scan state and resumes scanning. */
+    private fun resetAfterScan() {
+        _uiState.update {
+            it.copy(
+                showExistingItemDialog = false,
+                showExistingQtyDialog = false,
+                showExpiryDialog = false,
+                showQuantityDialog = false,
+                showDuplicateDialog = false,
+                existingEntries = emptyList(),
+                existingTargetId = 0,
+                pendingBarcode = "",
+                pendingExpiryDate = "",
+                pendingProductName = null,
+                pendingProductNameArabic = null,
+                pendingUnit = null,
+                pendingItemCode = null,
+                pendingEmbeddedQty = null,
+                detectedBarcode = "",
+                scannerInactive = false
+            )
+        }
+        startInactivityTimer()
+    }
+
+    fun dismissExistingItemDialog() = resetAfterScan()
+    fun dismissExistingQtyDialog() = resetAfterScan()
 
     /**
      * Triggers a one-shot online lookup (Open Food Facts) for the currently

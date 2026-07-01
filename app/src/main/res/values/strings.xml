@@ -5,6 +5,12 @@
     <!-- ── Common ─────────────────────────────────────────────────────── -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
+    <string name="existing_item_title">Item Already Added</string>
+    <string name="existing_item_hint">This item already exists in this project. Choose an action for an existing date, or add it under a new expiry date.</string>
+    <string name="existing_entry_line">Expiry %1$s — Qty %2$s %3$s</string>
+    <string name="add_qty">Add Qty</string>
+    <string name="replace_qty">Replace Qty</string>
+    <string name="add_new_expiry_date">Add New Expiry Date</string>
     <string name="undo">Undo</string>
     <string name="deleted_count_format">Deleted %1$d item(s)</string>
     <string name="save">Save</string>
