@@ -32,7 +32,7 @@ import com.nearexpiry.manager.utils.ExpiryDateUtils
  */
 @Composable
 fun ExistingItemDialog(
-    productName: String,
+    productName: String?,
     entries: List<ExpiryItem>,
     onAddQty: (entryId: Long) -> Unit,
     onReplaceQty: (entryId: Long) -> Unit,
@@ -44,7 +44,7 @@ fun ExistingItemDialog(
         title = { Text(stringResource(R.string.existing_item_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                if (productName.isNotBlank()) {
+                if (!productName.isNullOrBlank()) {
                     Text(
                         productName,
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
