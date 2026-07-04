@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.notifications.NotificationHelper
 import com.nearexpiry.manager.notifications.UpdateCheckWorker
+import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.AppUpdater
 import com.nearexpiry.manager.utils.PreferencesManager
@@ -26,6 +27,9 @@ class NearExpiryApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var preferencesManager: PreferencesManager
+
+    @Inject
+    lateinit var expiryRepository: ExpiryRepository
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -49,6 +53,8 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         // If the previously-active project was deleted, fall back to a valid one.
         CoroutineScope(Dispatchers.IO).launch {
             activeProjectManager.ensureValidActiveProject()
+            // Recycle bin: drop entries older than 30 days.
+            expiryRepository.purgeOldBinEntries(30)
         }
         // On-launch update check, throttled to at most once per day.
         CoroutineScope(Dispatchers.IO).launch {

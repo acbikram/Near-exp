@@ -184,6 +184,16 @@ fun SettingsScreen(
                         ) { Text(stringResource(R.string.backup_restore)) }
                         Spacer(Modifier.height(8.dp))
                         Button(
+                            onClick = { navController.navigate(Screen.RecycleBin.route) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SurfaceVariant,
+                                contentColor   = CyanAccent
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text(stringResource(R.string.recycle_bin)) }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
                             onClick = { showClearDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(

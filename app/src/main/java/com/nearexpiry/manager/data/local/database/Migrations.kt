@@ -150,6 +150,31 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `recycle_bin` (
+                `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                `originalId` INTEGER NOT NULL,
+                `barcode` TEXT NOT NULL,
+                `expiryDate` TEXT NOT NULL,
+                `quantity` REAL NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                `productName` TEXT,
+                `productNameArabic` TEXT,
+                `unit` TEXT,
+                `itemCode` TEXT,
+                `projectId` INTEGER NOT NULL,
+                `projectName` TEXT NOT NULL,
+                `deletedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recycle_bin_deletedAt` ON `recycle_bin` (`deletedAt`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recycle_bin_originalId` ON `recycle_bin` (`originalId`)")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
-    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
 )

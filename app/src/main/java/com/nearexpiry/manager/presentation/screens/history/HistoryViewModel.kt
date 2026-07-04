@@ -399,6 +399,9 @@ class HistoryViewModel @Inject constructor(
             // Re-insert as fresh rows (id = 0 → Room assigns new ids); all other
             // data (project, qty, expiry, names, unit) is preserved.
             items.forEach { repository.insertItem(it.toEntity().copy(id = 0)) }
+            // The delete moved copies into the recycle bin — remove them so an
+            // undone delete doesn't leave duplicates restorable from the bin.
+            repository.removeFromBinByOriginalIds(items.map { it.id })
             _uiState.update { it.copy(undoDeleteItems = null, undoDeleteCount = 0) }
         }
     }

@@ -14,6 +14,7 @@ import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
 import com.nearexpiry.manager.utils.LocalFileServer
+import com.nearexpiry.manager.utils.XlsxReportReader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,15 @@ class BackupRestoreViewModel @Inject constructor(
         val success: Boolean = false,
         /** Set after a successful CSV import; null otherwise. */
         val csvImportResult: CsvImporter.ImportResult? = null,
+        // ── Universal Restore Database ──────────────────────────────────
+        /** Items parsed from a CSV/XLSX restore, awaiting a project choice. */
+        val pendingRestoreItems: List<ExpiryItemEntity> = emptyList(),
+        /** True while the project-picker dialog is shown. */
+        val showRestoreProjectPicker: Boolean = false,
+        /** Projects to offer in the picker. */
+        val restoreProjects: List<com.nearexpiry.manager.domain.model.Project> = emptyList(),
+        /** One-shot result: "new:X:merged:Y:qty:Z" for the snackbar. */
+        val restoreResult: String? = null,
         /** Product count after a successful catalog update; null otherwise. */
         val catalogUpdateCount: Int? = null,
         // ── WiFi catalog pull ────────────────────────────────────────────
@@ -188,45 +198,168 @@ class BackupRestoreViewModel @Inject constructor(
     }
 
     /**
-     * Restores from a file that may be either a single-project backup or an
-     * all-projects backup — auto-detected. Single-project restores into the
-     * active project (replacing it). All-projects restore recreates each
-     * project by name and replaces its items.
+     * Restore Database — one entry point for every backup type, auto-detected
+     * from the file's bytes:
+     *  • JSON app backup (single- or all-projects) → existing smart restore.
+     *  • Company report .xlsx ("Make Excel File")  → parse rows, ask project.
+     *  • Exported CSV                              → parse rows, ask project.
+     * CSV/XLSX rows are merged into the chosen project: same item code +
+     * expiry + unit → quantities added; otherwise inserted as new items.
      */
     fun restoreSmart(context: Context, uri: Uri) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null, success = false) }
+            _uiState.update { it.copy(isLoading = true, error = null, success = false, restoreResult = null) }
             try {
-                val text = context.contentResolver.openInputStream(uri)?.use {
-                    it.bufferedReader().readText()
+                val bytes = context.contentResolver.openInputStream(uri)?.use {
+                    it.readBytes()
                 } ?: throw IllegalStateException("Could not read file")
 
-                if (JsonBackup.isAllProjectsBackup(text)) {
-                    val backup = JsonBackup.importAllProjects(text.byteInputStream())
-                    val existing = projectRepository.getAllProjectsOnce().associateBy { it.name }
-                    for (bundle in backup.projects) {
-                        // Reuse a project of the same name if present, else create it.
-                        val targetId = existing[bundle.project.name]?.id
-                            ?: projectRepository.createProject(bundle.project.name, bundle.project.colorHex)
-                        repository.deleteAllInProject(targetId)
-                        bundle.items.forEach {
-                            repository.insertItem(it.copy(id = 0, projectId = targetId))
-                        }
+                when {
+                    // ── XLSX (zip container starts with "PK") ─────────────
+                    bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte() -> {
+                        val rows = XlsxReportReader.parse(bytes)
+                        if (rows.isEmpty()) throw IllegalStateException(
+                            "No items found — is this a Near-Expiry report file?")
+                        // Fill Arabic names from the catalog where possible.
+                        val entities = XlsxReportReader.toEntities(rows, projectId = 0)
+                            .map { enrichFromCatalog(it) }
+                        startProjectPicker(entities)
                     }
-                    activeProjectManager.ensureValidActiveProject()
-                } else {
-                    // Single-project backup → active project.
-                    val entities = JsonBackup.importFromJson(text.byteInputStream())
-                    val projectId = activeProjectManager.getActiveProjectId()
-                    repository.deleteAllInProject(projectId)
-                    entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
+
+                    // ── JSON backup (first char is an opening brace/bracket) ─
+                    looksLikeJson(bytes) -> {
+                        val text = bytes.toString(Charsets.UTF_8)
+                        if (JsonBackup.isAllProjectsBackup(text)) {
+                            val backup = JsonBackup.importAllProjects(text.byteInputStream())
+                            val existing = projectRepository.getAllProjectsOnce().associateBy { it.name }
+                            for (bundle in backup.projects) {
+                                val targetId = existing[bundle.project.name]?.id
+                                    ?: projectRepository.createProject(bundle.project.name, bundle.project.colorHex)
+                                repository.deleteAllInProject(targetId)
+                                bundle.items.forEach {
+                                    repository.insertItem(it.copy(id = 0, projectId = targetId))
+                                }
+                            }
+                            activeProjectManager.ensureValidActiveProject()
+                        } else {
+                            val entities = JsonBackup.importFromJson(text.byteInputStream())
+                            val projectId = activeProjectManager.getActiveProjectId()
+                            repository.deleteAllInProject(projectId)
+                            entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
+                        }
+                        _uiState.update { it.copy(isLoading = false, success = true) }
+                    }
+
+                    // ── CSV (anything else) ───────────────────────────────
+                    else -> {
+                        val parsed = csvImporter.parseCsv(bytes.inputStream())
+                        if (parsed.imported.isEmpty()) throw IllegalStateException(
+                            "No items found — is this an exported CSV file?")
+                        startProjectPicker(parsed.imported)
+                    }
                 }
-                _uiState.update { it.copy(isLoading = false, success = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
+
+    /** True if the first non-whitespace byte is an opening brace (123) or bracket (91). */
+    private fun looksLikeJson(bytes: ByteArray): Boolean {
+        for (i in 0 until minOf(bytes.size, 64)) {
+            val c = bytes[i].toInt().toChar()
+            if (c.isWhitespace()) continue
+            return c.code == 123 || c.code == 91
+        }
+        return false
+    }
+
+    /** Fills missing Arabic/English names + unit from the product catalog. */
+    private suspend fun enrichFromCatalog(e: ExpiryItemEntity): ExpiryItemEntity {
+        val code = e.itemCode ?: return e
+        val product = runCatching { catalogRepository.lookupByItemCode(code) }.getOrNull() ?: return e
+        return e.copy(
+            productName = e.productName ?: product.name,
+            productNameArabic = e.productNameArabic ?: product.nameArabic,
+            unit = e.unit ?: product.unit,
+            barcode = product.barcode.takeIf { it.isNotBlank() } ?: e.barcode
+        )
+    }
+
+    /** Shows the project-picker dialog for the parsed [items]. */
+    private suspend fun startProjectPicker(items: List<ExpiryItemEntity>) {
+        val projects = projectRepository.getAllProjectsOnce()
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                pendingRestoreItems = items,
+                restoreProjects = projects,
+                showRestoreProjectPicker = true
+            )
+        }
+    }
+
+    /** User picked an existing project (or [newProjectName] to create one). */
+    fun confirmRestoreProject(projectId: Long?, newProjectName: String?) {
+        val items = _uiState.value.pendingRestoreItems
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(showRestoreProjectPicker = false, isLoading = true) }
+            try {
+                val targetId = projectId
+                    ?: projectRepository.createProject(
+                        newProjectName?.trim().takeUnless { it.isNullOrEmpty() }
+                            ?: "Restored ${System.currentTimeMillis() / 1000}",
+                        "#26C6DA"
+                    )
+                var newCount = 0
+                var mergedCount = 0
+                var qtyAdded = 0.0
+                for (item in items) {
+                    val dup = repository.findDuplicate(
+                        targetId, item.itemCode, item.barcode, item.expiryDate, item.unit
+                    )
+                    if (dup != null) {
+                        repository.updateItem(
+                            dup.copy(
+                                quantity = dup.quantity + item.quantity,
+                                updatedAt = System.currentTimeMillis()
+                            ).toEntity()
+                        )
+                        mergedCount++
+                    } else {
+                        repository.insertItem(item.copy(id = 0, projectId = targetId))
+                        newCount++
+                    }
+                    qtyAdded += item.quantity
+                }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        pendingRestoreItems = emptyList(),
+                        restoreResult = "new:$newCount:merged:$mergedCount:qty:${fmtQty(qtyAdded)}"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, pendingRestoreItems = emptyList(), error = e.message)
+                }
+            }
+        }
+    }
+
+    fun cancelRestoreProjectPicker() {
+        _uiState.update {
+            it.copy(showRestoreProjectPicker = false, pendingRestoreItems = emptyList())
+        }
+    }
+
+    fun clearRestoreResult() {
+        _uiState.update { it.copy(restoreResult = null) }
+    }
+
+    private fun fmtQty(q: Double): String =
+        if (q == q.toLong().toDouble()) q.toLong().toString() else String.format(java.util.Locale.US, "%.3f", q)
 
     /**
      * Replaces the bundled product catalog from a user-selected CSV or

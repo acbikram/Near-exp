@@ -279,4 +279,20 @@
         <item>Nov</item>
         <item>Dec</item>
     </string-array>
+    <string name="recycle_bin">Recycle Bin</string>
+    <string name="bin_empty">Recycle Bin is empty.\nDeleted items appear here for 30 days.</string>
+    <string name="bin_hint">Deleted items are kept here for 30 days, then removed automatically. Restore puts an item back into its project (or the active project if the original was deleted).</string>
+    <string name="bin_entry_line">Code %1$s · Expiry %2$s · Qty %3$s %4$s</string>
+    <string name="bin_entry_meta">Project: %1$s · Deleted: %2$s</string>
+    <string name="bin_restore">Restore</string>
+    <string name="bin_delete_forever">Delete Forever</string>
+    <string name="bin_confirm_title">Delete Permanently?</string>
+    <string name="bin_confirm_body">This will permanently remove the selected item(s) from the Recycle Bin. This cannot be undone.</string>
+    <string name="bin_restored_count">%1$s item(s) restored</string>
+    <string name="bin_deleted_count">%1$s item(s) permanently deleted</string>
+    <string name="restore_pick_project_title">Restore Into Which Project?</string>
+    <string name="restore_pick_project_hint">%1$d items found in the file. Choose a project to restore them into — same item + expiry + unit will have quantities added together.</string>
+    <string name="restore_new_project_name">New project name</string>
+    <string name="restore_create_project">Create Project &amp; Restore</string>
+    <string name="restore_result_format">Restored: %1$s new item(s), %2$s merged, total qty +%3$s</string>
 </resources>

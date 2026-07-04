@@ -2,6 +2,7 @@ package com.nearexpiry.manager.data.repository
 
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.ProjectEntity
+import com.nearexpiry.manager.data.local.entity.toBinEntity
 import com.nearexpiry.manager.domain.model.MergeMode
 import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ProjectRepository
@@ -60,6 +61,16 @@ class ProjectRepositoryImpl @Inject constructor(
     override suspend fun deleteProject(id: Long): Boolean {
         // Never allow deleting the last remaining project.
         if (projectDao.getProjectCount() <= 1) return false
+        // Send the project's items to the recycle bin before removal, so an
+        // accidental project delete is recoverable.
+        val items = itemDao.getAllItemsOnce(id)
+        if (items.isNotEmpty()) {
+            val name = projectDao.getProjectById(id)?.name ?: "Deleted project"
+            val now = System.currentTimeMillis()
+            database.recycleBinDao().insertAll(
+                items.map { it.toBinEntity(projectName = name, deletedAt = now) }
+            )
+        }
         itemDao.deleteAllInProject(id)
         projectDao.deleteById(id)
         return true

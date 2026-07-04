@@ -14,6 +14,7 @@ import com.nearexpiry.manager.presentation.screens.scan.ScanScreen
 import com.nearexpiry.manager.presentation.screens.settings.SettingsScreen
 import com.nearexpiry.manager.presentation.screens.detail.DetailScreen
 import com.nearexpiry.manager.presentation.screens.backup.BackupRestoreScreen
+import com.nearexpiry.manager.presentation.screens.recyclebin.RecycleBinScreen
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -28,6 +29,7 @@ sealed class Screen(val route: String) {
         fun passId(id: Long): String = "detail/$id"
     }
     object BackupRestore : Screen("backup_restore")
+    object RecycleBin : Screen("recycle_bin")
 }
 
 @Composable
@@ -85,6 +87,9 @@ fun NearExpiryNavHost(modifier: Modifier = Modifier, openUpdates: Boolean = fals
         }
         composable(Screen.BackupRestore.route) {
             BackupRestoreScreen(navController)
+        }
+        composable(Screen.RecycleBin.route) {
+            RecycleBinScreen(navController = navController)
         }
     }
 }

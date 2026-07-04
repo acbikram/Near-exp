@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -99,7 +101,7 @@ fun BackupRestoreScreen(
                     Text(stringResource(R.string.backup_all_projects))
                 }
                 Button(
-                    onClick = { restoreLauncher.launch(arrayOf("application/json")) },
+                    onClick = { restoreLauncher.launch(arrayOf("*/*")) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
@@ -252,6 +254,73 @@ fun BackupRestoreScreen(
                 }
                 snackbarHostState.showSnackbar(message)
                 viewModel.resetSuccess()
+            }
+        }
+    }
+
+    // ── Universal Restore: project picker + result ─────────────────────────
+    if (uiState.showRestoreProjectPicker) {
+        var newProjectName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelRestoreProjectPicker() },
+            title = { Text(stringResource(R.string.restore_pick_project_title)) },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.restore_pick_project_hint,
+                            uiState.pendingRestoreItems.size
+                        ),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    uiState.restoreProjects.forEach { project ->
+                        OutlinedButton(
+                            onClick = { viewModel.confirmRestoreProject(project.id, null) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(project.name) }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    OutlinedTextField(
+                        value = newProjectName,
+                        onValueChange = { newProjectName = it },
+                        label = { Text(stringResource(R.string.restore_new_project_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Button(
+                        onClick = { viewModel.confirmRestoreProject(null, newProjectName) },
+                        enabled = newProjectName.trim().isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.restore_create_project)) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelRestoreProjectPicker() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    uiState.restoreResult?.let { result ->
+        LaunchedEffect(result) {
+            scope.launch {
+                // Encoded as "new:X:merged:Y:qty:Z".
+                val parts = result.split(":")
+                val text = if (parts.size >= 6) {
+                    context.getString(
+                        R.string.restore_result_format,
+                        parts[1], parts[3], parts[5]
+                    )
+                } else result
+                snackbarHostState.showSnackbar(text)
+                viewModel.clearRestoreResult()
             }
         }
     }

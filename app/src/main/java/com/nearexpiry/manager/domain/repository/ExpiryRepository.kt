@@ -26,6 +26,17 @@ interface ExpiryRepository {
     suspend fun deleteItemsByIds(ids: List<Long>)
     suspend fun deleteAllInProject(projectId: Long)
 
+    // ── Recycle bin ────────────────────────────────────────────────────────
+    /** All soft-deleted items, newest first. */
+    fun getBinItems(): kotlinx.coroutines.flow.Flow<List<com.nearexpiry.manager.data.local.entity.RecycleBinEntity>>
+    /** Restores bin entries to their original project (or [fallbackProjectId] if gone). Returns count restored. */
+    suspend fun restoreFromBin(binIds: List<Long>, fallbackProjectId: Long): Int
+    suspend fun deleteFromBinPermanently(binIds: List<Long>)
+    /** Removes bin copies after an Undo re-insert. */
+    suspend fun removeFromBinByOriginalIds(originalIds: List<Long>)
+    /** Drops bin entries older than [maxAgeDays]. */
+    suspend fun purgeOldBinEntries(maxAgeDays: Int)
+
     /** Move = reassign the given items to [targetProjectId]. */
     suspend fun moveItemsToProject(ids: List<Long>, targetProjectId: Long)
 

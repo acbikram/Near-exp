@@ -279,4 +279,20 @@
         <item>نوفمبر</item>
         <item>ديسمبر</item>
     </string-array>
+    <string name="recycle_bin">سلة المحذوفات</string>
+    <string name="bin_empty">سلة المحذوفات فارغة.\nتظهر العناصر المحذوفة هنا لمدة 30 يوماً.</string>
+    <string name="bin_hint">تُحفظ العناصر المحذوفة هنا لمدة 30 يوماً ثم تُزال تلقائياً. الاستعادة تعيد العنصر إلى مشروعه (أو إلى المشروع النشط إذا حُذف المشروع الأصلي).</string>
+    <string name="bin_entry_line">الرمز %1$s · الصلاحية %2$s · الكمية %3$s %4$s</string>
+    <string name="bin_entry_meta">المشروع: %1$s · حُذف: %2$s</string>
+    <string name="bin_restore">استعادة</string>
+    <string name="bin_delete_forever">حذف نهائي</string>
+    <string name="bin_confirm_title">حذف نهائي؟</string>
+    <string name="bin_confirm_body">سيؤدي هذا إلى إزالة العناصر المحددة نهائياً من سلة المحذوفات. لا يمكن التراجع عن هذا.</string>
+    <string name="bin_restored_count">تمت استعادة %1$s عنصر</string>
+    <string name="bin_deleted_count">تم حذف %1$s عنصر نهائياً</string>
+    <string name="restore_pick_project_title">الاستعادة إلى أي مشروع؟</string>
+    <string name="restore_pick_project_hint">تم العثور على %1$d عنصراً في الملف. اختر مشروعاً لاستعادتها إليه — العناصر المتطابقة (نفس الصنف والتاريخ والوحدة) ستُجمع كمياتها.</string>
+    <string name="restore_new_project_name">اسم مشروع جديد</string>
+    <string name="restore_create_project">إنشاء مشروع والاستعادة</string>
+    <string name="restore_result_format">تمت الاستعادة: %1$s عنصر جديد، %2$s مدمج، إجمالي الكمية +%3$s</string>
 </resources>
