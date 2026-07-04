@@ -45,10 +45,11 @@ class BackupRestoreViewModel @Inject constructor(
         val error: String? = null,
         val success: Boolean = false,
         /** Set after a successful CSV import; null otherwise. */
-        val csvImportResult: CsvImporter.ImportResult? = null,
         // ── Universal Restore Database ──────────────────────────────────
         /** Items parsed from a CSV/XLSX restore, awaiting a project choice. */
         val pendingRestoreItems: List<ExpiryItemEntity> = emptyList(),
+        /** Rows in the restore file that couldn't be parsed (bad date/qty/code). */
+        val pendingRestoreSkipped: Int = 0,
         /** True while the project-picker dialog is shown. */
         val showRestoreProjectPicker: Boolean = false,
         /** Projects to offer in the picker. */
@@ -118,59 +119,6 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Bulk-adds items from a CSV file (see [CsvImporter] for the expected
-     * column format). Unlike [restoreFromUri], this is additive — existing
-     * records are kept, each valid row is inserted as a new item. Useful
-     * for an initial stock-take across many products at once.
-     */
-    fun importCsv(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null, success = false, csvImportResult = null) }
-            try {
-                val parsed = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    csvImporter.parseCsv(inputStream)
-                } ?: CsvImporter.ImportResult(emptyList(), 0, 0)
-
-                // Merge rule: if an item with the same barcode (POS code) +
-                // expiry date + unit already exists (from a prior scan/import,
-                // or an earlier row in this same batch), add to its quantity
-                // instead of inserting a duplicate. Different unit → kept as a
-                // separate row (and flagged in exports via the warning column).
-                val projectId = activeProjectManager.getActiveProjectId()
-                var mergedCount = 0
-                for (entity in parsed.imported) {
-                    val existing = repository.findDuplicate(
-                        projectId, entity.itemCode, entity.barcode, entity.expiryDate, entity.unit
-                    )
-                    if (existing != null) {
-                        repository.updateItem(
-                            existing.copy(
-                                quantity = existing.quantity + entity.quantity,
-                                updatedAt = System.currentTimeMillis(),
-                                // Backfill description/itemCode if the existing row lacked it.
-                                productName = existing.productName ?: entity.productName,
-                                productNameArabic = existing.productNameArabic ?: entity.productNameArabic,
-                                itemCode = existing.itemCode ?: entity.itemCode
-                            ).toEntity()
-                        )
-                        mergedCount++
-                    } else {
-                        // Force imported rows into the active project.
-                        repository.insertItem(entity.copy(projectId = projectId))
-                    }
-                }
-
-                val result = parsed.copy(merged = mergedCount)
-
-                _uiState.update {
-                    it.copy(isLoading = false, success = true, csvImportResult = result)
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
-    }
 
     /** Backs up EVERY project and its items into one JSON file. */
     fun backupAllProjects(context: Context, uri: Uri) {
@@ -255,7 +203,7 @@ class BackupRestoreViewModel @Inject constructor(
                         val parsed = csvImporter.parseCsv(bytes.inputStream())
                         if (parsed.imported.isEmpty()) throw IllegalStateException(
                             "No items found — is this an exported CSV file?")
-                        startProjectPicker(parsed.imported)
+                        startProjectPicker(parsed.imported, parsed.skipped)
                     }
                 }
             } catch (e: Exception) {
@@ -287,12 +235,13 @@ class BackupRestoreViewModel @Inject constructor(
     }
 
     /** Shows the project-picker dialog for the parsed [items]. */
-    private suspend fun startProjectPicker(items: List<ExpiryItemEntity>) {
+    private suspend fun startProjectPicker(items: List<ExpiryItemEntity>, skipped: Int = 0) {
         val projects = projectRepository.getAllProjectsOnce()
         _uiState.update {
             it.copy(
                 isLoading = false,
                 pendingRestoreItems = items,
+                pendingRestoreSkipped = skipped,
                 restoreProjects = projects,
                 showRestoreProjectPicker = true
             )
@@ -337,7 +286,7 @@ class BackupRestoreViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         pendingRestoreItems = emptyList(),
-                        restoreResult = "new:$newCount:merged:$mergedCount:qty:${fmtQty(qtyAdded)}"
+                        restoreResult = "new:$newCount:merged:$mergedCount:qty:${fmtQty(qtyAdded)}:skipped:${_uiState.value.pendingRestoreSkipped}"
                     )
                 }
             } catch (e: Exception) {
@@ -446,6 +395,6 @@ class BackupRestoreViewModel @Inject constructor(
     }
 
     fun resetSuccess() {
-        _uiState.update { it.copy(success = false, csvImportResult = null, catalogUpdateCount = null) }
+        _uiState.update { it.copy(success = false, catalogUpdateCount = null) }
     }
 }

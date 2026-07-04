@@ -55,16 +55,6 @@ fun BackupRestoreScreen(
         }
     }
 
-    val csvImportLauncher = rememberLauncherForActivityResult(
-        // text/csv isn't always registered as a MIME type handler on Android,
-        // so accept any file and let CsvImporter validate the contents.
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.importCsv(context, uri)
-        }
-    }
-
     val catalogUpdateLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -106,21 +96,6 @@ fun BackupRestoreScreen(
                     enabled = !uiState.isLoading
                 ) {
                     Text(stringResource(R.string.restore_database))
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Text(
-                    stringResource(R.string.import_csv_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Button(
-                    onClick = { csvImportLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.import_csv))
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -224,32 +199,12 @@ fun BackupRestoreScreen(
     }
 
     if (uiState.success) {
-        val csvResult = uiState.csvImportResult
         val catalogCount = uiState.catalogUpdateCount
         LaunchedEffect(Unit) {
             scope.launch {
                 val message = when {
                     catalogCount != null ->
                         context.getString(R.string.update_catalog_result_format, catalogCount)
-                    csvResult != null -> {
-                        val added = csvResult.imported.size - csvResult.merged
-                        when {
-                            csvResult.skipped > 0 -> context.getString(
-                                R.string.import_csv_result_detail_format,
-                                added,
-                                csvResult.merged,
-                                csvResult.skipped,
-                                csvResult.skippedBadDate,
-                                csvResult.skippedBadQty,
-                                csvResult.skippedMissingPosCode
-                            )
-                            else -> context.getString(
-                                R.string.import_csv_result_format,
-                                added,
-                                csvResult.merged
-                            )
-                        }
-                    }
                     else -> operationSuccessMsg
                 }
                 snackbarHostState.showSnackbar(message)
@@ -311,14 +266,21 @@ fun BackupRestoreScreen(
     uiState.restoreResult?.let { result ->
         LaunchedEffect(result) {
             scope.launch {
-                // Encoded as "new:X:merged:Y:qty:Z".
+                // Encoded as "new:X:merged:Y:qty:Z:skipped:S".
                 val parts = result.split(":")
-                val text = if (parts.size >= 6) {
-                    context.getString(
-                        R.string.restore_result_format,
-                        parts[1], parts[3], parts[5]
-                    )
-                } else result
+                val text = when {
+                    parts.size >= 8 && (parts[7].toIntOrNull() ?: 0) > 0 ->
+                        context.getString(
+                            R.string.restore_result_skipped_format,
+                            parts[1], parts[3], parts[5], parts[7]
+                        )
+                    parts.size >= 6 ->
+                        context.getString(
+                            R.string.restore_result_format,
+                            parts[1], parts[3], parts[5]
+                        )
+                    else -> result
+                }
                 snackbarHostState.showSnackbar(text)
                 viewModel.clearRestoreResult()
             }
