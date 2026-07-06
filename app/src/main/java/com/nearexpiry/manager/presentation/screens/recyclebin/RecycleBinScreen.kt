@@ -115,7 +115,45 @@ fun RecycleBinScreen(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    items(uiState.entries, key = { it.id }) { entry ->
+                    // Group by deletion batch: items deleted in one action share
+                    // the exact same deletedAt timestamp.
+                    val batches = uiState.entries.groupBy { it.deletedAt }
+                    batches.forEach { (deletedAt, batchEntries) ->
+                        if (batchEntries.size > 1) {
+                            item(key = "batch-$deletedAt") {
+                                Card(modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            stringResource(
+                                                R.string.bin_batch_header,
+                                                batchEntries.size,
+                                                SimpleDateFormat("dd-MMM-yy HH:mm", Locale.ENGLISH)
+                                                    .format(Date(deletedAt))
+                                            ),
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(onClick = {
+                                                viewModel.restore(batchEntries.map { it.id })
+                                            }) {
+                                                Icon(Icons.Default.Restore, contentDescription = null)
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.bin_restore_all))
+                                            }
+                                            OutlinedButton(onClick = {
+                                                viewModel.askDeletePermanently(batchEntries.map { it.id })
+                                            }) {
+                                                Icon(Icons.Default.DeleteForever, contentDescription = null)
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.bin_delete_all))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        items(batchEntries, key = { it.id }) { entry ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 val displayName = if (isArabic) {
@@ -165,6 +203,7 @@ fun RecycleBinScreen(
                                 }
                             }
                         }
+                    }
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }

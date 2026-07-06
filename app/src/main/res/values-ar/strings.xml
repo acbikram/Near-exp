@@ -286,6 +286,9 @@
     <string name="bin_confirm_body">سيؤدي هذا إلى إزالة العناصر المحددة نهائياً من سلة المحذوفات. لا يمكن التراجع عن هذا.</string>
     <string name="bin_restored_count">تمت استعادة %1$s عنصر</string>
     <string name="bin_deleted_count">تم حذف %1$s عنصر نهائياً</string>
+    <string name="bin_batch_header">%1$d عنصراً حُذفت معاً · %2$s</string>
+    <string name="bin_restore_all">استعادة الكل</string>
+    <string name="bin_delete_all">حذف الكل نهائياً</string>
     <string name="restore_pick_project_title">الاستعادة إلى أي مشروع؟</string>
     <string name="restore_pick_project_hint">تم العثور على %1$d عنصراً في الملف. اختر مشروعاً لاستعادتها إليه — العناصر المتطابقة (نفس الصنف والتاريخ والوحدة) ستُجمع كمياتها.</string>
     <string name="restore_new_project_name">اسم مشروع جديد</string>

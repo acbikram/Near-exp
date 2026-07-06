@@ -286,6 +286,9 @@
     <string name="bin_confirm_body">This will permanently remove the selected item(s) from the Recycle Bin. This cannot be undone.</string>
     <string name="bin_restored_count">%1$s item(s) restored</string>
     <string name="bin_deleted_count">%1$s item(s) permanently deleted</string>
+    <string name="bin_batch_header">%1$d items deleted together · %2$s</string>
+    <string name="bin_restore_all">Restore All</string>
+    <string name="bin_delete_all">Delete All Forever</string>
     <string name="restore_pick_project_title">Restore Into Which Project?</string>
     <string name="restore_pick_project_hint">%1$d items found in the file. Choose a project to restore them into — same item + expiry + unit will have quantities added together.</string>
     <string name="restore_new_project_name">New project name</string>
