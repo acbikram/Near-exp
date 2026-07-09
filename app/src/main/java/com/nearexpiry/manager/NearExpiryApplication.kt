@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.notifications.NotificationHelper
+import com.nearexpiry.manager.notifications.AutoBackupWorker
 import com.nearexpiry.manager.notifications.UpdateCheckWorker
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
@@ -44,6 +45,7 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         ExpiryNotificationWorker.schedule(this)
         // Schedule the daily background update check.
         UpdateCheckWorker.schedule(this)
+        AutoBackupWorker.schedule(this)
         // Delete update APKs already installed (version <= current). APKs for a
         // newer, downloaded-but-not-yet-installed version are kept so the user
         // can tap "Install" without re-downloading. This approximates

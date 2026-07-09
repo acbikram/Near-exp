@@ -14,6 +14,7 @@ import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
 import com.nearexpiry.manager.utils.LocalFileServer
+import com.nearexpiry.manager.utils.AutoBackup
 import com.nearexpiry.manager.utils.XlsxReportReader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,6 +57,8 @@ class BackupRestoreViewModel @Inject constructor(
         val restoreProjects: List<com.nearexpiry.manager.domain.model.Project> = emptyList(),
         /** One-shot result: "new:X:merged:Y:qty:Z" for the snackbar. */
         val restoreResult: String? = null,
+        /** One-shot: filename of a just-written internal-storage backup. */
+        val internalBackupName: String? = null,
         /** Product count after a successful catalog update; null otherwise. */
         val catalogUpdateCount: Int? = null,
         // ── WiFi catalog pull ────────────────────────────────────────────
@@ -301,6 +304,23 @@ class BackupRestoreViewModel @Inject constructor(
         _uiState.update {
             it.copy(showRestoreProjectPicker = false, pendingRestoreItems = emptyList())
         }
+    }
+
+    /** "Backup Now To Internal Storage" — same file the daily 12:00 backup writes. */
+    fun backupNowToInternal(context: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val name = AutoBackup.run(context)
+                _uiState.update { it.copy(isLoading = false, internalBackupName = name) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun clearInternalBackupName() {
+        _uiState.update { it.copy(internalBackupName = null) }
     }
 
     fun clearRestoreResult() {

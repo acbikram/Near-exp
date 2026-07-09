@@ -91,6 +91,18 @@ fun BackupRestoreScreen(
                     Text(stringResource(R.string.backup_all_projects))
                 }
                 Button(
+                    onClick = { viewModel.backupNowToInternal(context) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(stringResource(R.string.backup_now_internal))
+                }
+                Text(
+                    stringResource(R.string.auto_backup_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
                     onClick = { restoreLauncher.launch(arrayOf("*/*")) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
@@ -261,6 +273,17 @@ fun BackupRestoreScreen(
                 }
             }
         )
+    }
+
+    uiState.internalBackupName?.let { name ->
+        LaunchedEffect(name) {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    context.getString(R.string.backup_internal_done, name)
+                )
+                viewModel.clearInternalBackupName()
+            }
+        }
     }
 
     uiState.restoreResult?.let { result ->
