@@ -99,6 +99,10 @@ class ScanViewModel @Inject constructor(
         val deleteItemId: Long = 0,
         // Manual barcode entry mode
         val showManualMode: Boolean = false,
+        /** Camera torch: the user's current choice; physically on only while
+         *  the camera is actively scanning. Remembered like scan mode: two
+         *  consecutive camera scans with the same state make it the default. */
+        val torchEnabled: Boolean = false,
         /** Transient error to surface (e.g. embedded barcode item not in catalog). */
         val scanError: String? = null
     )
@@ -116,7 +120,18 @@ class ScanViewModel @Inject constructor(
      *  consecutive uses of the same mode make it the Scan screen's default. */
     private fun recordModeUse() {
         val mode = if (currentEntryManual) "manual" else "camera"
-        viewModelScope.launch { preferencesManager.recordScanModeUse(mode) }
+        val torchOn = _uiState.value.torchEnabled
+        val cameraEntry = !currentEntryManual
+        viewModelScope.launch {
+            preferencesManager.recordScanModeUse(mode)
+            // Torch memory counts only for camera scans (flash is camera-only).
+            if (cameraEntry) preferencesManager.recordTorchUse(torchOn)
+        }
+    }
+
+    /** Flashlight button: flips the torch for this and future camera sessions. */
+    fun toggleTorch() {
+        _uiState.update { it.copy(torchEnabled = !it.torchEnabled) }
     }
 
     init {
@@ -126,6 +141,8 @@ class ScanViewModel @Inject constructor(
             if (preferencesManager.getScanModeDefault() == "manual") {
                 _uiState.update { it.copy(showManualMode = true, scannerInactive = true) }
             }
+            val torch = preferencesManager.getTorchDefault()
+            if (torch) _uiState.update { it.copy(torchEnabled = true) }
         }
         loadRecentScans()
         startInactivityTimer()

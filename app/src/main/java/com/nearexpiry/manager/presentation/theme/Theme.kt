@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 val CyanAccent       = Color(0xFF00E5FF)   // cyan – barcode numbers, headings
 val GreenAccent      = Color(0xFF00E676)   // green – scan frame, action buttons
 val OrangeAccent     = Color(0xFFFFAB40)   // orange – "Developed by" text
+val YellowAccent     = Color(0xFFFFEB3B)   // yellow – flashlight-on button
 val DarkBackground   = Color(0xFF0D1117)   // very dark navy background
 val SurfaceDark      = Color(0xFF161B22)   // card / surface background
 val SurfaceVariant   = Color(0xFF1C2333)   // slightly lighter card variant

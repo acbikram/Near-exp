@@ -60,6 +60,29 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         return newDefault
     }
 
+    // Sticky flashlight: after 2 consecutive camera scans with the torch in the
+    // same state (on/off), that state becomes the default for future scans.
+    private val torchDefaultKey = booleanPreferencesKey("torch_default")
+    private val torchLastKey = booleanPreferencesKey("torch_last")
+    private val torchStreakKey = longPreferencesKey("torch_streak")
+
+    /** Whether the camera torch should start enabled. */
+    suspend fun getTorchDefault(): Boolean =
+        context.dataStore.data.first()[torchDefaultKey] ?: false
+
+    /** Records the torch state of one completed camera scan. */
+    suspend fun recordTorchUse(on: Boolean) {
+        val prefs = context.dataStore.data.first()
+        val last = prefs[torchLastKey]
+        val streak = if (last == on) (prefs[torchStreakKey] ?: 0L) + 1 else 1L
+        val newDefault = if (streak >= 2) on else (prefs[torchDefaultKey] ?: false)
+        context.dataStore.edit {
+            it[torchLastKey] = on
+            it[torchStreakKey] = streak
+            it[torchDefaultKey] = newDefault
+        }
+    }
+
     suspend fun getLastBranchId(): String =
         context.dataStore.data.first()[lastBranchIdKey] ?: ""
 

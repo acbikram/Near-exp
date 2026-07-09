@@ -298,4 +298,6 @@
     <string name="backup_now_internal">نسخ احتياطي الآن إلى التخزين الداخلي</string>
     <string name="auto_backup_hint">يقوم التطبيق أيضاً بنسخ جميع المشاريع احتياطياً تلقائياً كل يوم حوالي الساعة 12:00 ظهراً إلى Documents/Near Expiry Backups (يُحتفظ بآخر 7 أيام). تبقى هذه الملفات حتى بعد إلغاء تثبيت التطبيق — استعدها عبر استعادة قاعدة البيانات.</string>
     <string name="backup_internal_done">تم حفظ النسخة الاحتياطية: Documents/Near Expiry Backups/%1$s</string>
+    <string name="flash_on">تشغيل الفلاش</string>
+    <string name="flash_off">إطفاء الفلاش</string>
 </resources>

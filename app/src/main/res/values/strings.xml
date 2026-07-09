@@ -298,4 +298,6 @@
     <string name="backup_now_internal">Backup Now To Internal Storage</string>
     <string name="auto_backup_hint">The app also backs up all projects automatically every day around 12:00 noon to Documents/Near Expiry Backups (last 7 days kept). These files survive uninstalling the app — restore them with Restore Database.</string>
     <string name="backup_internal_done">Backup saved: Documents/Near Expiry Backups/%1$s</string>
+    <string name="flash_on">Turn flashlight on</string>
+    <string name="flash_off">Turn flashlight off</string>
 </resources>

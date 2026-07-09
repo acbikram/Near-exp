@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
@@ -55,6 +57,8 @@ import com.nearexpiry.manager.presentation.screens.scan.viewmodel.ScanViewModel
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.GreenAccent
+import com.nearexpiry.manager.presentation.theme.YellowAccent
+import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
@@ -144,6 +148,15 @@ fun ScanScreen(
         }
     }
 
+    // ── Torch control: physically on only while the camera is bound and the
+    // user has it enabled. Unbinding (idle) cuts the torch automatically; on
+    // re-bind this effect re-applies the remembered state.
+    LaunchedEffect(isCameraBound, uiState.torchEnabled) {
+        if (isCameraBound) {
+            try { cameraController.enableTorch(uiState.torchEnabled) } catch (_: Exception) {}
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             try { if (isCameraBound) cameraController.unbind() } catch (_: Exception) {}
@@ -194,6 +207,23 @@ fun ScanScreen(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // ── Flashlight toggle (camera mode only, above keyboard) ──
+                    if (!uiState.showManualMode) {
+                        SmallFloatingActionButton(
+                            onClick = { viewModel.toggleTorch() },
+                            containerColor = if (uiState.torchEnabled) YellowAccent else SurfaceVariant,
+                            contentColor = if (uiState.torchEnabled) Color.Black else Color.White
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.torchEnabled) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                                contentDescription = if (uiState.torchEnabled)
+                                    stringResource(R.string.flash_off)
+                                else
+                                    stringResource(R.string.flash_on)
+                            )
+                        }
+                    }
+
                     // ── Manual entry shortcut (above camera button) ──────────
                     SmallFloatingActionButton(
                         onClick = {
