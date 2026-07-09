@@ -108,7 +108,25 @@ class ScanViewModel @Inject constructor(
 
     private var scanTimeoutJob = viewModelScope.launch { }
 
+    /** True while the current entry flow was started from manual entry
+     *  (typed barcode or name search); false = camera scan. */
+    private var currentEntryManual = false
+
+    /** Records one completed entry for the sticky-mode preference: two
+     *  consecutive uses of the same mode make it the Scan screen's default. */
+    private fun recordModeUse() {
+        val mode = if (currentEntryManual) "manual" else "camera"
+        viewModelScope.launch { preferencesManager.recordScanModeUse(mode) }
+    }
+
     init {
+        // Sticky scan mode: open directly in manual mode if the user's last
+        // two completed entries were manual.
+        viewModelScope.launch {
+            if (preferencesManager.getScanModeDefault() == "manual") {
+                _uiState.update { it.copy(showManualMode = true, scannerInactive = true) }
+            }
+        }
         loadRecentScans()
         startInactivityTimer()
         refreshInitialExpiry()
@@ -162,8 +180,9 @@ class ScanViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         // Clear manual mode AND scannerInactive so onBarcodeScanned's guard
         // doesn't block us (manual mode sets scannerInactive = true).
+        currentEntryManual = true
         _uiState.update { it.copy(showManualMode = false, scannerInactive = false) }
-        onBarcodeScanned(trimmed)
+        onBarcodeScanned(trimmed, fromManual = true)
     }
 
     // ── Catalog name-search (manual entry by product name) ──────────────────
@@ -192,6 +211,7 @@ class ScanViewModel @Inject constructor(
 
     /** User picked a product from the name-search; proceed as if it was scanned. */
     fun onCatalogProductSelected(product: com.nearexpiry.manager.domain.model.ProductInfo) {
+        currentEntryManual = true
         stopScanner()
         _uiState.update {
             it.copy(
@@ -215,9 +235,10 @@ class ScanViewModel @Inject constructor(
 
     // ── Scan flow ────────────────────────────────────────────────────────────
 
-    fun onBarcodeScanned(barcode: String) {
-        if (_uiState.value.scannerInactive) return
+    fun onBarcodeScanned(barcode: String, fromManual: Boolean = false) {
+        if (_uiState.value.scannerInactive && !fromManual) return
         if (_uiState.value.pendingBarcode.isNotEmpty()) return  // already processing one
+        currentEntryManual = fromManual
         stopScanner()
 
         // Beep + vibrate on scan are always on.
@@ -368,6 +389,7 @@ class ScanViewModel @Inject constructor(
             repository.updateItem(
                 existing.copy(quantity = newQty, updatedAt = System.currentTimeMillis()).toEntity()
             )
+            recordModeUse()
             loadRecentScans()
             resetAfterScan()
         }
@@ -613,6 +635,7 @@ class ScanViewModel @Inject constructor(
                     projectId = projectId
                 )
                 repository.insertItem(newItem)
+                recordModeUse()
                 loadRecentScans()
                 _uiState.update {
                     it.copy(
@@ -654,6 +677,7 @@ class ScanViewModel @Inject constructor(
                 itemCode = existing.itemCode ?: state.pendingItemCode
             )
             repository.updateItem(updatedItem.toEntity())
+            recordModeUse()
             loadRecentScans()
             _uiState.update {
                 it.copy(

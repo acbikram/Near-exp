@@ -33,7 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -457,7 +460,11 @@ private fun ManualBarcodeInputBox(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var barcodeText by remember { mutableStateOf("") }
+    // TextFieldValue (not a plain String) keeps the field and the keyboard's
+    // composing region in sync — on some keyboards (Honor/Huawei, Samsung),
+    // filtering a plain-String value mid-composition desyncs the IME and the
+    // typed digits never appear in the box.
+    var barcodeText by remember { mutableStateOf(TextFieldValue("")) }
     var error by remember { mutableStateOf<String?>(null) }
 
     val focusRequester = remember { FocusRequester() }
@@ -471,7 +478,7 @@ private fun ManualBarcodeInputBox(
     }
 
     val handleDone = {
-        val trimmed = barcodeText.trim()
+        val trimmed = barcodeText.text.trim()
         if (trimmed.isEmpty()) {
             error = pleaseEnterBarcodeMsg
         } else {
@@ -499,19 +506,30 @@ private fun ManualBarcodeInputBox(
             OutlinedTextField(
                 value = barcodeText,
                 onValueChange = { v ->
-                    // Keep only the digit characters from whatever the IME sends.
-                    // Filtering (rather than rejecting the whole value when any
-                    // non-digit appears) is far more robust across keyboards —
-                    // some number pads emit transient/composing characters that
-                    // would otherwise cause the field to stay empty.
-                    val digitsOnly = v.filter { it.isDigit() }
-                    barcodeText = digitsOnly
+                    // Normalize Arabic-Indic digits (١٢٣ / ۱۲۳ → 123), then keep
+                    // only ASCII digits. Working on TextFieldValue (with the
+                    // selection preserved at the end) keeps Honor/Samsung
+                    // keyboards in sync so typed digits always show.
+                    val normalized = buildString {
+                        for (ch in v.text) {
+                            when (ch) {
+                                in '0'..'9' -> append(ch)
+                                in '\u0660'..'\u0669' -> append(('0' + (ch - '\u0660')))   // ٠..٩
+                                in '\u06F0'..'\u06F9' -> append(('0' + (ch - '\u06F0')))   // ۰..۹
+                            }
+                        }
+                    }
+                    barcodeText = TextFieldValue(normalized, selection = TextRange(normalized.length))
                     error = null
                 },
                 label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = { error?.let { Text(it, color = ErrorRed) } },
+                textStyle = LocalTextStyle.current.copy(
+                    color = Color.White,
+                    textDirection = TextDirection.Ltr
+                ),
                 keyboardOptions = KeyboardOptions(
                     // Digit pad; the digit-filtering in onValueChange handles any
                     // stray characters, which is what makes entry reliable across

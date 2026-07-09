@@ -33,6 +33,32 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val lastExpiryDateKey = stringPreferencesKey("last_expiry_date")        // "yyyy-MM-dd"
     private val lastExpirySavedDayKey = stringPreferencesKey("last_expiry_saved_day") // "yyyy-MM-dd"
     private val lastBranchIdKey = stringPreferencesKey("last_branch_id")
+    // Sticky scan mode: after 2 consecutive uses of one mode, the Scan screen
+    // opens in that mode by default.
+    private val scanModeDefaultKey = stringPreferencesKey("scan_mode_default")   // "camera" | "manual"
+    private val scanModeLastKey = stringPreferencesKey("scan_mode_last")
+    private val scanModeStreakKey = longPreferencesKey("scan_mode_streak")
+
+    /** "camera" (default) or "manual" — how the Scan screen should open. */
+    suspend fun getScanModeDefault(): String =
+        context.dataStore.data.first()[scanModeDefaultKey] ?: "camera"
+
+    /**
+     * Records one completed entry in [mode] ("camera"/"manual"). Two consecutive
+     * uses of the same mode make it the new default. Returns the current default.
+     */
+    suspend fun recordScanModeUse(mode: String): String {
+        val prefs = context.dataStore.data.first()
+        val last = prefs[scanModeLastKey]
+        val streak = if (last == mode) (prefs[scanModeStreakKey] ?: 0L) + 1 else 1L
+        val newDefault = if (streak >= 2) mode else (prefs[scanModeDefaultKey] ?: "camera")
+        context.dataStore.edit {
+            it[scanModeLastKey] = mode
+            it[scanModeStreakKey] = streak
+            it[scanModeDefaultKey] = newDefault
+        }
+        return newDefault
+    }
 
     suspend fun getLastBranchId(): String =
         context.dataStore.data.first()[lastBranchIdKey] ?: ""
