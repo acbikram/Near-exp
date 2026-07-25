@@ -252,6 +252,9 @@
     <string name="notif_perm_dialog_body">يحتاج تطبيق قرب انتهاء الصلاحية إلى إذن الإشعارات لتنبيهك بالمنتجات القريبة من انتهاء الصلاحية وتحديثات التطبيق. يرجى تفعيل الإشعارات من الإعدادات.</string>
     <string name="notif_perm_open_settings">فتح الإعدادات</string>
     <string name="notif_perm_later">لاحقاً</string>
+    <string name="battery_opt_dialog_title">السماح بالنشاط في الخلفية؟</string>
+    <string name="battery_opt_dialog_body">للتأكد من وصول إشعار قرب انتهاء الصلاحية الساعة 8:00 صباحاً في وقته، يرجى السماح لهذا التطبيق بالعمل في الخلفية دون قيود البطارية. بعض الهواتف تؤخر الإشعارات بخلاف ذلك.</string>
+    <string name="battery_opt_allow">السماح</string>
     <string name="you_have_latest">لديك أحدث إصدار</string>
     <string name="update_check_failed_format">فشل التحقق من التحديث: %1$s</string>
     <string name="downloading_update">جاري تنزيل التحديث…</string>

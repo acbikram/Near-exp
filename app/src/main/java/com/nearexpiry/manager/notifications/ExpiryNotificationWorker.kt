@@ -6,8 +6,8 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
@@ -32,6 +32,13 @@ import java.util.concurrent.TimeUnit
  * other (non-active) projects are not notified — switching projects changes
  * which inventory gets alerts. Deleted items are never notified; quantity
  * shown is always the current/latest value from the database.
+ *
+ * SCHEDULING: this is a self-rescheduling ONE-TIME worker, not a periodic
+ * one. Each run enqueues the *next* run by computing "the next 8:00 AM" fresh
+ * from the actual current time, rather than chaining 24h off the previous
+ * scheduled slot. This means a late run (the OS deferring it for battery
+ * reasons, as periodic jobs often drift on some phones) never pushes the
+ * following day's time later — every day independently re-targets 8:00 AM.
  */
 @HiltWorker
 class ExpiryNotificationWorker @AssistedInject constructor(
@@ -46,21 +53,23 @@ class ExpiryNotificationWorker @AssistedInject constructor(
         private val DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Schedules (or re-schedules) the daily worker.
-         * Uses KEEP policy so an existing schedule survives app restarts.
+         * Schedules (or re-schedules) the next run. Called both at app start
+         * and at the end of every run, so the chain is self-sustaining and
+         * never drifts: each link targets 8:00 AM computed from "now" at
+         * enqueue time, not from any previous run's timestamp.
          */
         fun schedule(context: Context) {
             val initialDelayMs = millisUntilNextEightAm()
-            val request = PeriodicWorkRequestBuilder<ExpiryNotificationWorker>(
-                repeatInterval = 24,
-                repeatIntervalTimeUnit = TimeUnit.HOURS
-            )
+            val request = OneTimeWorkRequestBuilder<ExpiryNotificationWorker>()
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            // REPLACE (not KEEP): re-scheduling must always win, otherwise a
+            // stale periodic/one-time schedule from before this fix would
+            // never be cleared and the drift would continue.
+            WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP, // don't reset the 8 AM offset on every launch
+                ExistingWorkPolicy.REPLACE,
                 request
             )
         }
@@ -82,7 +91,10 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                 appContext,
                 android.Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) return Result.success()
+            if (!granted) {
+                schedule(appContext) // still line up tomorrow's 8 AM run
+                return Result.success()
+            }
         }
 
         NotificationHelper.createChannels(appContext)
@@ -117,6 +129,10 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             slot++
             TierNotificationWorker.enqueue(appContext, days, ids, delayMin)
         }
+
+        // Line up tomorrow's 8 AM run now, computed fresh from the current
+        // time — this is what stops any drift from today carrying forward.
+        schedule(appContext)
 
         return Result.success()
     }

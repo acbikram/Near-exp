@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.nearexpiry.manager.presentation.components.BatteryOptimizationDialog
 import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
 import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
 import com.nearexpiry.manager.presentation.navigation.NearExpiryNavHost
@@ -36,6 +37,12 @@ class MainActivity : AppCompatActivity() {
     // True when we should show the "enable notifications in Settings" dialog
     // (i.e. the user has hard-denied, so the system won't show the prompt again).
     private val showNotifSettingsDialog = mutableStateOf(false)
+
+    // True when battery optimization is still restricting the app — shown
+    // until the user allows it or dismisses (re-shown next launch if still
+    // restricted, same pattern as the notification dialog).
+    private val showBatteryOptDialog = mutableStateOf(false)
+    private var batteryOptDismissedThisSession = false
 
     // Avoid re-launching the system prompt repeatedly within one resume.
     private var permissionRequestedThisResume = false
@@ -77,6 +84,16 @@ class MainActivity : AppCompatActivity() {
                             onDismiss = { showNotifSettingsDialog.value = false }
                         )
                     }
+
+                    if (showBatteryOptDialog.value) {
+                        BatteryOptimizationDialog(
+                            onAllow = { requestIgnoreBatteryOptimizations() },
+                            onDismiss = {
+                                showBatteryOptDialog.value = false
+                                batteryOptDismissedThisSession = true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -86,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         permissionRequestedThisResume = false
         ensureNotificationPermission()
+        ensureBatteryOptimizationExempt()
     }
 
     /**
@@ -127,6 +145,36 @@ class MainActivity : AppCompatActivity() {
                     data = android.net.Uri.fromParts("package", packageName, null)
                 }
             )
+        }
+    }
+
+    /**
+     * On every launch/resume, if the app is still restricted by battery
+     * optimization, prompt to allow it. This is what makes the daily 8 AM
+     * expiry notification reliable on phones (Honor/Huawei, Samsung, Xiaomi)
+     * that otherwise delay background work regardless of how it's scheduled.
+     * Dismissing hides it only for this session; it reappears next launch
+     * until the user allows it or Android grants it automatically.
+     */
+    private fun ensureBatteryOptimizationExempt() {
+        if (batteryOptDismissedThisSession) return
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        val exempt = pm?.isIgnoringBatteryOptimizations(packageName) ?: true
+        showBatteryOptDialog.value = !exempt
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        showBatteryOptDialog.value = false
+        val intent = Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            android.net.Uri.parse("package:$packageName")
+        )
+        runCatching { startActivity(intent) }.onFailure {
+            // Some OEMs (Honor/Huawei especially) block the direct-request
+            // intent; fall back to the general battery settings screen.
+            runCatching {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }
         }
     }
 

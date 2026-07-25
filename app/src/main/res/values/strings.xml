@@ -252,6 +252,9 @@
     <string name="notif_perm_dialog_body">Near Expiry needs notification permission to alert you about items nearing expiry and app updates. Please enable notifications in Settings.</string>
     <string name="notif_perm_open_settings">Open Settings</string>
     <string name="notif_perm_later">Later</string>
+    <string name="battery_opt_dialog_title">Allow Background Activity?</string>
+    <string name="battery_opt_dialog_body">To make sure your daily 8:00 AM near-expiry notification arrives on time, please allow this app to run in the background without battery restrictions. Some phones delay notifications otherwise.</string>
+    <string name="battery_opt_allow">Allow</string>
     <string name="you_have_latest">You have the latest version</string>
     <string name="update_check_failed_format">Update check failed: %1$s</string>
     <string name="downloading_update">Downloading update…</string>

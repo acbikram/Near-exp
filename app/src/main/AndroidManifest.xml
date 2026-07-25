@@ -11,9 +11,12 @@
 
     <!-- Required on Android 13+ (API 33) to post notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
     <!-- Lets WorkManager reschedule the daily check after a reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Lets the app prompt to be exempted from battery optimization, so the
+         daily 8 AM expiry notification isn't delayed by aggressive OEM
+         background restrictions (Honor/Huawei, Samsung, Xiaomi, etc.) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
