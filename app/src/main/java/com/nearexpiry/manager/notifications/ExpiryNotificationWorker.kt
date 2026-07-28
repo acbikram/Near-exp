@@ -10,6 +10,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.await
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
@@ -81,59 +82,81 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             val target = if (now.isBefore(eightAmToday)) eightAmToday else eightAmToday.plusDays(1)
             return ChronoUnit.MILLIS.between(now, target).coerceAtLeast(0L)
         }
+
+        /**
+         * Watchdog: re-arms the daily chain only if it's not currently
+         * scheduled or running. Safe to call anytime — does nothing if the
+         * chain is already alive, so it can't cause duplicate notifications.
+         * Called from [AutoBackupWorker]'s periodic run as a safety net.
+         */
+        suspend fun ensureScheduled(context: Context) {
+            val infos = WorkManager.getInstance(context)
+                .getWorkInfosForUniqueWork(WORK_NAME)
+                .await()
+            val alive = infos.any {
+                !it.state.isFinished || it.state == androidx.work.WorkInfo.State.ENQUEUED
+            }
+            if (!alive) schedule(context)
+        }
     }
 
     override suspend fun doWork(): Result {
-        // Skip silently if POST_NOTIFICATIONS permission hasn't been granted yet
-        // (Android 13+). The channel still exists; the user can grant it later.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                appContext,
-                android.Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                schedule(appContext) // still line up tomorrow's 8 AM run
-                return Result.success()
-            }
-        }
-
-        NotificationHelper.createChannels(appContext)
-
-        val today = LocalDate.now()
-        val dao   = database.expiryItemDao()
-
-        // Only the currently selected project gets notifications.
-        val projectId = preferencesManager.getActiveProjectId()
-        val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
-        val items = dao.getAllItemsOnce(projectId)
-
-        // Bucket items into tiers by exact days-to-expiry.
-        val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
-        for (item in items) {
-            val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }
-                .getOrNull() ?: continue
-            val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
-            tiers[daysLeft]?.add(item.id)
-        }
-
-        // Fire tiers most-urgent first, staggered 15 min apart so they don't
-        // pile into one buzz:  today=0min, 3d=+15, 7d=+30, 15d=+45.
-        // Each tier is a separate one-time worker that posts ONE grouped
-        // notification. Empty tiers are skipped (and their delay slot is reused
-        // by simply not enqueuing them).
-        val order = listOf(0, 3, 7, 15)
-        var slot = 0
-        for (days in order) {
-            val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
-            val delayMin = slot * 15L
-            slot++
-            TierNotificationWorker.enqueue(appContext, days, ids, delayMin)
-        }
-
-        // Line up tomorrow's 8 AM run now, computed fresh from the current
-        // time — this is what stops any drift from today carrying forward.
+        // Lock in tomorrow's 8 AM run FIRST, before anything else. This is
+        // what makes the chain unbreakable: even if the OS kills this job
+        // partway through (common on aggressive-battery-management phones
+        // like Honor/Huawei) or a database read fails below, tomorrow's slot
+        // is already scheduled and the daily notifications keep coming.
         schedule(appContext)
 
-        return Result.success()
+        return try {
+            // Skip posting if POST_NOTIFICATIONS permission hasn't been
+            // granted yet (Android 13+). Tomorrow's run is already scheduled
+            // above regardless.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val granted = ContextCompat.checkSelfPermission(
+                    appContext,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!granted) return Result.success()
+            }
+
+            NotificationHelper.createChannels(appContext)
+
+            val today = LocalDate.now()
+            val dao   = database.expiryItemDao()
+
+            // Only the currently selected project gets notifications.
+            val projectId = preferencesManager.getActiveProjectId()
+            val items = dao.getAllItemsOnce(projectId)
+
+            // Bucket items into tiers by exact days-to-expiry.
+            val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
+            for (item in items) {
+                val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }
+                    .getOrNull() ?: continue
+                val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
+                tiers[daysLeft]?.add(item.id)
+            }
+
+            // Fire tiers most-urgent first, staggered 15 min apart so they don't
+            // pile into one buzz:  today=0min, 3d=+15, 7d=+30, 15d=+45.
+            // Each tier is a separate one-time worker that posts ONE grouped
+            // notification. Empty tiers are skipped (and their delay slot is
+            // reused by simply not enqueuing them).
+            val order = listOf(0, 3, 7, 15)
+            var slot = 0
+            for (days in order) {
+                val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
+                val delayMin = slot * 15L
+                slot++
+                TierNotificationWorker.enqueue(appContext, days, ids, delayMin)
+            }
+
+            Result.success()
+        } catch (e: Exception) {
+            // Never fail this worker — tomorrow's run is already locked in
+            // above, so one bad day here doesn't break the chain.
+            Result.success()
+        }
     }
 }

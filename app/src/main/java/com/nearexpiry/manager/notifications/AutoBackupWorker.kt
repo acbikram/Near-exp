@@ -29,6 +29,13 @@ class AutoBackupWorker(
     override suspend fun doWork(): Result {
         return try {
             AutoBackup.run(applicationContext)
+            // Watchdog: this job is genuinely periodic (Android re-fires it
+            // regardless of what happened in a previous run), so it's a safe
+            // place to verify the daily notification chain is still alive and
+            // re-arm it if something ever wiped it (rare, but some phones
+            // purge all scheduled background work under aggressive battery
+            // saving). Cheap no-op if it's already scheduled correctly.
+            ExpiryNotificationWorker.ensureScheduled(applicationContext)
             Result.success()
         } catch (e: Exception) {
             // Storage hiccup — try again on the next daily slot rather than
