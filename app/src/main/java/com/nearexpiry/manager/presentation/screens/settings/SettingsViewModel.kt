@@ -44,6 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
+    private val database: com.nearexpiry.manager.data.local.database.ExpiryDatabase,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -58,6 +59,7 @@ class SettingsViewModel @Inject constructor(
     enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, DOWNLOADED, ERROR }
 
     data class SettingsUiState(
+        val notificationTestResult: com.nearexpiry.manager.notifications.ExpiryNotificationWorker.DiagnosticResult? = null,
         val projects: List<ProjectSummary> = emptyList(),
         val activeProjectId: Long = 1L,
         val message: String? = null,
@@ -253,5 +255,24 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissUpdateState() {
         _uiState.update { it.copy(updateState = UpdateState.IDLE, updateError = "") }
+    }
+
+    /**
+     * Runs the exact same expiry-notification check the daily 8 AM job runs,
+     * immediately, and shows the result — for diagnosing why notifications
+     * aren't appearing without waiting for the next scheduled run.
+     */
+    fun testExpiryNotificationNow() {
+        viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nearexpiry.manager.notifications.ExpiryNotificationWorker
+                    .runDiagnostic(appContext, database, preferencesManager)
+            }
+            _uiState.update { it.copy(notificationTestResult = result) }
+        }
+    }
+
+    fun clearNotificationTestResult() {
+        _uiState.update { it.copy(notificationTestResult = null) }
     }
 }

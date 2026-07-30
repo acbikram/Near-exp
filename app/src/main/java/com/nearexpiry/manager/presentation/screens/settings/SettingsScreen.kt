@@ -6,6 +6,8 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -194,6 +196,16 @@ fun SettingsScreen(
                         ) { Text(stringResource(R.string.recycle_bin)) }
                         Spacer(Modifier.height(8.dp))
                         Button(
+                            onClick = { viewModel.testExpiryNotificationNow() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SurfaceVariant,
+                                contentColor   = CyanAccent
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text(stringResource(R.string.test_notification_now)) }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
                             onClick = { showClearDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
@@ -326,6 +338,53 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    uiState.notificationTestResult?.let { r ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearNotificationTestResult() },
+            title = { Text(stringResource(R.string.notification_test_result_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    if (r.error != null) {
+                        Text(
+                            stringResource(R.string.notification_test_error_format, r.error),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else if (!r.permissionGranted) {
+                        Text(stringResource(R.string.notification_test_no_permission))
+                    } else {
+                        Text(stringResource(R.string.notification_test_project_format, r.projectName))
+                        Text(stringResource(R.string.notification_test_total_items_format, r.totalItemsInProject))
+                        if (r.itemsWithUnparsableDates > 0) {
+                            Text(stringResource(R.string.notification_test_bad_dates_format, r.itemsWithUnparsableDates))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.notification_test_tier_format, "0", r.tierCounts[0] ?: 0))
+                        Text(stringResource(R.string.notification_test_tier_format, "3", r.tierCounts[3] ?: 0))
+                        Text(stringResource(R.string.notification_test_tier_format, "7", r.tierCounts[7] ?: 0))
+                        Text(stringResource(R.string.notification_test_tier_format, "15", r.tierCounts[15] ?: 0))
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.notification_test_posted_format, r.notificationsPosted),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        if (r.notificationsPosted > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.notification_test_check_shade),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearNotificationTestResult() }) {
+                    Text(stringResource(R.string.ok))
+                }
             }
         )
     }

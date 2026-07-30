@@ -49,6 +49,17 @@ class ExpiryNotificationWorker @AssistedInject constructor(
     private val preferencesManager: PreferencesManager
 ) : CoroutineWorker(appContext, workerParams) {
 
+    override suspend fun doWork(): Result {
+        // Lock in tomorrow's 8 AM run FIRST, before anything else. This is
+        // what makes the chain unbreakable: even if the OS kills this job
+        // partway through (common on aggressive-battery-management phones
+        // like Honor/Huawei) or a database read fails below, tomorrow's slot
+        // is already scheduled and the daily notifications keep coming.
+        schedule(appContext)
+        runDiagnostic(appContext, database, preferencesManager)
+        return Result.success()
+    }
+
     companion object {
         const val WORK_NAME = "expiry_notification_daily"
         private val DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE
@@ -98,65 +109,79 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             }
             if (!alive) schedule(context)
         }
-    }
 
-    override suspend fun doWork(): Result {
-        // Lock in tomorrow's 8 AM run FIRST, before anything else. This is
-        // what makes the chain unbreakable: even if the OS kills this job
-        // partway through (common on aggressive-battery-management phones
-        // like Honor/Huawei) or a database read fails below, tomorrow's slot
-        // is already scheduled and the daily notifications keep coming.
-        schedule(appContext)
+        /** Result of one diagnostic/production run, for the Settings test button. */
+        data class DiagnosticResult(
+            val permissionGranted: Boolean,
+            val projectName: String,
+            val totalItemsInProject: Int,
+            val itemsWithUnparsableDates: Int,
+            val tierCounts: Map<Int, Int>,   // 0/3/7/15 -> count
+            val notificationsPosted: Int,
+            val error: String? = null
+        )
 
-        return try {
-            // Skip posting if POST_NOTIFICATIONS permission hasn't been
-            // granted yet (Android 13+). Tomorrow's run is already scheduled
-            // above regardless.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val granted = ContextCompat.checkSelfPermission(
-                    appContext,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-                if (!granted) return Result.success()
+        /**
+         * The actual check-and-notify logic, shared by the daily worker and
+         * the "Test Expiry Notification Now" button in Settings so the test
+         * exercises the exact same code path as production — same permission
+         * check, same active project, same tier matching, same posting calls.
+         */
+        suspend fun runDiagnostic(
+            context: Context,
+            database: ExpiryDatabase,
+            preferencesManager: PreferencesManager
+        ): DiagnosticResult {
+            try {
+                val permissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ContextCompat.checkSelfPermission(
+                        context, android.Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                } else true
+
+                if (!permissionGranted) {
+                    return DiagnosticResult(false, "", 0, 0, emptyMap(), 0)
+                }
+
+                NotificationHelper.createChannels(context)
+
+                val today = LocalDate.now()
+                val dao = database.expiryItemDao()
+                val projectId = preferencesManager.getActiveProjectId()
+                val projectName = database.projectDao().getProjectById(projectId)?.name ?: "(unknown)"
+                val items = dao.getAllItemsOnce(projectId)
+
+                var unparsable = 0
+                val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
+                for (item in items) {
+                    val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }.getOrNull()
+                    if (expiryDate == null) { unparsable++; continue }
+                    val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
+                    tiers[daysLeft]?.add(item.id)
+                }
+
+                val order = listOf(0, 3, 7, 15)
+                var slot = 0
+                var posted = 0
+                for (days in order) {
+                    val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
+                    val delayMin = slot * 15L
+                    slot++
+                    TierNotificationWorker.enqueue(context, days, ids, delayMin)
+                    posted += ids.size
+                }
+
+                return DiagnosticResult(
+                    permissionGranted = true,
+                    projectName = projectName,
+                    totalItemsInProject = items.size,
+                    itemsWithUnparsableDates = unparsable,
+                    tierCounts = tiers.mapValues { it.value.size },
+                    notificationsPosted = posted
+                )
+            } catch (e: Exception) {
+                return DiagnosticResult(false, "", 0, 0, emptyMap(), 0, error = e.message ?: e.toString())
             }
-
-            NotificationHelper.createChannels(appContext)
-
-            val today = LocalDate.now()
-            val dao   = database.expiryItemDao()
-
-            // Only the currently selected project gets notifications.
-            val projectId = preferencesManager.getActiveProjectId()
-            val items = dao.getAllItemsOnce(projectId)
-
-            // Bucket items into tiers by exact days-to-expiry.
-            val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
-            for (item in items) {
-                val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }
-                    .getOrNull() ?: continue
-                val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
-                tiers[daysLeft]?.add(item.id)
-            }
-
-            // Fire tiers most-urgent first, staggered 15 min apart so they don't
-            // pile into one buzz:  today=0min, 3d=+15, 7d=+30, 15d=+45.
-            // Each tier is a separate one-time worker that posts ONE grouped
-            // notification. Empty tiers are skipped (and their delay slot is
-            // reused by simply not enqueuing them).
-            val order = listOf(0, 3, 7, 15)
-            var slot = 0
-            for (days in order) {
-                val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
-                val delayMin = slot * 15L
-                slot++
-                TierNotificationWorker.enqueue(appContext, days, ids, delayMin)
-            }
-
-            Result.success()
-        } catch (e: Exception) {
-            // Never fail this worker — tomorrow's run is already locked in
-            // above, so one bad day here doesn't break the chain.
-            Result.success()
         }
     }
 }

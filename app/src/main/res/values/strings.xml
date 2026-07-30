@@ -303,4 +303,14 @@
     <string name="backup_internal_done">Backup saved: Documents/Near Expiry Backups/%1$s</string>
     <string name="flash_on">Turn flashlight on</string>
     <string name="flash_off">Turn flashlight off</string>
+    <string name="test_notification_now">Test Expiry Notification Now</string>
+    <string name="notification_test_result_title">Notification Test Result</string>
+    <string name="notification_test_no_permission">Notification permission is NOT granted. Go to your phone Settings → Apps → Near Expiry Manager → Notifications and turn it on, then try again.</string>
+    <string name="notification_test_error_format">The check failed with an error:\n%1$s</string>
+    <string name="notification_test_project_format">Active project: %1$s</string>
+    <string name="notification_test_total_items_format">Total items in this project: %1$d</string>
+    <string name="notification_test_bad_dates_format">Items with an unreadable expiry date: %1$d</string>
+    <string name="notification_test_tier_format">%1$s-day tier: %2$d item(s)</string>
+    <string name="notification_test_posted_format">Notifications posted just now: %1$d</string>
+    <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
 </resources>
