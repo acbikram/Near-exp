@@ -22,6 +22,22 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 /**
+ * Result of one diagnostic/production notification-check run, for the
+ * "Test Expiry Notification Now" button in Settings. Top-level (not nested
+ * in a companion object) so it can be referenced unambiguously from other
+ * files as a plain type.
+ */
+data class NotificationDiagnosticResult(
+    val permissionGranted: Boolean,
+    val projectName: String,
+    val totalItemsInProject: Int,
+    val itemsWithUnparsableDates: Int,
+    val tierCounts: Map<Int, Int>,   // 0/3/7/15 -> count
+    val notificationsPosted: Int,
+    val error: String? = null
+)
+
+/**
  * Runs once per day at ~8 AM local time.
  *
  * Scans items in the **currently selected project only** and posts:
@@ -110,17 +126,6 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             if (!alive) schedule(context)
         }
 
-        /** Result of one diagnostic/production run, for the Settings test button. */
-        data class DiagnosticResult(
-            val permissionGranted: Boolean,
-            val projectName: String,
-            val totalItemsInProject: Int,
-            val itemsWithUnparsableDates: Int,
-            val tierCounts: Map<Int, Int>,   // 0/3/7/15 -> count
-            val notificationsPosted: Int,
-            val error: String? = null
-        )
-
         /**
          * The actual check-and-notify logic, shared by the daily worker and
          * the "Test Expiry Notification Now" button in Settings so the test
@@ -131,7 +136,7 @@ class ExpiryNotificationWorker @AssistedInject constructor(
             context: Context,
             database: ExpiryDatabase,
             preferencesManager: PreferencesManager
-        ): DiagnosticResult {
+        ): NotificationDiagnosticResult {
             try {
                 val permissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     ContextCompat.checkSelfPermission(
@@ -140,7 +145,7 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                 } else true
 
                 if (!permissionGranted) {
-                    return DiagnosticResult(false, "", 0, 0, emptyMap(), 0)
+                    return NotificationDiagnosticResult(false, "", 0, 0, emptyMap(), 0)
                 }
 
                 NotificationHelper.createChannels(context)
@@ -171,7 +176,7 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                     posted += ids.size
                 }
 
-                return DiagnosticResult(
+                return NotificationDiagnosticResult(
                     permissionGranted = true,
                     projectName = projectName,
                     totalItemsInProject = items.size,
@@ -180,7 +185,7 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                     notificationsPosted = posted
                 )
             } catch (e: Exception) {
-                return DiagnosticResult(false, "", 0, 0, emptyMap(), 0, error = e.message ?: e.toString())
+                return NotificationDiagnosticResult(false, "", 0, 0, emptyMap(), 0, error = e.message ?: e.toString())
             }
         }
     }

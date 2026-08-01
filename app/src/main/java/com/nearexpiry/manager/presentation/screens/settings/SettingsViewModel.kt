@@ -59,7 +59,7 @@ class SettingsViewModel @Inject constructor(
     enum class UpdateState { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, DOWNLOADED, ERROR }
 
     data class SettingsUiState(
-        val notificationTestResult: com.nearexpiry.manager.notifications.ExpiryNotificationWorker.DiagnosticResult? = null,
+        val notificationTestResult: com.nearexpiry.manager.notifications.NotificationDiagnosticResult? = null,
         val projects: List<ProjectSummary> = emptyList(),
         val activeProjectId: Long = 1L,
         val message: String? = null,
