@@ -17,6 +17,11 @@
          daily 8 AM expiry notification isn't delayed by aggressive OEM
          background restrictions (Honor/Huawei, Samsung, Xiaomi, etc.) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Lets the app update download run as a foreground service, so it keeps
+         going (with a visible progress notification) even if the user leaves
+         Settings or backgrounds the app. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -60,6 +65,24 @@
                 <action android:name="com.nearexpiry.manager.ACTION_IGNORE_UPDATE" />
             </intent-filter>
         </receiver>
+
+        <!-- Handles tapping "Install Now" on the download-complete notification;
+             launches the system installer directly without needing the app UI open. -->
+        <receiver
+            android:name=".notifications.UpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.nearexpiry.manager.ACTION_INSTALL_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- WorkManager's own foreground-service component, explicitly typed
+             dataSync for the update-download progress notification (required
+             on Android 14+ / API 34). -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -80,6 +80,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         observeProjects()
+        observeDownloadWork()
     }
 
     /**
@@ -211,30 +212,66 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Downloads the APK (with progress), then marks it ready to install. */
+    /**
+     * Starts the update download as a background job (WorkManager, with a
+     * visible progress notification) so it keeps going even if the user
+     * leaves Settings or backgrounds the app. Does NOT auto-install when
+     * done — the state becomes DOWNLOADED and the user taps "Install Now"
+     * (in-app or from the notification).
+     */
     fun downloadUpdate() {
         val url = _uiState.value.updateApkUrl
         val version = _uiState.value.updateVersionName
         if (url.isBlank() || version.isBlank()) return
 
-        // Already downloaded → skip straight to install.
+        // Already downloaded → nothing to do, straight to DOWNLOADED state.
         if (AppUpdater.downloadedApk(appContext, version) != null) {
-            installUpdate()
+            _uiState.update {
+                it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100)
+            }
             return
         }
 
         _uiState.update { it.copy(updateState = UpdateState.DOWNLOADING, updateProgress = 0f, updateProgressPercent = 0) }
+        com.nearexpiry.manager.notifications.UpdateDownloadWorker.enqueue(appContext, url, version)
+    }
+
+    /** Watches the background download's WorkInfo and mirrors it into the UI
+     *  state — started once at init, so a download already running in the
+     *  background (from a previous app session) is picked up automatically. */
+    private fun observeDownloadWork() {
         viewModelScope.launch {
-            try {
-                AppUpdater.download(appContext, url, version) { p ->
-                    _uiState.update { it.copy(updateProgress = p, updateProgressPercent = (p * 100).toInt()) }
+            androidx.work.WorkManager.getInstance(appContext)
+                .getWorkInfosForUniqueWorkFlow(com.nearexpiry.manager.notifications.UpdateDownloadWorker.WORK_NAME)
+                .collect { infos ->
+                    val info = infos.firstOrNull() ?: return@collect
+                    when (info.state) {
+                        androidx.work.WorkInfo.State.RUNNING -> {
+                            val percent = info.progress.getInt(
+                                com.nearexpiry.manager.notifications.UpdateDownloadWorker.KEY_PROGRESS_PERCENT, -1
+                            )
+                            _uiState.update {
+                                it.copy(
+                                    updateState = UpdateState.DOWNLOADING,
+                                    updateProgress = if (percent >= 0) percent / 100f else it.updateProgress,
+                                    updateProgressPercent = if (percent >= 0) percent else it.updateProgressPercent
+                                )
+                            }
+                        }
+                        androidx.work.WorkInfo.State.SUCCEEDED -> {
+                            _uiState.update {
+                                it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100)
+                            }
+                        }
+                        androidx.work.WorkInfo.State.FAILED -> {
+                            val err = info.outputData.getString(
+                                com.nearexpiry.manager.notifications.UpdateDownloadWorker.KEY_ERROR
+                            ) ?: "Download failed"
+                            _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = err) }
+                        }
+                        else -> {}
+                    }
                 }
-                _uiState.update { it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100) }
-                // Immediately launch the installer once downloaded.
-                installUpdate()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = e.message ?: "Download failed") }
-            }
         }
     }
 

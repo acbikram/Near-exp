@@ -24,15 +24,14 @@ object CompanyReportBuilder {
         ChronoUnit.DAYS.between(EXCEL_EPOCH, date)
 
     fun mapUom(unit: String?): String {
-        val u = unit?.trim()?.uppercase() ?: return "PC"
+        val u = unit?.trim()?.uppercase() ?: return "PCS"
         return when (u) {
-            "PCS", "PC" -> "PC"
-            "CTN", "CT" -> "CT"
-            "KGS", "KG" -> "KG"
-            "PKT", "OF" -> "OF"
-            "OFR", "OFFER" -> "OF"
-            "" -> "PC"
-            else -> "PC"
+            "PCS", "PC" -> "PCS"
+            "CTN", "CT" -> "CTN"
+            "KGS", "KG" -> "Kg"
+            "PKT", "OF", "OFR", "OFFER" -> "OFR"
+            "" -> "PCS"
+            else -> "PCS"
         }
     }
 

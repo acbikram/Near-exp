@@ -247,6 +247,10 @@
     <string name="update_now">Update Now</string>
     <string name="install_update">Install Update</string>
     <string name="downloading_percent_format">Downloading… %1$d%%</string>
+    <string name="notif_downloading_update_title">Downloading Update</string>
+    <string name="notif_update_downloaded_title">Update Downloaded</string>
+    <string name="notif_update_downloaded_body_format">Version %1$s is ready. Tap to install.</string>
+    <string name="notif_update_failed_title">Update Download Failed</string>
     <string name="ignore">Ignore</string>
     <string name="notif_perm_dialog_title">Enable notifications</string>
     <string name="notif_perm_dialog_body">Near Expiry needs notification permission to alert you about items nearing expiry and app updates. Please enable notifications in Settings.</string>
@@ -313,4 +317,9 @@
     <string name="notification_test_tier_format">%1$s-day tier: %2$d item(s)</string>
     <string name="notification_test_posted_format">Notifications posted just now: %1$d</string>
     <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
+    <string name="notif_downloading_update_title">Downloading update…</string>
+    <string name="downloading_percent_format">%1$d%%</string>
+    <string name="notif_update_downloaded_title">Update downloaded</string>
+    <string name="notif_update_downloaded_body_format">Version %1$s is ready. Tap to install.</string>
+    <string name="notif_update_failed_title">Update download failed</string>
 </resources>

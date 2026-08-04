@@ -6,8 +6,8 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.await
@@ -50,12 +50,16 @@ data class NotificationDiagnosticResult(
  * which inventory gets alerts. Deleted items are never notified; quantity
  * shown is always the current/latest value from the database.
  *
- * SCHEDULING: this is a self-rescheduling ONE-TIME worker, not a periodic
- * one. Each run enqueues the *next* run by computing "the next 8:00 AM" fresh
- * from the actual current time, rather than chaining 24h off the previous
- * scheduled slot. This means a late run (the OS deferring it for battery
- * reasons, as periodic jobs often drift on some phones) never pushes the
- * following day's time later — every day independently re-targets 8:00 AM.
+ * SCHEDULING: genuinely periodic (24h), matching [AutoBackupWorker]'s proven
+ * pattern — Android re-fires it regardless of what happened in a previous
+ * run, so a single bad run can never permanently break the chain. Uses
+ * ExistingPeriodicWorkPolicy.KEEP, not REPLACE: [schedule] is called on every
+ * app launch, and KEEP means those repeated calls leave an already-scheduled
+ * job untouched rather than tearing it down and re-creating it. An earlier
+ * version used a self-rescheduling one-time chain with REPLACE, which turned
+ * out to never fire in practice — likely because constantly cancelling and
+ * re-enqueueing on every app open (this app is opened very frequently for
+ * scanning) never gave the OS a stable, durable job to actually run.
  */
 @HiltWorker
 class ExpiryNotificationWorker @AssistedInject constructor(
@@ -66,13 +70,10 @@ class ExpiryNotificationWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        // Lock in tomorrow's 8 AM run FIRST, before anything else. This is
-        // what makes the chain unbreakable: even if the OS kills this job
-        // partway through (common on aggressive-battery-management phones
-        // like Honor/Huawei) or a database read fails below, tomorrow's slot
-        // is already scheduled and the daily notifications keep coming.
-        schedule(appContext)
         runDiagnostic(appContext, database, preferencesManager)
+        // Never fail: periodic work re-fires in 24h regardless, and a
+        // reported "failure" here doesn't help — issues are already
+        // swallowed and reported via NotificationDiagnosticResult.error.
         return Result.success()
     }
 
@@ -81,25 +82,33 @@ class ExpiryNotificationWorker @AssistedInject constructor(
         private val DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Schedules (or re-schedules) the next run. Called both at app start
-         * and at the end of every run, so the chain is self-sustaining and
-         * never drifts: each link targets 8:00 AM computed from "now" at
-         * enqueue time, not from any previous run's timestamp.
+         * Schedules the daily run, first occurrence at the next 8:00 AM.
+         * KEEP policy: safe to call on every app launch — only the very
+         * first call actually creates the schedule; later calls are no-ops
+         * if a job under this name already exists (running or pending).
+         *
+         * One-time migration: earlier app versions used a one-time,
+         * self-rescheduling job under this same unique name (which, on some
+         * phones, never actually fired). If that stale entry is still
+         * sitting there, KEEP would preserve it forever instead of the new
+         * periodic job. So the very first call after updating force-clears
+         * whatever's there, then switches to KEEP for all calls after that.
          */
         fun schedule(context: Context) {
+            val prefs = context.getSharedPreferences("perm_flags", Context.MODE_PRIVATE)
+            val migrated = prefs.getBoolean("notif_worker_migrated_v2", false)
+            val policy = if (migrated) {
+                ExistingPeriodicWorkPolicy.KEEP
+            } else {
+                prefs.edit().putBoolean("notif_worker_migrated_v2", true).apply()
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+            }
+
             val initialDelayMs = millisUntilNextEightAm()
-            val request = OneTimeWorkRequestBuilder<ExpiryNotificationWorker>()
+            val request = PeriodicWorkRequestBuilder<ExpiryNotificationWorker>(24, TimeUnit.HOURS)
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                 .build()
-
-            // REPLACE (not KEEP): re-scheduling must always win, otherwise a
-            // stale periodic/one-time schedule from before this fix would
-            // never be cleared and the drift would continue.
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                request
-            )
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, policy, request)
         }
 
         /** Milliseconds until the next 8:00 AM in the device's local time zone. */
@@ -112,17 +121,16 @@ class ExpiryNotificationWorker @AssistedInject constructor(
 
         /**
          * Watchdog: re-arms the daily chain only if it's not currently
-         * scheduled or running. Safe to call anytime — does nothing if the
-         * chain is already alive, so it can't cause duplicate notifications.
-         * Called from [AutoBackupWorker]'s periodic run as a safety net.
+         * scheduled at all (e.g. some phones purge all background work under
+         * aggressive battery saving). Safe no-op otherwise — schedule() with
+         * KEEP won't disturb a job that's already alive. Called from
+         * [AutoBackupWorker]'s periodic run as a safety net.
          */
         suspend fun ensureScheduled(context: Context) {
             val infos = WorkManager.getInstance(context)
                 .getWorkInfosForUniqueWork(WORK_NAME)
                 .await()
-            val alive = infos.any {
-                !it.state.isFinished || it.state == androidx.work.WorkInfo.State.ENQUEUED
-            }
+            val alive = infos.any { !it.state.isFinished }
             if (!alive) schedule(context)
         }
 
