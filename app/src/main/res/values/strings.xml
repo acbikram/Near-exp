@@ -317,9 +317,4 @@
     <string name="notification_test_tier_format">%1$s-day tier: %2$d item(s)</string>
     <string name="notification_test_posted_format">Notifications posted just now: %1$d</string>
     <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
-    <string name="notif_downloading_update_title">Downloading update…</string>
-    <string name="downloading_percent_format">%1$d%%</string>
-    <string name="notif_update_downloaded_title">Update downloaded</string>
-    <string name="notif_update_downloaded_body_format">Version %1$s is ready. Tap to install.</string>
-    <string name="notif_update_failed_title">Update download failed</string>
 </resources>

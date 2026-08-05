@@ -317,9 +317,4 @@
     <string name="notification_test_tier_format">فئة %1$s يوم: %2$d عنصر</string>
     <string name="notification_test_posted_format">إشعارات تم إرسالها الآن: %1$d</string>
     <string name="notification_test_check_shade">افتح شريط الإشعارات الآن — يجب أن تظهر خلال دقيقة (بفارق بسيط حسب الفئة).</string>
-    <string name="notif_downloading_update_title">جاري تنزيل التحديث…</string>
-    <string name="downloading_percent_format">%1$d%%</string>
-    <string name="notif_update_downloaded_title">تم تنزيل التحديث</string>
-    <string name="notif_update_downloaded_body_format">الإصدار %1$s جاهز. اضغط للتثبيت.</string>
-    <string name="notif_update_failed_title">فشل تنزيل التحديث</string>
 </resources>
