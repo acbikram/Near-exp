@@ -18,7 +18,8 @@ private const val MAX_QUANTITY = 99_999.0
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
-    private val repository: ExpiryRepository
+    private val repository: ExpiryRepository,
+    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
 ) : ViewModel() {
 
     data class DetailUiState(
@@ -31,7 +32,12 @@ class DetailViewModel @Inject constructor(
         val error: String? = null,
         val navigateBack: Boolean = false,
         val isLoading: Boolean = false,
-        val isSaving: Boolean = false
+        val isSaving: Boolean = false,
+        /** Sr No. — this item's rank by scan order within its project, 1-based. */
+        val srNo: Int? = null,
+        /** Whether swipe left/right has somewhere to go, for the swipe hint UI. */
+        val hasNext: Boolean = false,
+        val hasPrevious: Boolean = false
     )
 
     private val _uiState = MutableStateFlow(DetailUiState())
@@ -42,19 +48,39 @@ class DetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val item = repository.getItemById(itemId)
+                val srNo = item?.let {
+                    repository.getSerialNumber(it.projectId, it.createdAt, it.id)
+                }
                 _uiState.update {
                     it.copy(
                         item = item,
                         expiryDate = item?.expiryDate ?: "",
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },
                         quantityError = null,
-                        isLoading = false
+                        isLoading = false,
+                        srNo = srNo,
+                        hasNext = itemNavigationContext.nextOf(itemId) != null,
+                        hasPrevious = itemNavigationContext.previousOf(itemId) != null
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
+    }
+
+    /** Swipe left: moves to the next item in the list the user was browsing. No-op at the end. */
+    fun goToNext() {
+        val currentId = _uiState.value.item?.id ?: return
+        val nextId = itemNavigationContext.nextOf(currentId) ?: return
+        loadItem(nextId)
+    }
+
+    /** Swipe right: moves to the previous item. No-op at the start. */
+    fun goToPrevious() {
+        val currentId = _uiState.value.item?.id ?: return
+        val prevId = itemNavigationContext.previousOf(currentId) ?: return
+        loadItem(prevId)
     }
 
     fun updateExpiryDate(date: String) {

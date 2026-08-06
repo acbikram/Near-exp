@@ -317,4 +317,6 @@
     <string name="notification_test_tier_format">فئة %1$s يوم: %2$d عنصر</string>
     <string name="notification_test_posted_format">إشعارات تم إرسالها الآن: %1$d</string>
     <string name="notification_test_check_shade">افتح شريط الإشعارات الآن — يجب أن تظهر خلال دقيقة (بفارق بسيط حسب الفئة).</string>
+    <string name="sr_no_format">الرقم التسلسلي %1$d</string>
+    <string name="item_code_barcode_label">الباركود (لماسح اليد)</string>
 </resources>

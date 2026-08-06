@@ -19,7 +19,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
-    private val activeProjectManager: ActiveProjectManager
+    private val activeProjectManager: ActiveProjectManager,
+    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
 ) : ViewModel() {
 
     data class HomeUiState(
@@ -105,6 +106,11 @@ class HomeViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    /** Sets swipe order in Detail to match this screen's expiring-soon list. */
+    fun prepareItemNavigation() {
+        itemNavigationContext.set(_uiState.value.expiringSoonItems.map { it.id })
     }
 
     fun clearError() {

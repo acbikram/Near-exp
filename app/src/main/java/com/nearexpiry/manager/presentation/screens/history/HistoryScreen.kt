@@ -303,12 +303,14 @@ fun HistoryScreen(
                 items(uiState.filteredItems, key = { it.id }) { item ->
                     HistoryItemCard(
                         item = item,
+                        srNo = uiState.srNoMap[item.id],
                         selectionMode = uiState.selectionMode,
                         isSelected = item.id in uiState.selectedIds,
                         onClick = {
                             if (uiState.selectionMode) {
                                 viewModel.toggleItemSelection(item.id)
                             } else {
+                                viewModel.prepareItemNavigation()
                                 navController.navigate(Screen.Detail.passId(item.id))
                             }
                         },
@@ -546,6 +548,7 @@ fun HistoryScreen(
 @Composable
 fun HistoryItemCard(
     item: ExpiryItem,
+    srNo: Int? = null,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
     onClick: () -> Unit,
@@ -574,6 +577,12 @@ fun HistoryItemCard(
                 Spacer(Modifier.width(4.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
+                if (srNo != null) {
+                    Text(
+                        text = stringResource(R.string.sr_no_format, srNo),
+                        style = MaterialTheme.typography.labelSmall.copy(color = SubtleGray)
+                    )
+                }
                 Text(
                     text = item.displayName,
                     style = MaterialTheme.typography.titleMedium.copy(

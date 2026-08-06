@@ -235,7 +235,10 @@ fun HomeScreen(
                 items(uiState.expiringSoonItems) { item ->
                     RecentItemCard(
                         item = item,
-                        onClick = { navController.navigate(Screen.Detail.passId(item.id)) }
+                        onClick = {
+                            viewModel.prepareItemNavigation()
+                            navController.navigate(Screen.Detail.passId(item.id))
+                        }
                     )
                 }
                 if (uiState.expiringSoonItems.isEmpty()) {

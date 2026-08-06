@@ -1,17 +1,20 @@
 package com.nearexpiry.manager.presentation.screens.detail
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.components.Code39Barcode
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
 import com.nearexpiry.manager.utils.LanguageManager
@@ -46,16 +49,41 @@ fun DetailScreen(
                     CircularProgressIndicator()
                 }
             } else if (uiState.item != null) {
+                var dragAccum by remember { mutableStateOf(0f) }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(16.dp),
+                        .padding(16.dp)
+                        .pointerInput(uiState.item?.id) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val threshold = 96f
+                                    when {
+                                        dragAccum <= -threshold -> viewModel.goToNext()      // swipe left → next
+                                        dragAccum >= threshold -> viewModel.goToPrevious()    // swipe right → previous
+                                    }
+                                    dragAccum = 0f
+                                },
+                                onDragCancel = { dragAccum = 0f }
+                            ) { change, dragAmount ->
+                                change.consume()
+                                dragAccum += dragAmount
+                            }
+                        },
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Column {
                         val item = uiState.item!!
                         val isArabic = LanguageManager.isArabic()
+                        // Sr No. — scan-order rank within the project.
+                        uiState.srNo?.let { srNo ->
+                            Text(
+                                text = stringResource(R.string.sr_no_format, srNo),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         // Title: name in the app's current language (falls back to
                         // the other language, then item code, then barcode).
                         Text(
@@ -89,6 +117,26 @@ fun DetailScreen(
                                 stringResource(R.string.barcode_format, item.barcode),
                             style = MaterialTheme.typography.bodyMedium
                         )
+                    }
+                    // Scannable barcode (white card, Code39) — encodes the item/POS
+                    // code exactly (falls back to the scanned barcode if no item
+                    // code is on file), for reading with a USB/wireless hand
+                    // scanner into the computer as an exact Item Code.
+                    run {
+                        val item = uiState.item!!
+                        val scanValue = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode
+                        Column {
+                            Text(
+                                text = stringResource(R.string.item_code_barcode_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Code39Barcode(
+                                value = scanValue,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                     ExpiryDateField(
                         value = uiState.expiryDate,

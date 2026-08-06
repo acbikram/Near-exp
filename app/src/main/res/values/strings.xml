@@ -317,4 +317,6 @@
     <string name="notification_test_tier_format">%1$s-day tier: %2$d item(s)</string>
     <string name="notification_test_posted_format">Notifications posted just now: %1$d</string>
     <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
+    <string name="sr_no_format">Sr No. %1$d</string>
+    <string name="item_code_barcode_label">Barcode (for hand scanner)</string>
 </resources>

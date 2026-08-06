@@ -40,11 +40,14 @@ private val KNOWN_UNITS = setOf("PCS", "OFR", "CTN", "KGS")
 class HistoryViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
-    private val activeProjectManager: ActiveProjectManager
+    private val activeProjectManager: ActiveProjectManager,
+    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
 ) : ViewModel() {
 
     data class HistoryUiState(
         val allItems: List<ExpiryItem> = emptyList(),
+        /** Item id -> Sr No. (scan-order rank within the project, 1-based). */
+        val srNoMap: Map<Long, Int> = emptyMap(),
         val filteredItems: List<ExpiryItem> = emptyList(),
         /** Items matching the current [filter] only (ignores search) — used for "delete all in filter". */
         val itemsInFilter: List<ExpiryItem> = emptyList(),
@@ -103,6 +106,15 @@ class HistoryViewModel @Inject constructor(
      * Called from the composable after the ViewModel is created to apply the
      * initial filter/sort passed from the dashboard stat-card tap.
      */
+    /**
+     * Called right before navigating to an item's Detail screen, so swipe
+     * left/right there moves through this exact same list — respecting
+     * whatever filter/sort/search is currently applied.
+     */
+    fun prepareItemNavigation() {
+        itemNavigationContext.set(_uiState.value.filteredItems.map { it.id })
+    }
+
     fun applyInitialFilterAndSort(filterStr: String, sortStr: String) {
         val filter = when (filterStr) {
             "EXPIRED"     -> Filter.EXPIRED
@@ -128,7 +140,15 @@ class HistoryViewModel @Inject constructor(
                 .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
                 .collect { items ->
-                    _uiState.update { it.copy(allItems = items) }
+                    // Sr No. = rank by scan order (createdAt, then id as a
+                    // tie-break), independent of the current filter/sort —
+                    // matches DAO getSerialNumber's exact ordering so an item
+                    // always shows the same number in History and Detail.
+                    val srNoMap = items
+                        .sortedWith(compareBy({ it.createdAt }, { it.id }))
+                        .mapIndexed { index, item -> item.id to (index + 1) }
+                        .toMap()
+                    _uiState.update { it.copy(allItems = items, srNoMap = srNoMap) }
                     applyFiltersAndSort()
                 }
         }

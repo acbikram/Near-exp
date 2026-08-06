@@ -19,6 +19,21 @@ interface ExpiryItemDao {
     @Query("SELECT * FROM expiry_items WHERE id = :id")
     suspend fun getItemById(id: Long): ExpiryItemEntity?
 
+    /**
+     * The item's Sr No. within its project: its rank by scan order
+     * (createdAt ascending, tie-broken by id — same rule the History screen
+     * uses to number its list), 1-based. Deleting an item closes the gap for
+     * everything after it automatically since this is computed fresh, not
+     * stored; restoring an item from the Recycle Bin slots back into its
+     * original position because createdAt is preserved.
+     */
+    @Query("""
+        SELECT COUNT(*) FROM expiry_items
+        WHERE projectId = :projectId
+          AND (createdAt < :createdAt OR (createdAt = :createdAt AND id <= :id))
+    """)
+    suspend fun getSerialNumber(projectId: Long, createdAt: Long, id: Long): Int
+
     @Query("SELECT * FROM expiry_items WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<ExpiryItemEntity>
 
