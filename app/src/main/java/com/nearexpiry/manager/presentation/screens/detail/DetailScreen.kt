@@ -1,13 +1,11 @@
 package com.nearexpiry.manager.presentation.screens.detail
 
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -49,28 +47,11 @@ fun DetailScreen(
                     CircularProgressIndicator()
                 }
             } else if (uiState.item != null) {
-                var dragAccum by remember { mutableStateOf(0f) }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(16.dp)
-                        .pointerInput(uiState.item?.id) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    val threshold = 96f
-                                    when {
-                                        dragAccum <= -threshold -> viewModel.goToNext()      // swipe left → next
-                                        dragAccum >= threshold -> viewModel.goToPrevious()    // swipe right → previous
-                                    }
-                                    dragAccum = 0f
-                                },
-                                onDragCancel = { dragAccum = 0f }
-                            ) { change, dragAmount ->
-                                change.consume()
-                                dragAccum += dragAmount
-                            }
-                        },
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Column {
@@ -134,7 +115,9 @@ fun DetailScreen(
                             Spacer(Modifier.height(6.dp))
                             Code39Barcode(
                                 value = scanValue,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                onSwipeLeft = { viewModel.goToNext() },
+                                onSwipeRight = { viewModel.goToPrevious() }
                             )
                         }
                     }

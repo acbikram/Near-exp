@@ -2,70 +2,118 @@ package com.nearexpiry.manager.presentation.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 /**
  * Renders [value] as a Code39 barcode on a solid white card with black bars,
- * sized close to a normal physical 1D barcode label — meant to be read
- * straight off the phone screen by a USB/wireless hand scanner.
+ * sized like a normal physical 1D barcode label — meant to be read straight
+ * off the phone screen by a hand scanner or barcode-reading software.
  *
  * Code39 (not EAN-13) is used deliberately: it encodes the text exactly as
  * given, with no padding and no appended check digit, so scanning it back
- * reads precisely [value] — e.g. item code "69051" scans back as "69051",
- * which is required since it's used directly as an Item Code lookup.
+ * reads precisely [value] — e.g. item code "69051" scans back as "69051".
  *
- * Only characters Code39 supports are encoded (digits, A-Z, space, and
- * - . $ / + %); anything else is stripped. In practice [value] is always a
- * numeric item code or barcode, so this never matters.
+ * The card's width is sized to exactly fit its content (module width ×
+ * character count, plus the ANSI/AIM-spec minimum quiet zones on both
+ * sides) rather than stretching to fill the screen. This is what keeps the
+ * bars from ever touching the card's edges or getting clipped: the drawing
+ * area is always exactly as wide as the barcode needs, never wider or
+ * narrower, regardless of how long the code is or how wide the screen is.
+ * Bar edges are pixel-snapped for crisp, non-blurred lines, which matters
+ * for both laser scanners and software decoders.
+ *
+ * [onSwipeLeft]/[onSwipeRight], if given, fire only for a horizontal drag
+ * that starts and stays on the visible white card itself — not the empty
+ * space around it (this component centers the card in whatever width
+ * [modifier] gives it, so that surrounding space is otherwise inert).
  */
 @Composable
 fun Code39Barcode(
     value: String,
     modifier: Modifier = Modifier,
-    narrowWidthDp: Float = 2.6f,
-    heightDp: Float = 90f
+    narrowWidthDp: Float = 2.2f,
+    heightDp: Float = 80f,
+    onSwipeLeft: (() -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null
 ) {
     val cleaned = remember(value) { sanitizeForCode39(value) }
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White)
-            .padding(vertical = 14.dp, horizontal = 18.dp)
-    ) {
-        if (cleaned.isEmpty()) return@Column
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(heightDp.dp)
-        ) {
-            drawCode39(cleaned, narrowWidthDp * density, size)
+    val density = LocalDensity.current
+
+    val contentWidthDp = remember(cleaned, narrowWidthDp) {
+        if (cleaned.isEmpty()) 0f else barcodeWidthDp(cleaned, narrowWidthDp)
+    }
+
+    var dragAccum by remember(value) { mutableStateOf(0f) }
+    val swipeModifier = if (onSwipeLeft != null || onSwipeRight != null) {
+        Modifier.pointerInput(value) {
+            detectHorizontalDragGestures(
+                onDragEnd = {
+                    val threshold = 96f
+                    when {
+                        dragAccum <= -threshold -> onSwipeLeft?.invoke()
+                        dragAccum >= threshold -> onSwipeRight?.invoke()
+                    }
+                    dragAccum = 0f
+                },
+                onDragCancel = { dragAccum = 0f }
+            ) { change, dragAmount ->
+                change.consume()
+                dragAccum += dragAmount
+            }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = cleaned,
-            color = Color.Black,
-            fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
+    } else Modifier
+
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+                .then(swipeModifier)
+                .padding(vertical = 14.dp, horizontal = 10.dp)
+        ) {
+            if (cleaned.isEmpty()) return@Column
+            Canvas(
+                modifier = Modifier
+                    .width(contentWidthDp.dp)
+                    .height(heightDp.dp)
+            ) {
+                val narrowWidthPx = with(density) { narrowWidthDp.dp.toPx() }
+                drawCode39(cleaned, narrowWidthPx, size)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = cleaned,
+                color = Color.Black,
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.width(contentWidthDp.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
     }
 }
 
@@ -74,6 +122,25 @@ private fun sanitizeForCode39(raw: String): String {
     val allowed = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%"
     return raw.uppercase().filter { it in allowed }
 }
+
+/** ANSI/AIM Code39 spec minimum quiet zone: 10 narrow-module widths on each side. */
+private const val QUIET_ZONE_UNITS = 10f
+
+/** Total module-width units (narrow=1, wide=3) for the *-wrapped text, incl. quiet zones. */
+private fun totalUnits(text: String): Float {
+    val fullText = "*$text*"
+    var units = 0f
+    for (ch in fullText) {
+        val pattern = CODE39_PATTERNS[ch] ?: continue
+        units += pattern.count { it == '0' } * 1f + pattern.count { it == '1' } * 3f
+    }
+    units += (fullText.length - 1) * 1f // inter-character gaps
+    units += QUIET_ZONE_UNITS * 2f       // left + right quiet zones
+    return units
+}
+
+private fun barcodeWidthDp(text: String, narrowWidthDp: Float): Float =
+    totalUnits(text) * narrowWidthDp
 
 /** width pattern per character: 9 elements (bar,space,bar,space,bar,space,bar,space,bar), 0=narrow 1=wide. */
 private val CODE39_PATTERNS: Map<Char, String> = mapOf(
@@ -91,42 +158,40 @@ private val CODE39_PATTERNS: Map<Char, String> = mapOf(
     '/' to "010100010", '+' to "010001010", '%' to "000101010", '*' to "010010100"
 )
 
+/**
+ * Draws the bars starting after the left quiet zone. Because the Canvas is
+ * sized to exactly [size] = content width (computed the same way as here),
+ * the right quiet zone falls out naturally with no clipping and no leftover
+ * gap. Bar x-positions and widths are rounded to whole pixels so edges stay
+ * crisp under Compose's anti-aliasing — soft/blurred edges are a common
+ * cause of scan failures, especially for software decoders.
+ */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCode39(
     text: String,
     narrowWidthPx: Float,
     canvasSize: Size
 ) {
     val wideWidthPx = narrowWidthPx * 3f
-    val fullText = "*$text*"   // Code39 requires start/stop '*' delimiters
-
-    // Total module-width units (narrow=1, wide=3) across all characters +
-    // inter-character gaps (1 narrow unit each, between characters only).
-    var totalUnits = 0f
-    for (ch in fullText) {
-        val pattern = CODE39_PATTERNS[ch] ?: continue
-        totalUnits += pattern.count { it == '0' } * 1f + pattern.count { it == '1' } * 3f
-    }
-    totalUnits += (fullText.length - 1) * 1f // inter-character gaps
-
-    val totalContentWidth = totalUnits * narrowWidthPx
-    val startX = ((canvasSize.width - totalContentWidth) / 2f).coerceAtLeast(0f)
-
-    var x = startX
+    val fullText = "*$text*"
     val barHeight = canvasSize.height
+
+    var xF = QUIET_ZONE_UNITS * narrowWidthPx
     for ((idx, ch) in fullText.withIndex()) {
         val pattern = CODE39_PATTERNS[ch] ?: continue
         for ((i, bit) in pattern.withIndex()) {
-            val isBar = i % 2 == 0          // elements alternate bar, space, bar, ...
-            val w = if (bit == '1') wideWidthPx else narrowWidthPx
+            val isBar = i % 2 == 0
+            val wF = if (bit == '1') wideWidthPx else narrowWidthPx
             if (isBar) {
+                val x0 = xF.roundToInt().toFloat()
+                val x1 = (xF + wF).roundToInt().toFloat()
                 drawRect(
                     color = Color.Black,
-                    topLeft = Offset(x, 0f),
-                    size = Size(w, barHeight)
+                    topLeft = Offset(x0, 0f),
+                    size = Size(x1 - x0, barHeight)
                 )
             }
-            x += w
+            xF += wF
         }
-        if (idx != fullText.length - 1) x += narrowWidthPx // inter-character gap
+        if (idx != fullText.length - 1) xF += narrowWidthPx
     }
 }
