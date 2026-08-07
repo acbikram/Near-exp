@@ -39,6 +39,10 @@ class UpdateDownloadWorker(
         val apkUrl = inputData.getString(KEY_APK_URL) ?: return Result.failure()
         val versionName = inputData.getString(KEY_VERSION_NAME) ?: return Result.failure()
 
+        // The download's own progress notification takes over from here —
+        // clear the "Update Available" one immediately so they don't sit
+        // side by side.
+        NotificationHelper.cancelUpdateAvailableNotification(applicationContext)
         setForeground(foregroundInfo(0))
 
         var lastNotifiedPercent = -1

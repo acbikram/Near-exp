@@ -75,6 +75,11 @@ object AppUpdater {
             val json = JSONObject(body)
 
             val tag = json.optString("tag_name", json.optString("name", ""))
+            // A release with no usable tag/name is malformed (e.g. a stray or
+            // incompletely-published GitHub Release) — never offer it as an
+            // update; that's what previously showed "Update available: v"
+            // with a blank version.
+            if (tag.isBlank()) return@withContext CheckResult.NoRelease
             val notes = json.optString("body", "")
             // Find the first .apk asset.
             val assets = json.optJSONArray("assets")
@@ -101,9 +106,13 @@ object AppUpdater {
             }
 
             if (isNewer) {
+                val finalVersionName = releaseVersionName.ifBlank { tag }
+                // Belt-and-suspenders: never present an update with a blank
+                // display version, even if isNewer resolved to true.
+                if (finalVersionName.isBlank()) return@withContext CheckResult.NoRelease
                 CheckResult.UpdateAvailable(
                     UpdateInfo(
-                        versionName = releaseVersionName.ifBlank { tag },
+                        versionName = finalVersionName,
                         versionCode = releaseVersionCode ?: 0L,
                         apkUrl = apkUrl,
                         notes = notes

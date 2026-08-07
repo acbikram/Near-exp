@@ -216,9 +216,25 @@ fun HistoryScreen(
                                 }
                             }
                         }
-                        IconButton(onClick = { viewModel.toggleSortOrder() }) {
-                            Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
-                        }
+                        AssistChip(
+                            onClick = { viewModel.toggleSortOrder() },
+                            leadingIcon = {
+                                Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
+                            },
+                            label = {
+                                Text(
+                                    text = stringResource(
+                                        when (uiState.sortOrder) {
+                                            SortOrder.NEWEST -> R.string.sort_newest
+                                            SortOrder.OLDEST -> R.string.sort_oldest
+                                            SortOrder.EXPIRY_DATE -> R.string.sort_expiry_date
+                                            SortOrder.QUANTITY -> R.string.sort_quantity
+                                        }
+                                    ),
+                                    color = CyanAccent
+                                )
+                            }
+                        )
                         FilterChip(
                             selected = uiState.filter != Filter.ALL || uiState.specificDate != null || uiState.specificMonth != null,
                             onClick = { viewModel.cycleFilter() },
