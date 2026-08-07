@@ -319,4 +319,8 @@
     <string name="notification_test_check_shade">افتح شريط الإشعارات الآن — يجب أن تظهر خلال دقيقة (بفارق بسيط حسب الفئة).</string>
     <string name="sr_no_format">الرقم التسلسلي %1$d</string>
     <string name="item_code_barcode_label">الباركود (لماسح اليد)</string>
+    <string name="move_up">تحريك لأعلى</string>
+    <string name="move_down">تحريك لأسفل</string>
+    <string name="move_blocked_title">لا يمكن التحريك معاً</string>
+    <string name="move_blocked_message">لا يمكن تحريك العناصر المحددة معاً، حاول واحداً تلو الآخر</string>
 </resources>

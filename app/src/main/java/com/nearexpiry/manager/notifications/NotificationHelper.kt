@@ -120,6 +120,17 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).notify(800_000, builder.build())
     }
 
+    /**
+     * Cancels the "Update Available" notification, if one is showing. Call
+     * this whenever a version check confirms the app is already up to date —
+     * otherwise, a notification posted before the user updates (e.g. via a
+     * manual APK install) can linger in the shade indefinitely, still
+     * offering to "install" a version that's already running.
+     */
+    fun cancelUpdateAvailableNotification(context: Context) {
+        NotificationManagerCompat.from(context).cancel(800_000)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

@@ -51,12 +51,27 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         // can tap "Install" without re-downloading. This approximates
         // "delete after install": if they installed it, this launch is that new
         // version, so the matching APK is now same-version → removed.
-        AppUpdater.cleanupInstalledApks(this, BuildConfig.VERSION_NAME)
+        CoroutineScope(Dispatchers.IO).launch {
+            AppUpdater.cleanupInstalledApks(this@NearExpiryApplication, BuildConfig.VERSION_NAME)
+        }
         // If the previously-active project was deleted, fall back to a valid one.
         CoroutineScope(Dispatchers.IO).launch {
             activeProjectManager.ensureValidActiveProject()
             // Recycle bin: drop entries older than 30 days.
             expiryRepository.purgeOldBinEntries(30)
+        }
+        // Cheap, local, unthrottled check — every launch: if the app has been
+        // updated to (or past) the version an "Update Available" notification
+        // was posted for, cancel it immediately. This is what catches the
+        // common case of updating via a manual APK install rather than the
+        // app's own download flow, which the network-based check below
+        // (throttled to once a day) could otherwise miss for up to a day.
+        CoroutineScope(Dispatchers.IO).launch {
+            val notifiedVersionCode = preferencesManager.getLastNotifiedUpdateVersionCode()
+            if (notifiedVersionCode > 0 && BuildConfig.VERSION_CODE.toLong() >= notifiedVersionCode) {
+                NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
+                preferencesManager.setLastNotifiedUpdateVersionCode(0L)
+            }
         }
         // On-launch update check, throttled to at most once per day.
         CoroutineScope(Dispatchers.IO).launch {
@@ -69,7 +84,11 @@ class NearExpiryApplication : Application(), Configuration.Provider {
                 )
                 preferencesManager.setLastUpdateCheck(now)
                 if (result is AppUpdater.CheckResult.UpdateAvailable) {
+                    preferencesManager.setLastNotifiedUpdateVersionCode(result.info.versionCode)
                     NotificationHelper.postUpdateAvailableNotification(this@NearExpiryApplication, result.info.versionName)
+                } else {
+                    NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
+                    preferencesManager.setLastNotifiedUpdateVersionCode(0L)
                 }
             }
         }

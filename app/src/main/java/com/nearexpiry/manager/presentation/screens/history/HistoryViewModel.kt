@@ -84,7 +84,9 @@ class HistoryViewModel @Inject constructor(
         /** Items just deleted, kept briefly so the user can Undo. Null = nothing to undo. */
         val undoDeleteItems: List<ExpiryItem>? = null,
         /** One-shot count to show in the Undo snackbar. */
-        val undoDeleteCount: Int = 0
+        val undoDeleteCount: Int = 0,
+        /** One-shot: true triggers the "can't move selected items together" popup. */
+        val showMoveBlockedMessage: Boolean = false
     )
 
     enum class ProjectAction { COPY, MOVE }
@@ -351,6 +353,79 @@ class HistoryViewModel @Inject constructor(
 
     fun clearSelection() {
         _uiState.update { it.copy(selectedIds = emptySet()) }
+    }
+
+    // ── Move Up / Move Down (only meaningful in scan order = Sr No. order) ──
+
+    /**
+     * True when Move Up/Down should be shown: the list is sorted OLDEST
+     * (ascending scan order), which is the only view where top-to-bottom
+     * position matches Sr No. order — moving only means something there.
+     */
+    fun canShowMoveButtons(): Boolean = _uiState.value.sortOrder == SortOrder.OLDEST
+
+    fun moveSelectedUp() = moveSelected(up = true)
+    fun moveSelectedDown() = moveSelected(up = false)
+
+    private fun moveSelected(up: Boolean) {
+        val state = _uiState.value
+        if (state.sortOrder != SortOrder.OLDEST || state.selectedIds.isEmpty()) return
+
+        val list = state.filteredItems
+        val selectedIndices = list.withIndex()
+            .filter { it.value.id in state.selectedIds }
+            .map { it.index }
+            .sorted()
+        if (selectedIndices.isEmpty()) return
+
+        // Must be one unbroken run in the current (scan-order) list.
+        val contiguous = selectedIndices.last() - selectedIndices.first() + 1 == selectedIndices.size
+        if (!contiguous) {
+            _uiState.update { it.copy(showMoveBlockedMessage = true) }
+            return
+        }
+
+        val minIdx = selectedIndices.first()
+        val maxIdx = selectedIndices.last()
+
+        val windowStart: Int
+        val windowEnd: Int
+        val rotateLeft: Boolean   // true: first item of window moves to the end
+        if (up) {
+            if (minIdx == 0) return // already at the very top
+            windowStart = minIdx - 1
+            windowEnd = maxIdx
+            rotateLeft = true
+        } else {
+            if (maxIdx == list.lastIndex) return // already at the very bottom
+            windowStart = minIdx
+            windowEnd = maxIdx + 1
+            rotateLeft = false
+        }
+
+        // Reassign the SAME set of createdAt values within [windowStart..windowEnd]
+        // to the items in their new order. This swaps the block past its single
+        // adjacent neighbor while leaving every item outside the window (and
+        // therefore its Sr No.) completely untouched.
+        val window = list.subList(windowStart, windowEnd + 1)
+        val timestamps = window.map { it.createdAt }
+        val newOrder = if (rotateLeft) window.drop(1) + window.first()
+                       else listOf(window.last()) + window.dropLast(1)
+
+        viewModelScope.launch {
+            newOrder.forEachIndexed { i, item ->
+                val newCreatedAt = timestamps[i]
+                if (item.createdAt != newCreatedAt) {
+                    repository.updateItem(item.copy(createdAt = newCreatedAt).toEntity())
+                }
+            }
+            // Selection stays on the same items (now re-sorted), so the user
+            // can tap Move Up/Down again immediately to keep moving the block.
+        }
+    }
+
+    fun clearMoveBlockedMessage() {
+        _uiState.update { it.copy(showMoveBlockedMessage = false) }
     }
 
     // ── Delete: selected items ─────────────────────────────────────────────

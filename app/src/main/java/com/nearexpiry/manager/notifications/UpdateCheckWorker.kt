@@ -25,14 +25,19 @@ class UpdateCheckWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            val preferencesManager = com.nearexpiry.manager.utils.PreferencesManager(applicationContext)
             val result = AppUpdater.check(
                 currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
                 currentVersionName = BuildConfig.VERSION_NAME
             )
             if (result is AppUpdater.CheckResult.UpdateAvailable) {
+                preferencesManager.setLastNotifiedUpdateVersionCode(result.info.versionCode)
                 NotificationHelper.postUpdateAvailableNotification(
                     applicationContext, result.info.versionName
                 )
+            } else {
+                NotificationHelper.cancelUpdateAvailableNotification(applicationContext)
+                preferencesManager.setLastNotifiedUpdateVersionCode(0L)
             }
             Result.success()
         } catch (_: Exception) {

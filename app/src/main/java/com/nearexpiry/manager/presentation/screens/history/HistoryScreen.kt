@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
@@ -97,6 +99,30 @@ fun HistoryScreen(
                     actions = {
                         IconButton(onClick = { viewModel.selectAllVisible() }) {
                             Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.select_all_visible), tint = CyanAccent)
+                        }
+                        // Move Up/Down — only meaningful (and shown) while the list
+                        // is sorted in scan order, matching Sr No.
+                        if (uiState.sortOrder == SortOrder.OLDEST) {
+                            IconButton(
+                                onClick = { viewModel.moveSelectedUp() },
+                                enabled = uiState.selectedIds.isNotEmpty()
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowUp,
+                                    contentDescription = stringResource(R.string.move_up),
+                                    tint = if (uiState.selectedIds.isNotEmpty()) CyanAccent else SubtleGray
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.moveSelectedDown() },
+                                enabled = uiState.selectedIds.isNotEmpty()
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = stringResource(R.string.move_down),
+                                    tint = if (uiState.selectedIds.isNotEmpty()) CyanAccent else SubtleGray
+                                )
+                            }
                         }
                         // Copy to another project
                         IconButton(
@@ -350,6 +376,20 @@ fun HistoryScreen(
     }
 
     // ── Confirm: delete selected items ────────────────────────────────────
+    // ── "Can't move selected items together" popup (non-contiguous selection) ─
+    if (uiState.showMoveBlockedMessage) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearMoveBlockedMessage() },
+            title = { Text(stringResource(R.string.move_blocked_title)) },
+            text = { Text(stringResource(R.string.move_blocked_message)) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearMoveBlockedMessage() }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+
     if (uiState.showDeleteSelectedConfirm) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDeleteSelectedConfirm() },

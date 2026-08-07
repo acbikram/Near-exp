@@ -319,4 +319,8 @@
     <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
     <string name="sr_no_format">Sr No. %1$d</string>
     <string name="item_code_barcode_label">Barcode (for hand scanner)</string>
+    <string name="move_up">Move Up</string>
+    <string name="move_down">Move Down</string>
+    <string name="move_blocked_title">Can\'t Move Together</string>
+    <string name="move_blocked_message">Can\'t move selected items together, try one by one</string>
 </resources>

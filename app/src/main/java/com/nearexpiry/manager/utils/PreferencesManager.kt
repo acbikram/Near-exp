@@ -26,6 +26,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val languagePromptShownKey = booleanPreferencesKey("language_prompt_shown")
     private val activeProjectIdKey = longPreferencesKey("active_project_id")
     private val lastUpdateCheckKey = longPreferencesKey("last_update_check")
+    private val lastNotifiedUpdateVersionCodeKey = longPreferencesKey("last_notified_update_version_code")
 
     // Remembers the last expiry date picked on the Scan screen, and the day it
     // was saved, so a batch of same-expiry items pre-fills — but only for the
@@ -108,6 +109,21 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
 
     suspend fun setLastUpdateCheck(timestamp: Long) {
         context.dataStore.edit { it[lastUpdateCheckKey] = timestamp }
+    }
+
+    /**
+     * The versionCode the "Update Available" notification was posted for, or
+     * 0 if none is currently outstanding. Used to detect — cheaply, with no
+     * network call — that the notification is now stale because the app has
+     * since been updated to that version or newer, so it can be cancelled
+     * the moment the app is opened rather than waiting for the next
+     * (throttled, once-a-day) network version check.
+     */
+    suspend fun getLastNotifiedUpdateVersionCode(): Long =
+        context.dataStore.data.first()[lastNotifiedUpdateVersionCodeKey] ?: 0L
+
+    suspend fun setLastNotifiedUpdateVersionCode(versionCode: Long) {
+        context.dataStore.edit { it[lastNotifiedUpdateVersionCodeKey] = versionCode }
     }
 
     /** The currently selected project. Defaults to 1 ("Project 1"). */

@@ -198,14 +198,19 @@ class SettingsViewModel @Inject constructor(
                             updateProgressPercent = if (already) 100 else 0
                         )
                     }
+                    preferencesManager.setLastNotifiedUpdateVersionCode(r.info.versionCode)
                     NotificationHelper.postUpdateAvailableNotification(appContext, r.info.versionName)
                     // Coming from the notification's "Update Now": start at once.
                     if (autoStartDownload && !already) downloadUpdate()
                 }
-                AppUpdater.CheckResult.UpToDate ->
+                AppUpdater.CheckResult.UpToDate -> {
+                    com.nearexpiry.manager.notifications.NotificationHelper.cancelUpdateAvailableNotification(appContext)
                     _uiState.update { it.copy(updateState = UpdateState.UP_TO_DATE) }
-                AppUpdater.CheckResult.NoRelease ->
+                }
+                AppUpdater.CheckResult.NoRelease -> {
+                    com.nearexpiry.manager.notifications.NotificationHelper.cancelUpdateAvailableNotification(appContext)
                     _uiState.update { it.copy(updateState = UpdateState.UP_TO_DATE) }
+                }
                 is AppUpdater.CheckResult.Error ->
                     _uiState.update { it.copy(updateState = UpdateState.ERROR, updateError = r.message) }
             }
