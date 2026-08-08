@@ -346,6 +346,7 @@ fun HistoryScreen(
                     HistoryItemCard(
                         item = item,
                         srNo = uiState.srNoMap[item.id],
+                        modifier = Modifier.animateItemPlacement(),
                         selectionMode = uiState.selectionMode,
                         isSelected = item.id in uiState.selectedIds,
                         onClick = {
@@ -607,11 +608,12 @@ fun HistoryItemCard(
     srNo: Int? = null,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(

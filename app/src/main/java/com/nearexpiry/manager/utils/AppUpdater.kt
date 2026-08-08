@@ -135,7 +135,7 @@ object AppUpdater {
     }
 
     /** Compares dotted version names (e.g. "1.3" vs "1.2"). Returns >0 if a>b. */
-    private fun compareVersionNames(a: String, b: String): Int {
+    fun compareVersionNames(a: String, b: String): Int {
         val pa = a.split(".").mapNotNull { it.toIntOrNull() }
         val pb = b.split(".").mapNotNull { it.toIntOrNull() }
         val n = maxOf(pa.size, pb.size)

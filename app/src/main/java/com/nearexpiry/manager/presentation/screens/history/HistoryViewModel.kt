@@ -64,7 +64,7 @@ class HistoryViewModel @Inject constructor(
         val specificMonth: String? = null,
         /** Distinct expiry months present in this project's items, newest first ("yyyy-MM" → label). */
         val availableMonths: List<MonthOption> = emptyList(),
-        val sortOrder: SortOrder = SortOrder.NEWEST,
+        val sortOrder: SortOrder = SortOrder.OLDEST,
         val error: String? = null,
         // ── Selection mode ───────────────────────────────────────────────
         val selectionMode: Boolean = false,
@@ -128,8 +128,8 @@ class HistoryViewModel @Inject constructor(
         val sort = when (sortStr) {
             "EXPIRY_DATE" -> SortOrder.EXPIRY_DATE
             "QUANTITY"    -> SortOrder.QUANTITY
-            "OLDEST"      -> SortOrder.OLDEST
-            else          -> SortOrder.NEWEST
+            "NEWEST"      -> SortOrder.NEWEST
+            else          -> SortOrder.OLDEST
         }
         _uiState.update { it.copy(filter = filter, sortOrder = sort) }
         applyFiltersAndSort()

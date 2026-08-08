@@ -264,8 +264,30 @@ class SettingsViewModel @Inject constructor(
                             }
                         }
                         androidx.work.WorkInfo.State.SUCCEEDED -> {
-                            _uiState.update {
-                                it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100)
+                            val downloadedVersionName = info.outputData.getString(
+                                com.nearexpiry.manager.notifications.UpdateDownloadWorker.KEY_VERSION_NAME
+                            )
+                            val stillNewer = !downloadedVersionName.isNullOrBlank() &&
+                                AppUpdater.compareVersionNames(downloadedVersionName, BuildConfig.VERSION_NAME) > 0
+                            if (stillNewer) {
+                                _uiState.update {
+                                    it.copy(
+                                        updateState = UpdateState.DOWNLOADED,
+                                        updateVersionName = downloadedVersionName!!,
+                                        updateProgress = 1f,
+                                        updateProgressPercent = 100
+                                    )
+                                }
+                            } else {
+                                // Stale: this download finished in a past session for a
+                                // version that's already installed (or older) now. Don't
+                                // show "Update available" for it — and prune the
+                                // finished WorkManager entry so it stops resurfacing on
+                                // every future launch.
+                                _uiState.update {
+                                    it.copy(updateState = UpdateState.IDLE, updateVersionName = "")
+                                }
+                                androidx.work.WorkManager.getInstance(appContext).pruneWork()
                             }
                         }
                         androidx.work.WorkInfo.State.FAILED -> {
