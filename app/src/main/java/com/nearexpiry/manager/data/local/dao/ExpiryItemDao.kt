@@ -20,22 +20,29 @@ interface ExpiryItemDao {
     suspend fun getItemById(id: Long): ExpiryItemEntity?
 
     /**
-     * The item's Sr No. within its project: its rank by scan order
-     * (createdAt ascending, tie-broken by id — same rule the History screen
-     * uses to number its list), 1-based. Deleting an item closes the gap for
-     * everything after it automatically since this is computed fresh, not
-     * stored; restoring an item from the Recycle Bin slots back into its
-     * original position because createdAt is preserved.
+     * The item's Sr No. within its project: its rank by effective order
+     * (displayOrder if manually set via Move Up/Down, else createdAt — true
+     * scan order), tie-broken by id, 1-based. Deleting an item closes the
+     * gap for everything after it automatically since this is computed
+     * fresh, not stored; restoring an item from the Recycle Bin slots back
+     * into its original position because its order value is preserved.
      */
     @Query("""
         SELECT COUNT(*) FROM expiry_items
         WHERE projectId = :projectId
-          AND (createdAt < :createdAt OR (createdAt = :createdAt AND id <= :id))
+          AND (
+                COALESCE(displayOrder, createdAt) < :effectiveOrder
+             OR (COALESCE(displayOrder, createdAt) = :effectiveOrder AND id <= :id)
+          )
     """)
-    suspend fun getSerialNumber(projectId: Long, createdAt: Long, id: Long): Int
+    suspend fun getSerialNumber(projectId: Long, effectiveOrder: Long, id: Long): Int
 
     @Query("SELECT * FROM expiry_items WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<ExpiryItemEntity>
+
+    /** Clears all manual positions in a project — "Reset to Scan Order". */
+    @Query("UPDATE expiry_items SET displayOrder = NULL WHERE projectId = :projectId")
+    suspend fun clearDisplayOrder(projectId: Long)
 
     /**
      * Finds an existing row in [projectId] with the same barcode, expiry date,

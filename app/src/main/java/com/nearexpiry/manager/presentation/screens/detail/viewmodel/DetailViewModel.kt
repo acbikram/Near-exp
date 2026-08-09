@@ -49,7 +49,7 @@ class DetailViewModel @Inject constructor(
             try {
                 val item = repository.getItemById(itemId)
                 val srNo = item?.let {
-                    repository.getSerialNumber(it.projectId, it.createdAt, it.id)
+                    repository.getSerialNumber(it.projectId, it.effectiveOrder, it.id)
                 }
                 _uiState.update {
                     it.copy(

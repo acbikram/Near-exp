@@ -48,6 +48,8 @@ class HistoryViewModel @Inject constructor(
         val allItems: List<ExpiryItem> = emptyList(),
         /** Item id -> Sr No. (scan-order rank within the project, 1-based). */
         val srNoMap: Map<Long, Int> = emptyMap(),
+        /** Whether the active project has been manually reordered via Move Up/Down. */
+        val hasCustomSort: Boolean = false,
         val filteredItems: List<ExpiryItem> = emptyList(),
         /** Items matching the current [filter] only (ignores search) — used for "delete all in filter". */
         val itemsInFilter: List<ExpiryItem> = emptyList(),
@@ -64,7 +66,7 @@ class HistoryViewModel @Inject constructor(
         val specificMonth: String? = null,
         /** Distinct expiry months present in this project's items, newest first ("yyyy-MM" → label). */
         val availableMonths: List<MonthOption> = emptyList(),
-        val sortOrder: SortOrder = SortOrder.OLDEST,
+        val sortOrder: SortOrder = SortOrder.NEWEST,
         val error: String? = null,
         // ── Selection mode ───────────────────────────────────────────────
         val selectionMode: Boolean = false,
@@ -102,6 +104,7 @@ class HistoryViewModel @Inject constructor(
     init {
         observeItems()
         observeOtherProjects()
+        observeActiveProjectCustomSort()
     }
 
     /**
@@ -128,8 +131,8 @@ class HistoryViewModel @Inject constructor(
         val sort = when (sortStr) {
             "EXPIRY_DATE" -> SortOrder.EXPIRY_DATE
             "QUANTITY"    -> SortOrder.QUANTITY
-            "NEWEST"      -> SortOrder.NEWEST
-            else          -> SortOrder.OLDEST
+            "OLDEST"      -> SortOrder.OLDEST
+            else          -> SortOrder.NEWEST
         }
         _uiState.update { it.copy(filter = filter, sortOrder = sort) }
         applyFiltersAndSort()
@@ -147,7 +150,7 @@ class HistoryViewModel @Inject constructor(
                     // matches DAO getSerialNumber's exact ordering so an item
                     // always shows the same number in History and Detail.
                     val srNoMap = items
-                        .sortedWith(compareBy({ it.createdAt }, { it.id }))
+                        .sortedWith(compareBy({ it.effectiveOrder }, { it.id }))
                         .mapIndexed { index, item -> item.id to (index + 1) }
                         .toMap()
                     _uiState.update { it.copy(allItems = items, srNoMap = srNoMap) }
@@ -165,6 +168,20 @@ class HistoryViewModel @Inject constructor(
                 projects.filter { it.id != activeId }
             }.collect { others ->
                 _uiState.update { it.copy(otherProjects = others) }
+            }
+        }
+    }
+
+    /** Keeps the "Scan Order" vs "Custom Sort" label in sync with the active project. */
+    private fun observeActiveProjectCustomSort() {
+        viewModelScope.launch {
+            combine(
+                projectRepository.getAllProjects(),
+                activeProjectManager.activeProjectIdFlow
+            ) { projects, activeId ->
+                projects.firstOrNull { it.id == activeId }?.hasCustomSort ?: false
+            }.collect { hasCustomSort ->
+                _uiState.update { it.copy(hasCustomSort = hasCustomSort) }
             }
         }
     }
@@ -287,8 +304,15 @@ class HistoryViewModel @Inject constructor(
 
         // Sort by nearest expiry date first (ascending) for EXPIRY_DATE
         filtered = when (state.sortOrder) {
-            SortOrder.NEWEST      -> filtered.sortedByDescending { it.createdAt }
-            SortOrder.OLDEST      -> filtered.sortedBy { it.createdAt }
+            // "Scan Order" / "Custom Sort": last-scanned-or-last-moved at the
+            // top. Uses effectiveOrder (displayOrder if manually set via Move
+            // Up/Down, else true createdAt), tie-broken by id — this exactly
+            // matches the DAO's Sr No. ranking, so the visible order and each
+            // row's Sr No. never disagree.
+            SortOrder.NEWEST      -> filtered.sortedWith(compareByDescending<ExpiryItem> { it.effectiveOrder }.thenByDescending { it.id })
+            // True original scan chronology, oldest first — unaffected by any
+            // manual reordering (always ignores displayOrder).
+            SortOrder.OLDEST      -> filtered.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
             SortOrder.EXPIRY_DATE -> filtered.sortedBy { it.expiryDate }
             SortOrder.QUANTITY    -> filtered.sortedByDescending { it.quantity }
         }
@@ -362,14 +386,14 @@ class HistoryViewModel @Inject constructor(
      * (ascending scan order), which is the only view where top-to-bottom
      * position matches Sr No. order — moving only means something there.
      */
-    fun canShowMoveButtons(): Boolean = _uiState.value.sortOrder == SortOrder.OLDEST
+    fun canShowMoveButtons(): Boolean = _uiState.value.sortOrder == SortOrder.NEWEST
 
     fun moveSelectedUp() = moveSelected(up = true)
     fun moveSelectedDown() = moveSelected(up = false)
 
     private fun moveSelected(up: Boolean) {
         val state = _uiState.value
-        if (state.sortOrder != SortOrder.OLDEST || state.selectedIds.isEmpty()) return
+        if (state.sortOrder != SortOrder.NEWEST || state.selectedIds.isEmpty()) return
 
         val list = state.filteredItems
         val selectedIndices = list.withIndex()
@@ -403,24 +427,46 @@ class HistoryViewModel @Inject constructor(
             rotateLeft = false
         }
 
-        // Reassign the SAME set of createdAt values within [windowStart..windowEnd]
-        // to the items in their new order. This swaps the block past its single
-        // adjacent neighbor while leaving every item outside the window (and
-        // therefore its Sr No.) completely untouched.
+        // Reassign the SAME set of effective-order values within
+        // [windowStart..windowEnd] to the items in their new order, writing
+        // them into displayOrder (never createdAt). This swaps the block past
+        // its single adjacent neighbor while leaving every item outside the
+        // window (and therefore its Sr No.) completely untouched — and keeps
+        // the true original scan timestamp intact underneath, which is what
+        // makes "Reset to Scan Order" possible without any data loss.
         val window = list.subList(windowStart, windowEnd + 1)
-        val timestamps = window.map { it.createdAt }
+        val orders = window.map { it.effectiveOrder }
         val newOrder = if (rotateLeft) window.drop(1) + window.first()
                        else listOf(window.last()) + window.dropLast(1)
 
         viewModelScope.launch {
+            var changed = false
             newOrder.forEachIndexed { i, item ->
-                val newCreatedAt = timestamps[i]
-                if (item.createdAt != newCreatedAt) {
-                    repository.updateItem(item.copy(createdAt = newCreatedAt).toEntity())
+                val newEffectiveOrder = orders[i]
+                if (item.effectiveOrder != newEffectiveOrder) {
+                    repository.updateItem(item.copy(displayOrder = newEffectiveOrder).toEntity())
+                    changed = true
                 }
+            }
+            if (changed) {
+                val projectId = activeProjectManager.getActiveProjectId()
+                projectRepository.setHasCustomSort(projectId, true)
+                _uiState.update { it.copy(hasCustomSort = true) }
             }
             // Selection stays on the same items (now re-sorted), so the user
             // can tap Move Up/Down again immediately to keep moving the block.
+        }
+    }
+
+    /** Reverts the active project to true scan-chronology order, undoing all
+     *  manual Move Up/Down arrangement losslessly (the real scan timestamps
+     *  were never touched). */
+    fun resetToScanOrder() {
+        viewModelScope.launch {
+            val projectId = activeProjectManager.getActiveProjectId()
+            repository.clearDisplayOrder(projectId)
+            projectRepository.setHasCustomSort(projectId, false)
+            _uiState.update { it.copy(hasCustomSort = false) }
         }
     }
 

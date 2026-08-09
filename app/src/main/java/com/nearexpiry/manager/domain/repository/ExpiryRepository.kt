@@ -9,7 +9,9 @@ interface ExpiryRepository {
     fun getAllItems(projectId: Long): Flow<List<ExpiryItem>>
     suspend fun getItemById(id: Long): ExpiryItem?
     /** The item's Sr No. (scan-order rank) within its project. See DAO doc. */
-    suspend fun getSerialNumber(projectId: Long, createdAt: Long, id: Long): Int
+    suspend fun getSerialNumber(projectId: Long, effectiveOrder: Long, id: Long): Int
+    /** Clears all manual positions in a project — "Reset to Scan Order". */
+    suspend fun clearDisplayOrder(projectId: Long)
     suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem?
 
     /**

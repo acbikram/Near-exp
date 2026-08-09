@@ -323,8 +323,10 @@
     <string name="move_down">تحريك لأسفل</string>
     <string name="move_blocked_title">لا يمكن التحريك معاً</string>
     <string name="move_blocked_message">لا يمكن تحريك العناصر المحددة معاً، حاول واحداً تلو الآخر</string>
-    <string name="sort_newest">الأحدث أولاً</string>
-    <string name="sort_oldest">الأقدم أولاً (ترتيب المسح)</string>
+    <string name="sort_newest">ترتيب المسح</string>
+    <string name="sort_oldest">الأقدم أولاً</string>
+    <string name="sort_custom">ترتيب مخصص</string>
+    <string name="reset_to_scan_order">إعادة الضبط إلى ترتيب المسح</string>
     <string name="sort_expiry_date">حسب تاريخ الصلاحية</string>
     <string name="sort_quantity">حسب الكمية</string>
 </resources>

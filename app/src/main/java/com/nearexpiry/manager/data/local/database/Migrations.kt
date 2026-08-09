@@ -175,6 +175,19 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Nullable "manual position" column — null means "use createdAt" (true
+        // scan order). Move Up/Down sets this instead of touching createdAt,
+        // so the real scan timestamp is preserved and "Reset to Scan Order"
+        // is always possible losslessly.
+        db.execSQL("ALTER TABLE `expiry_items` ADD COLUMN `displayOrder` INTEGER")
+        // Per-project flag: true once any item has a custom displayOrder —
+        // purely a "Scan Order" vs "Custom Sort" label switch.
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `hasCustomSort` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
-    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
 )

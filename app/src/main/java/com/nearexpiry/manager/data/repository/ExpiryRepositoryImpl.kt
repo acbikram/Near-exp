@@ -35,8 +35,12 @@ class ExpiryRepositoryImpl @Inject constructor(
         return dao.getItemById(id)?.toDomain()
     }
 
-    override suspend fun getSerialNumber(projectId: Long, createdAt: Long, id: Long): Int {
-        return dao.getSerialNumber(projectId, createdAt, id)
+    override suspend fun getSerialNumber(projectId: Long, effectiveOrder: Long, id: Long): Int {
+        return dao.getSerialNumber(projectId, effectiveOrder, id)
+    }
+
+    override suspend fun clearDisplayOrder(projectId: Long) {
+        dao.clearDisplayOrder(projectId)
     }
 
     override suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {

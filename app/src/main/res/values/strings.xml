@@ -323,8 +323,10 @@
     <string name="move_down">Move Down</string>
     <string name="move_blocked_title">Can\'t Move Together</string>
     <string name="move_blocked_message">Can\'t move selected items together, try one by one</string>
-    <string name="sort_newest">Newest First</string>
-    <string name="sort_oldest">Oldest First (Scan Order)</string>
+    <string name="sort_newest">Scan Order</string>
+    <string name="sort_oldest">Oldest First</string>
+    <string name="sort_custom">Custom Sort</string>
+    <string name="reset_to_scan_order">Reset to Scan Order</string>
     <string name="sort_expiry_date">By Expiry Date</string>
     <string name="sort_quantity">By Quantity</string>
 </resources>

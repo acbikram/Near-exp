@@ -94,7 +94,7 @@ object CompanyReportBuilder {
                 expiryExcelSerial = toExcelSerial(expiry)
             )
         }
-            .sortedBy { it.first.createdAt }   // scan order: first scanned → first row
+            .sortedBy { it.first.effectiveOrder }   // scan order, or custom Move Up/Down arrangement if set
             .map { it.second }
     }
 

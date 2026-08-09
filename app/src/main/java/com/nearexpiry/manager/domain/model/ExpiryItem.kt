@@ -15,8 +15,13 @@ data class ExpiryItem(
     /** POS/Item Code from column B of the product catalog (posCode). */
     val itemCode: String? = null,
     /** The project (isolated inventory) this item belongs to. */
-    val projectId: Long = 1
+    val projectId: Long = 1,
+    /** Null = true scan order (createdAt); non-null after a manual Move Up/Down. */
+    val displayOrder: Long? = null
 ) {
+    /** The value actually used for ordering (Sr No., History, export). */
+    val effectiveOrder: Long get() = displayOrder ?: createdAt
+
     /**
      * The product description shown in the UI, in the user's selected
      * app language: Arabic name first when the app is in Arabic (falling

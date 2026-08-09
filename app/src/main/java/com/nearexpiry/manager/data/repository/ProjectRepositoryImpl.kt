@@ -151,6 +151,12 @@ class ProjectRepositoryImpl @Inject constructor(
         id = id,
         name = name,
         colorHex = colorHex,
-        createdAt = createdAt
+        createdAt = createdAt,
+        hasCustomSort = hasCustomSort
     )
+
+    override suspend fun setHasCustomSort(projectId: Long, value: Boolean) {
+        val project = projectDao.getProjectById(projectId) ?: return
+        projectDao.update(project.copy(hasCustomSort = value))
+    }
 }

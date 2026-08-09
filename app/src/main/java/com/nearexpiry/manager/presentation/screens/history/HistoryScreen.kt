@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
@@ -102,7 +103,7 @@ fun HistoryScreen(
                         }
                         // Move Up/Down — only meaningful (and shown) while the list
                         // is sorted in scan order, matching Sr No.
-                        if (uiState.sortOrder == SortOrder.OLDEST) {
+                        if (uiState.sortOrder == SortOrder.NEWEST) {
                             IconButton(
                                 onClick = { viewModel.moveSelectedUp() },
                                 enabled = uiState.selectedIds.isNotEmpty()
@@ -225,7 +226,7 @@ fun HistoryScreen(
                                 Text(
                                     text = stringResource(
                                         when (uiState.sortOrder) {
-                                            SortOrder.NEWEST -> R.string.sort_newest
+                                            SortOrder.NEWEST -> if (uiState.hasCustomSort) R.string.sort_custom else R.string.sort_newest
                                             SortOrder.OLDEST -> R.string.sort_oldest
                                             SortOrder.EXPIRY_DATE -> R.string.sort_expiry_date
                                             SortOrder.QUANTITY -> R.string.sort_quantity
@@ -235,6 +236,17 @@ fun HistoryScreen(
                                 )
                             }
                         )
+                        // "Reset to Scan Order" — only relevant once the project
+                        // has actually been manually reordered.
+                        if (uiState.sortOrder == SortOrder.NEWEST && uiState.hasCustomSort) {
+                            AssistChip(
+                                onClick = { viewModel.resetToScanOrder() },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.reset_to_scan_order), tint = CyanAccent)
+                                },
+                                label = { Text(stringResource(R.string.reset_to_scan_order), color = CyanAccent) }
+                            )
+                        }
                         FilterChip(
                             selected = uiState.filter != Filter.ALL || uiState.specificDate != null || uiState.specificMonth != null,
                             onClick = { viewModel.cycleFilter() },

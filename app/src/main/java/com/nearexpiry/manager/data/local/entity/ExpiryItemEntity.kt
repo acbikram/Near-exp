@@ -25,7 +25,16 @@ data class ExpiryItemEntity(
     /** POS/Item Code from column B of the product catalog (posCode). */
     val itemCode: String? = null,
     /** The project (isolated inventory) this item belongs to. Defaults to 1 ("Project 1"). */
-    val projectId: Long = 1
+    val projectId: Long = 1,
+    /**
+     * Null = use [createdAt] (true scan order) for ordering/Sr No./export.
+     * Non-null after Move Up/Down: a manually-assigned position that
+     * overrides [createdAt] for ordering purposes, WITHOUT ever touching the
+     * real scan timestamp — this is what makes "Reset to Scan Order"
+     * possible: it just clears this column back to null everywhere in the
+     * project, restoring the true original chronology losslessly.
+     */
+    val displayOrder: Long? = null
 )
 
 fun ExpiryItemEntity.toDomain() = ExpiryItem(
@@ -39,7 +48,8 @@ fun ExpiryItemEntity.toDomain() = ExpiryItem(
     productNameArabic = productNameArabic,
     unit = unit,
     itemCode = itemCode,
-    projectId = projectId
+    projectId = projectId,
+    displayOrder = displayOrder
 )
 
 fun ExpiryItem.toEntity() = ExpiryItemEntity(
@@ -53,5 +63,6 @@ fun ExpiryItem.toEntity() = ExpiryItemEntity(
     productNameArabic = productNameArabic,
     unit = unit,
     itemCode = itemCode,
-    projectId = projectId
+    projectId = projectId,
+    displayOrder = displayOrder
 )

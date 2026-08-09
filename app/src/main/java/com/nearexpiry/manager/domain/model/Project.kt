@@ -4,5 +4,6 @@ data class Project(
     val id: Long,
     val name: String,
     val colorHex: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val hasCustomSort: Boolean = false
 )

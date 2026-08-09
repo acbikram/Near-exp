@@ -13,6 +13,8 @@ interface ProjectRepository {
     suspend fun createProject(name: String, colorHex: String): Long
     suspend fun renameProject(id: Long, newName: String)
     suspend fun updateProjectColor(id: Long, colorHex: String)
+    /** Flips the "Custom Sort" flag (set by Move Up/Down, cleared by Reset to Scan Order). */
+    suspend fun setHasCustomSort(projectId: Long, value: Boolean)
 
     /**
      * Deletes a project and all its items. Refuses (returns false) if it's

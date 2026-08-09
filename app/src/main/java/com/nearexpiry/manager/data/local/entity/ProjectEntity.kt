@@ -21,5 +21,12 @@ data class ProjectEntity(
     val name: String,
     /** Hex colour tag (e.g. "#26C6DA") for quick visual identification. */
     val colorHex: String,
-    val createdAt: Long
+    val createdAt: Long,
+    /**
+     * True once any item in this project has had its order manually changed
+     * via Move Up/Down (i.e. has a non-null displayOrder). Purely a display
+     * label flag — "Scan Order" vs "Custom Sort" — set the moment the first
+     * move happens, and cleared by "Reset to Scan Order".
+     */
+    val hasCustomSort: Boolean = false
 )

@@ -61,13 +61,13 @@ fun NearExpiryNavHost(modifier: Modifier = Modifier, openUpdates: Boolean = fals
                 },
                 navArgument("sort") {
                     type = NavType.StringType
-                    defaultValue = "OLDEST"
+                    defaultValue = "NEWEST"
                     nullable = true
                 }
             )
         ) { backStackEntry ->
             val filter = backStackEntry.arguments?.getString("filter") ?: "ALL"
-            val sort   = backStackEntry.arguments?.getString("sort")   ?: "OLDEST"
+            val sort   = backStackEntry.arguments?.getString("sort")   ?: "NEWEST"
             HistoryScreen(navController, initialFilter = filter, initialSort = sort)
         }
         composable(Screen.Export.route) {
