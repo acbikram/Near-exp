@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,6 +100,10 @@ fun HistoryScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
                     actions = {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         IconButton(onClick = { viewModel.selectAllVisible() }) {
                             Icon(Icons.Default.DoneAll, contentDescription = stringResource(R.string.select_all_visible), tint = CyanAccent)
                         }
@@ -158,6 +164,7 @@ fun HistoryScreen(
                             )
                         }
                         Spacer(Modifier.width(8.dp))
+                        }
                     }
                 )
             } else {
@@ -175,6 +182,60 @@ fun HistoryScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
                     actions = {
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CyanAccent)
+                            }
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.select_items)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.enterSelectionMode()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(
+                                                R.string.delete_items_in_filter_format,
+                                                uiState.itemsInFilter.size
+                                            ),
+                                            color = ErrorRed
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.requestDeleteFilter()
+                                    },
+                                    enabled = uiState.itemsInFilter.isNotEmpty()
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                )
+            }
+        },
+        bottomBar = { BottomNavigationBar(navController) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            // ── Filter / sort controls ──────────────────────────────────────
+            // Horizontally scrollable so it can never clip/overflow, regardless
+            // of how many chips are shown (e.g. the "Reset to Scan Order" chip
+            // only appears sometimes) or how narrow the screen is.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                         // By specific expiry date / month
                         Box {
                             IconButton(onClick = { showDateMenu = true }) {
@@ -286,48 +347,8 @@ fun HistoryScreen(
                                 selectedLabelColor = OrangeAccent
                             )
                         )
-                        Box {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CyanAccent)
-                            }
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.select_items)) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        viewModel.enterSelectionMode()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(
-                                                R.string.delete_items_in_filter_format,
-                                                uiState.itemsInFilter.size
-                                            ),
-                                            color = ErrorRed
-                                        )
-                                    },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        viewModel.requestDeleteFilter()
-                                    },
-                                    enabled = uiState.itemsInFilter.isNotEmpty()
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(8.dp))
-                    }
-                )
             }
-        },
-        bottomBar = { BottomNavigationBar(navController) },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
+
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::updateSearchQuery,
