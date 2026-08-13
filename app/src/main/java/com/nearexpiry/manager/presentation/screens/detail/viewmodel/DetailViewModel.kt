@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,8 @@ private const val MAX_QUANTITY = 99_999.0
 @HiltViewModel
 class DetailViewModel @Inject constructor(
     private val repository: ExpiryRepository,
-    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
+    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     data class DetailUiState(
@@ -131,6 +133,11 @@ class DetailViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 ) ?: return@launch
                 repository.updateItem(updatedItem.toEntity())
+                if (updatedItem.expiryDate != current.item?.expiryDate) {
+                    // A deliberate Item Details date edit starts a fresh
+                    // five-selection sequence for the scan shortcut.
+                    preferencesManager.resetExpiryDateShortcut()
+                }
                 _uiState.update { it.copy(navigateBack = true, isSaving = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isSaving = false) }

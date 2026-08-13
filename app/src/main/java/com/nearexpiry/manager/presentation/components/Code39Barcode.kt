@@ -3,7 +3,7 @@ package com.nearexpiry.manager.presentation.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -39,12 +40,10 @@ import kotlin.math.roundToInt
  * given, with no padding and no appended check digit, so scanning it back
  * reads precisely [value] — e.g. item code "69051" scans back as "69051".
  *
- * The card's width is sized to exactly fit its content (module width ×
- * character count, plus the ANSI/AIM-spec minimum quiet zones on both
- * sides) rather than stretching to fill the screen. This is what keeps the
- * bars from ever touching the card's edges or getting clipped: the drawing
- * area is always exactly as wide as the barcode needs, never wider or
- * narrower, regardless of how long the code is or how wide the screen is.
+ * The card preserves the preferred module width whenever possible. If a long
+ * code would exceed the available screen width, it scales the module width
+ * down just enough to keep every bar and both ANSI/AIM quiet zones inside the
+ * white card; no bars are clipped off the right edge.
  * Bar edges are pixel-snapped for crisp, non-blurred lines, which matters
  * for both laser scanners and software decoders.
  *
@@ -64,10 +63,6 @@ fun Code39Barcode(
 ) {
     val cleaned = remember(value) { sanitizeForCode39(value) }
     val density = LocalDensity.current
-
-    val contentWidthDp = remember(cleaned, narrowWidthDp) {
-        if (cleaned.isEmpty()) 0f else barcodeWidthDp(cleaned, narrowWidthDp)
-    }
 
     var dragAccum by remember(value) { mutableStateOf(0f) }
     val swipeModifier = if (onSwipeLeft != null || onSwipeRight != null) {
@@ -89,7 +84,18 @@ fun Code39Barcode(
         }
     } else Modifier
 
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        // The card has 10.dp padding on each side. Fit the full barcode inside
+        // that space instead of letting a long Code39 value overflow its parent.
+        val availableBarcodeWidthDp = (maxWidth.value - 20f).coerceAtLeast(0f)
+        val effectiveNarrowWidthDp = remember(cleaned, narrowWidthDp, availableBarcodeWidthDp) {
+            if (cleaned.isEmpty() || availableBarcodeWidthDp == 0f) 0f
+            else min(narrowWidthDp, availableBarcodeWidthDp / totalUnits(cleaned))
+        }
+        val contentWidthDp = remember(cleaned, effectiveNarrowWidthDp) {
+            if (cleaned.isEmpty()) 0f else barcodeWidthDp(cleaned, effectiveNarrowWidthDp)
+        }
+
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -103,7 +109,7 @@ fun Code39Barcode(
                     .width(contentWidthDp.dp)
                     .height(heightDp.dp)
             ) {
-                val narrowWidthPx = with(density) { narrowWidthDp.dp.toPx() }
+                val narrowWidthPx = with(density) { effectiveNarrowWidthDp.dp.toPx() }
                 drawCode39(cleaned, narrowWidthPx, size)
             }
             Spacer(Modifier.height(6.dp))

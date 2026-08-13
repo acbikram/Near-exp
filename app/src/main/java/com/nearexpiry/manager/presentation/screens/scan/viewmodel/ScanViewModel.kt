@@ -103,14 +103,17 @@ class ScanViewModel @Inject constructor(
          *  the camera is actively scanning. Remembered like scan mode: two
          *  consecutive camera scans with the same state make it the default. */
         val torchEnabled: Boolean = false,
-        /** Transient error to surface (e.g. embedded barcode item not in catalog). */
-        val scanError: String? = null
+        /** Transient scan error displayed as a short popup. */
+        val scanError: String? = null,
+        /** Lets the same error text be displayed again on consecutive rejected scans. */
+        val scanErrorId: Long = 0L
     )
 
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
 
     private var scanTimeoutJob = viewModelScope.launch { }
+    private var scanErrorSequence = 0L
 
     /** True while the current entry flow was started from manual entry
      *  (typed barcode or name search); false = camera scan. */
@@ -244,10 +247,10 @@ class ScanViewModel @Inject constructor(
                 onlineLookupState = OnlineLookupState.IDLE,
                 onlineProductName = null,
                 onlineProductNameArabic = null,
-                showExpiryDialog = true
+                showExpiryDialog = false
             )
         }
-        refreshInitialExpiry()
+        requestExpiryDate()
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
@@ -257,10 +260,6 @@ class ScanViewModel @Inject constructor(
         if (_uiState.value.pendingBarcode.isNotEmpty()) return  // already processing one
         currentEntryManual = fromManual
         stopScanner()
-
-        // Beep + vibrate on scan are always on.
-        soundManager.playSingleBeep()
-        vibrateSingle()
 
         // ── "22" embedded-weight barcode → parse item code + quantity ───────
         val embedded = EmbeddedBarcode.parse(barcode)
@@ -289,24 +288,32 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val product = productCatalogRepository.lookup(barcode)
             if (_uiState.value.pendingBarcode != barcode) return@launch
+            if (product == null) {
+                rejectBarcodeNotFound()
+                return@launch
+            }
+
+            // Valid catalog code: success feedback is deliberately delayed until
+            // after validation so unknown codes get only the distinct error tone.
+            soundManager.playSingleBeep()
+            vibrateSingle()
             _uiState.update {
                 it.copy(
-                    pendingProductName = product?.name,
-                    pendingProductNameArabic = product?.nameArabic,
-                    pendingUnit = product?.unit,
-                    pendingItemCode = product?.itemCode
+                    pendingProductName = product.name,
+                    pendingProductNameArabic = product.nameArabic,
+                    pendingUnit = product.unit,
+                    pendingItemCode = product.itemCode
                 )
             }
             // Same item already in this project? (by item code, else barcode)
             val projectId = activeProjectManager.getActiveProjectId()
-            val existing = repository.findAllForItem(projectId, product?.itemCode, barcode)
+            val existing = repository.findAllForItem(projectId, product.itemCode, barcode)
             if (existing.isNotEmpty()) {
                 soundManager.playDoubleBeep()
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
             } else {
-                _uiState.update { it.copy(showExpiryDialog = true) }
-                refreshInitialExpiry()
+                requestExpiryDate()
             }
         }
     }
@@ -321,18 +328,12 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val product = productCatalogRepository.lookup(parsed.itemCode)
             if (product == null) {
-                // Not in catalog → warn, reset, resume scanning.
-                _uiState.update {
-                    it.copy(
-                        scanError = "Item code ${parsed.itemCode} not found in catalog.",
-                        pendingBarcode = "",
-                        detectedBarcode = "",
-                        scannerInactive = false
-                    )
-                }
-                startInactivityTimer()
+                rejectBarcodeNotFound()
                 return@launch
             }
+            // Embedded barcode item code is present in the catalog.
+            soundManager.playSingleBeep()
+            vibrateSingle()
             _uiState.update {
                 it.copy(
                     detectedBarcode = parsed.itemCode,
@@ -358,8 +359,7 @@ class ScanViewModel @Inject constructor(
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
             } else {
-                _uiState.update { it.copy(showExpiryDialog = true) }
-                refreshInitialExpiry()
+                requestExpiryDate()
             }
         }
     }
@@ -368,8 +368,8 @@ class ScanViewModel @Inject constructor(
 
     /** User chose "add another expiry date" → proceed to the normal expiry flow. */
     fun existingAddNewDate() {
-        _uiState.update { it.copy(showExistingItemDialog = false, showExpiryDialog = true) }
-        refreshInitialExpiry()
+        _uiState.update { it.copy(showExistingItemDialog = false, showExpiryDialog = false) }
+        requestExpiryDate()
     }
 
     /**
@@ -503,29 +503,12 @@ class ScanViewModel @Inject constructor(
     }
 
     /**
-     * Loads the expiry date to pre-fill the picker with: the last date picked
-     * earlier *today*, or "" (meaning default to today) on the first scan of a
-     * new day. Call right before showing the expiry dialog.
+     * Applies a selected or automatically remembered expiry date and continues
+     * directly to quantity entry (or saving embedded-weight items).
      */
-    private fun refreshInitialExpiry() {
-        viewModelScope.launch {
-            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val remembered = preferencesManager.getLastExpiryForToday(todayIso) ?: ""
-            _uiState.update { it.copy(initialExpiryDate = remembered) }
-        }
-    }
-
-    fun onExpiryDateSelected(date: LocalDate) {
-        val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        // Remember this pick for the rest of today so the next scan pre-fills it.
-        viewModelScope.launch {
-            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            preferencesManager.setLastExpiry(formatted, todayIso)
-        }
+    private fun applyExpiryDate(formatted: String) {
         val embeddedQty = _uiState.value.pendingEmbeddedQty
         if (embeddedQty != null) {
-            // "22" barcode: quantity came from the barcode → skip the quantity
-            // dialog and save directly.
             _uiState.update {
                 it.copy(pendingExpiryDate = formatted, initialExpiryDate = formatted, showExpiryDialog = false)
             }
@@ -542,8 +525,57 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    fun clearScanError() {
-        _uiState.update { it.copy(scanError = null) }
+    /**
+     * Uses the globally remembered date after five matching explicit selections;
+     * otherwise opens the picker with the existing same-day prefill behavior.
+     */
+    private fun requestExpiryDate() {
+        viewModelScope.launch {
+            val automaticDate = preferencesManager.getAutomaticExpiryDate()
+            if (automaticDate != null) {
+                applyExpiryDate(automaticDate)
+            } else {
+                _uiState.update { it.copy(showExpiryDialog = true) }
+                refreshInitialExpiry()
+            }
+        }
+    }
+
+    /**
+     * Loads the expiry date to pre-fill the picker with: the last date picked
+     * earlier *today*, or "" (meaning default to today) on the first scan of a
+     * new day. Call right before showing the expiry dialog.
+     */
+    private fun refreshInitialExpiry() {
+        viewModelScope.launch {
+            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val remembered = preferencesManager.getLastExpiryForToday(todayIso) ?: ""
+            _uiState.update { it.copy(initialExpiryDate = remembered) }
+        }
+    }
+
+    fun onExpiryDateSelected(date: LocalDate) {
+        val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        // The picker was explicitly used, so it counts toward the five-match
+        // shortcut and remains available again only after an item-detail edit.
+        viewModelScope.launch {
+            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            preferencesManager.setLastExpiry(formatted, todayIso)
+            preferencesManager.recordExpiryDateSelection(formatted)
+            // Persist before continuing so the next completed scan reliably
+            // observes the shortcut, even when entries are processed quickly.
+            applyExpiryDate(formatted)
+        }
+    }
+
+    fun clearScanError(expectedErrorId: Long? = null) {
+        _uiState.update { state ->
+            if (expectedErrorId == null || state.scanErrorId == expectedErrorId) {
+                state.copy(scanError = null)
+            } else {
+                state
+            }
+        }
     }
 
     fun dismissDialog() {
@@ -748,6 +780,9 @@ class ScanViewModel @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateItem(updated.toEntity())
+            if (updated.expiryDate != existing.expiryDate) {
+                preferencesManager.resetExpiryDateShortcut()
+            }
             loadRecentScans()
             _uiState.update { it.copy(showEditDialog = false) }
         }
@@ -778,6 +813,40 @@ class ScanViewModel @Inject constructor(
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
+
+    /** Rejects unknown camera/manual input without ever reaching date or quantity entry. */
+    private fun rejectBarcodeNotFound() {
+        scanErrorSequence += 1
+        val resumeManualEntry = currentEntryManual
+        soundManager.playErrorBeep()
+        _uiState.update {
+            it.copy(
+                scanError = "⚠️ Barcode Not Found",
+                scanErrorId = scanErrorSequence,
+                showExpiryDialog = false,
+                showQuantityDialog = false,
+                showDuplicateDialog = false,
+                showExistingItemDialog = false,
+                showExistingQtyDialog = false,
+                existingEntries = emptyList(),
+                existingTargetId = 0,
+                pendingBarcode = "",
+                pendingExpiryDate = "",
+                pendingProductName = null,
+                pendingProductNameArabic = null,
+                pendingUnit = null,
+                pendingItemCode = null,
+                pendingEmbeddedQty = null,
+                detectedBarcode = "",
+                onlineLookupState = OnlineLookupState.IDLE,
+                onlineProductName = null,
+                onlineProductNameArabic = null,
+                showManualMode = resumeManualEntry,
+                scannerInactive = resumeManualEntry
+            )
+        }
+        if (!resumeManualEntry) startInactivityTimer()
+    }
 
     private fun loadRecentScans() {
         viewModelScope.launch {

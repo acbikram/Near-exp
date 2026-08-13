@@ -63,6 +63,7 @@ import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.utils.LanguageManager
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -107,11 +108,15 @@ fun ScanScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // Surface scan errors (e.g. embedded "22" barcode item not in catalog).
+    // Unknown camera/manual codes use a brief, clearly visible popup. Keeping
+    // the error id in the effect key lets consecutive rejected scans show the
+    // same message again instead of being collapsed by Compose.
     uiState.scanError?.let { msg ->
-        LaunchedEffect(msg) {
-            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-            viewModel.clearScanError()
+        val errorId = uiState.scanErrorId
+        LaunchedEffect(errorId) {
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            delay(2_000)
+            viewModel.clearScanError(errorId)
         }
     }
 

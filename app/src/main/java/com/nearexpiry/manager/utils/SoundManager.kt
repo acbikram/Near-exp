@@ -21,6 +21,7 @@ import kotlin.math.sin
  *
  * Single beep  → new (unique) barcode
  * Double beep  → duplicate barcode
+ * Low long beep → barcode/item code is absent from the catalog
  */
 @Singleton
 class SoundManager @Inject constructor(
@@ -31,16 +32,18 @@ class SoundManager @Inject constructor(
     // PCM parameters
     private val sampleRate = 44_100
     private val beepFreq   = 1_800.0   // Hz – classic scanner tone
-    private val beepMs     = 140       // ms per beep
+    private val beepMs     = 140       // ms per success pulse
+    private val errorFreq  = 560.0     // Hz – clearly lower than the success tone
+    private val errorMs    = 320       // ms – clearly longer than the success tone
     private val gapMs      = 120L      // ms gap between double-beep pulses
 
     /** Build a sine-wave PCM buffer with fade-in/out to avoid clicks. */
-    private fun buildBeepBuffer(): ShortArray {
-        val numSamples = sampleRate * beepMs / 1000
+    private fun buildBeepBuffer(frequency: Double, durationMs: Int): ShortArray {
+        val numSamples = sampleRate * durationMs / 1000
         val buf        = ShortArray(numSamples)
         val fadeLen    = minOf(numSamples / 10, 200)
         for (i in 0 until numSamples) {
-            val angle  = 2.0 * PI * beepFreq * i / sampleRate
+            val angle  = 2.0 * PI * frequency * i / sampleRate
             var sample = sin(angle)
             if (i < fadeLen)                  sample *= i.toDouble() / fadeLen
             if (i > numSamples - fadeLen)     sample *= (numSamples - i).toDouble() / fadeLen
@@ -49,10 +52,11 @@ class SoundManager @Inject constructor(
         return buf
     }
 
-    private val beepBuffer: ShortArray by lazy { buildBeepBuffer() }
+    private val beepBuffer: ShortArray by lazy { buildBeepBuffer(beepFreq, beepMs) }
+    private val errorBuffer: ShortArray by lazy { buildBeepBuffer(errorFreq, errorMs) }
 
-    /** Play one beep immediately on the IO dispatcher. */
-    private fun playOnce() {
+    /** Play a generated tone immediately on the IO dispatcher. */
+    private fun playOnce(buffer: ShortArray, durationMs: Int) {
         try {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -71,14 +75,14 @@ class SoundManager @Inject constructor(
             val track = AudioTrack.Builder()
                 .setAudioAttributes(attrs)
                 .setAudioFormat(format)
-                .setBufferSizeInBytes(maxOf(minBuf, beepBuffer.size * 2))
+                .setBufferSizeInBytes(maxOf(minBuf, buffer.size * 2))
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .build()
-            track.write(beepBuffer, 0, beepBuffer.size)
+            track.write(buffer, 0, buffer.size)
             track.play()
             // Release after playback finishes
             scope.launch {
-                delay(beepMs.toLong() + 60)
+                delay(durationMs.toLong() + 60)
                 runCatching { track.stop(); track.release() }
             }
         } catch (e: Exception) {
@@ -88,16 +92,21 @@ class SoundManager @Inject constructor(
 
     /** Single short beep – used for new (unique) barcodes. */
     fun playSingleBeep() {
-        scope.launch { playOnce() }
+        scope.launch { playOnce(beepBuffer, beepMs) }
     }
 
     /** Double beep – used for duplicate barcodes. */
     fun playDoubleBeep() {
         scope.launch {
-            playOnce()
+            playOnce(beepBuffer, beepMs)
             delay(beepMs.toLong() + gapMs)
-            playOnce()
+            playOnce(beepBuffer, beepMs)
         }
+    }
+
+    /** Low, longer alert used only when a scanned code is not in the catalog. */
+    fun playErrorBeep() {
+        scope.launch { playOnce(errorBuffer, errorMs) }
     }
 
     /** Legacy alias. */
