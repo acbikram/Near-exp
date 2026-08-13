@@ -35,9 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,13 +106,12 @@ fun ScanScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // Unknown camera/manual codes use a brief, clearly visible popup. Keeping
-    // the error id in the effect key lets consecutive rejected scans show the
-    // same message again instead of being collapsed by Compose.
-    uiState.scanError?.let { msg ->
+    // Keep the in-app barcode-not-found banner visible for two seconds. The
+    // banner is rendered inside the active Manual or Scan Mode entry area,
+    // avoiding the Android system toast and its application icon.
+    uiState.scanError?.let {
         val errorId = uiState.scanErrorId
         LaunchedEffect(errorId) {
-            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
             delay(2_000)
             viewModel.clearScanError(errorId)
         }
@@ -280,6 +277,7 @@ fun ScanScreen(
                             onBarcodeEntered = { viewModel.onManualBarcodeEntered(it) },
                             onSearchByName   = { viewModel.openCatalogSearch() },
                             onDismiss        = { viewModel.exitManualMode() },
+                            barcodeNotFoundMessage = uiState.scanError,
                             modifier         = Modifier.fillMaxSize()
                         )
                     }
@@ -342,7 +340,10 @@ fun ScanScreen(
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
-                            BarcodeScannerOverlay(modifier = Modifier.fillMaxSize())
+                            BarcodeScannerOverlay(
+                                errorMessage = uiState.scanError,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
                 }
@@ -493,13 +494,13 @@ private fun ManualBarcodeInputBox(
     onBarcodeEntered: (String) -> Unit,
     onSearchByName: () -> Unit,
     onDismiss: () -> Unit,
+    barcodeNotFoundMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
-    // TextFieldValue (not a plain String) keeps the field and the keyboard's
-    // composing region in sync — on some keyboards (Honor/Huawei, Samsung),
-    // filtering a plain-String value mid-composition desyncs the IME and the
-    // typed digits never appear in the box.
-    var barcodeText by remember { mutableStateOf(TextFieldValue("")) }
+    // A simple saved String state avoids resetting the IME's composing region
+    // on devices where TextFieldValue replacement causes typed digits to be
+    // accepted but not visibly drawn inside Material's outlined field.
+    var barcodeText by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     val focusRequester = remember { FocusRequester() }
@@ -513,7 +514,7 @@ private fun ManualBarcodeInputBox(
     }
 
     val handleDone = {
-        val trimmed = barcodeText.text.trim()
+        val trimmed = barcodeText.trim()
         if (trimmed.isEmpty()) {
             error = pleaseEnterBarcodeMsg
         } else {
@@ -538,31 +539,28 @@ private fun ManualBarcodeInputBox(
                 style = MaterialTheme.typography.labelMedium.copy(color = CyanAccent),
                 fontWeight = FontWeight.Bold
             )
+            barcodeNotFoundMessage?.let { message ->
+                ScanErrorBanner(
+                    message = message,
+                    textColor = Color.White,
+                    containerColor = Color(0xFF651818)
+                )
+            }
             OutlinedTextField(
                 value = barcodeText,
-                onValueChange = { v ->
-                    // Normalize Arabic-Indic digits (١٢٣ / ۱۲۳ → 123), then keep
-                    // only ASCII digits. Working on TextFieldValue (with the
-                    // selection preserved at the end) keeps Honor/Samsung
-                    // keyboards in sync so typed digits always show.
-                    val normalized = buildString {
-                        for (ch in v.text) {
-                            when (ch) {
-                                in '0'..'9' -> append(ch)
-                                in '\u0660'..'\u0669' -> append(('0' + (ch - '\u0660')))   // ٠..٩
-                                in '\u06F0'..'\u06F9' -> append(('0' + (ch - '\u06F0')))   // ۰..۹
-                            }
-                        }
-                    }
-                    barcodeText = TextFieldValue(normalized, selection = TextRange(normalized.length))
+                onValueChange = { rawInput ->
+                    barcodeText = normalizeBarcodeDigits(rawInput)
                     error = null
                 },
                 label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
                 singleLine = true,
                 isError = error != null,
                 supportingText = { error?.let { Text(it, color = ErrorRed) } },
-                textStyle = LocalTextStyle.current.copy(
+                // Explicit typography and colors keep entered digits visible
+                // on devices with manufacturer-specific text-field styling.
+                textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
                     textDirection = TextDirection.Ltr
                 ),
                 keyboardOptions = KeyboardOptions(
@@ -600,6 +598,45 @@ private fun ManualBarcodeInputBox(
                 Text(stringResource(R.string.cancel), color = SubtleGray)
             }
         }
+    }
+}
+
+/** Normalizes Arabic-Indic digits while preserving a simple String input state. */
+internal fun normalizeBarcodeDigits(rawInput: String): String = buildString {
+    for (ch in rawInput) {
+        when (ch) {
+            in '0'..'9' -> append(ch)
+            in '\u0660'..'\u0669' -> append('0' + (ch - '\u0660')) // ٠..٩
+            in '\u06F0'..'\u06F9' -> append('0' + (ch - '\u06F0')) // ۰..۹
+        }
+    }
+}
+
+/** Full-width in-app feedback shown inside the active scan or manual entry area. */
+@Composable
+private fun ScanErrorBanner(
+    message: String,
+    textColor: Color,
+    containerColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = containerColor,
+        contentColor = textColor,
+        shape = RoundedCornerShape(8.dp),
+        tonalElevation = 3.dp,
+        shadowElevation = 3.dp
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            color = textColor,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 

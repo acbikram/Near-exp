@@ -16,14 +16,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -41,7 +47,10 @@ private val MaskColor        = Color(0xCC000000)
  * strictly inside the glowing border.
  */
 @Composable
-fun BarcodeScannerOverlay(modifier: Modifier = Modifier) {
+fun BarcodeScannerOverlay(
+    errorMessage: String? = null,
+    modifier: Modifier = Modifier
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "barcode_scanner_overlay")
 
     val glowAlpha by infiniteTransition.animateFloat(
@@ -147,6 +156,32 @@ fun BarcodeScannerOverlay(modifier: Modifier = Modifier) {
                         )
                     )
             )
+
+            // The warning is part of the glowing scan frame itself, not a
+            // system toast. It stays visible while the camera is ready again.
+            errorMessage?.let { message ->
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    color = Color(0xFF5C1111).copy(alpha = 0.94f),
+                    contentColor = Color(0xFFFF5252),
+                    shape = RoundedCornerShape(8.dp),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 3.dp
+                ) {
+                    Text(
+                        text = message,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = Color(0xFFFF5252),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
         }
     }
 }
