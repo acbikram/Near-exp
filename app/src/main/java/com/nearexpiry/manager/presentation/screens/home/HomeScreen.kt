@@ -251,10 +251,10 @@ fun ClickableStatCard(
             modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val displayValue = if (value is Double) {
-                if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
-            } else {
-                value.toString()
+            val displayValue = when (value) {
+                is Double -> QuantityFormatter.format(value)
+                is Float -> QuantityFormatter.format(value.toDouble())
+                else -> value.toString()
             }
             Text(
                 text = displayValue,
@@ -298,7 +298,7 @@ fun RecentItemCard(
             if (item.itemCode != null) {
                 Text(
                     text = stringResource(R.string.item_code_format, item.itemCode),
-                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                    style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )
             }
             // Barcode — always shown as a secondary line when name/itemCode exist

@@ -743,7 +743,7 @@ fun HistoryItemCard(
                 if (item.itemCode != null) {
                     Text(
                         text = stringResource(R.string.item_code_format, item.itemCode),
-                        style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                     )
                 }
                 if (item.productName != null || item.itemCode != null) {
