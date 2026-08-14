@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
@@ -28,7 +29,9 @@ data class ProjectEntity(
      * label flag — "Scan Order" vs "Custom Sort" — set the moment the first
      * move happens, and cleared by "Reset to Scan Order".
      */
+    @ColumnInfo(defaultValue = "0")
     val hasCustomSort: Boolean = false,
     /** Latches once this is recognized as a Stock project with at least one item. */
+    @ColumnInfo(defaultValue = "0")
     val isStockMode: Boolean = false
 )

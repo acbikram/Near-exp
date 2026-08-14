@@ -459,6 +459,29 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+/**
+ * v11 -> v12: fixes project-flag writes from legacy Room schemas.
+ *
+ * Room's Kotlin constructor defaults are not SQL defaults unless explicitly
+ * declared with [androidx.room.ColumnInfo]. Rebuild the table so both flags
+ * have database-level defaults and normalize any rows created by an older
+ * incomplete insert. Existing project IDs and all inventory references remain
+ * unchanged.
+ */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        normalizeProjectsSchema(db)
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO `projects`
+                (`id`, `name`, `colorHex`, `createdAt`, `hasCustomSort`, `isStockMode`)
+            VALUES (1, 'Project 1', '#26C6DA', ?, 0, 0)
+            """.trimIndent(),
+            arrayOf<Any>(System.currentTimeMillis())
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -469,5 +492,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_7_8,
     MIGRATION_8_9,
     MIGRATION_9_10,
-    MIGRATION_10_11
+    MIGRATION_10_11,
+    MIGRATION_11_12
 )

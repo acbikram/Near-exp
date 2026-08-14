@@ -18,7 +18,7 @@ import com.nearexpiry.manager.data.local.typeconverter.Converters
 
 @Database(
     entities = [ExpiryItemEntity::class, CustomProductEntity::class, ProjectEntity::class, RecycleBinEntity::class],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -48,8 +48,9 @@ abstract class ExpiryDatabase : RoomDatabase() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
                             db.execSQL(
-                                "INSERT INTO `projects` (`id`, `name`, `colorHex`, `createdAt`) " +
-                                    "VALUES (1, 'Project 1', '#26C6DA', ?)",
+                                "INSERT OR IGNORE INTO `projects` " +
+                                    "(`id`, `name`, `colorHex`, `createdAt`, `hasCustomSort`, `isStockMode`) " +
+                                    "VALUES (1, 'Project 1', '#26C6DA', ?, 0, 0)",
                                 arrayOf<Any>(System.currentTimeMillis())
                             )
                         }
