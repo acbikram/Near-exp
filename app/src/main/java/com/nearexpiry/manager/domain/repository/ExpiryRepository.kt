@@ -30,6 +30,12 @@ interface ExpiryRepository {
     suspend fun deleteItemsByIds(ids: List<Long>)
     suspend fun deleteAllInProject(projectId: Long)
 
+    /**
+     * Atomically archives current project items to the recycle bin, clears the
+     * project, and inserts [items] as fresh rows in that project.
+     */
+    suspend fun replaceProjectItems(projectId: Long, items: List<ExpiryItemEntity>)
+
     // ── Recycle bin ────────────────────────────────────────────────────────
     /** All soft-deleted items, newest first. */
     fun getBinItems(): kotlinx.coroutines.flow.Flow<List<com.nearexpiry.manager.data.local.entity.RecycleBinEntity>>

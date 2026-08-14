@@ -10,6 +10,7 @@ import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.domain.model.ProjectRestoreBundle
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.CsvImporter
 import com.nearexpiry.manager.utils.JsonBackup
@@ -111,9 +112,9 @@ class BackupRestoreViewModel @Inject constructor(
                     val entities = JsonBackup.importFromJson(inputStream)
                     val projectId = activeProjectManager.getActiveProjectId()
                     // Restore replaces only the active project's items, and
-                    // forces the restored rows into the active project.
-                    repository.deleteAllInProject(projectId)
-                    entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
+                    // forces the restored rows into the active project. The
+                    // archive/delete/insert sequence is one Room transaction.
+                    repository.replaceProjectItems(projectId, entities)
                 }
                 _uiState.update { it.copy(isLoading = false, success = true) }
             } catch (e: Exception) {
@@ -182,21 +183,20 @@ class BackupRestoreViewModel @Inject constructor(
                         val text = bytes.toString(Charsets.UTF_8)
                         if (JsonBackup.isAllProjectsBackup(text)) {
                             val backup = JsonBackup.importAllProjects(text.byteInputStream())
-                            val existing = projectRepository.getAllProjectsOnce().associateBy { it.name }
-                            for (bundle in backup.projects) {
-                                val targetId = existing[bundle.project.name]?.id
-                                    ?: projectRepository.createProject(bundle.project.name, bundle.project.colorHex)
-                                repository.deleteAllInProject(targetId)
-                                bundle.items.forEach {
-                                    repository.insertItem(it.copy(id = 0, projectId = targetId))
+                            projectRepository.restoreProjectsFromBackup(
+                                backup.projects.map { bundle ->
+                                    ProjectRestoreBundle(
+                                        name = bundle.project.name,
+                                        colorHex = bundle.project.colorHex,
+                                        items = bundle.items
+                                    )
                                 }
-                            }
+                            )
                             activeProjectManager.ensureValidActiveProject()
                         } else {
                             val entities = JsonBackup.importFromJson(text.byteInputStream())
                             val projectId = activeProjectManager.getActiveProjectId()
-                            repository.deleteAllInProject(projectId)
-                            entities.forEach { repository.insertItem(it.copy(id = 0, projectId = projectId)) }
+                            repository.replaceProjectItems(projectId, entities)
                         }
                         _uiState.update { it.copy(isLoading = false, success = true) }
                     }
@@ -258,38 +258,17 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(showRestoreProjectPicker = false, isLoading = true) }
             try {
-                val targetId = projectId
-                    ?: projectRepository.createProject(
-                        newProjectName?.trim().takeUnless { it.isNullOrEmpty() }
-                            ?: "Restored ${System.currentTimeMillis() / 1000}",
-                        "#26C6DA"
-                    )
-                var newCount = 0
-                var mergedCount = 0
-                var qtyAdded = 0.0
-                for (item in items) {
-                    val dup = repository.findDuplicate(
-                        targetId, item.itemCode, item.barcode, item.expiryDate, item.unit
-                    )
-                    if (dup != null) {
-                        repository.updateItem(
-                            dup.copy(
-                                quantity = dup.quantity + item.quantity,
-                                updatedAt = System.currentTimeMillis()
-                            ).toEntity()
-                        )
-                        mergedCount++
-                    } else {
-                        repository.insertItem(item.copy(id = 0, projectId = targetId))
-                        newCount++
-                    }
-                    qtyAdded += item.quantity
-                }
+                val result = projectRepository.restoreItemsIntoProject(
+                    projectId = projectId,
+                    newProjectName = newProjectName,
+                    colorHex = "#26C6DA",
+                    items = items
+                )
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         pendingRestoreItems = emptyList(),
-                        restoreResult = "new:$newCount:merged:$mergedCount:qty:${fmtQty(qtyAdded)}:skipped:${_uiState.value.pendingRestoreSkipped}"
+                        restoreResult = "new:${result.inserted}:merged:${result.merged}:qty:${fmtQty(result.quantityAdded)}:skipped:${_uiState.value.pendingRestoreSkipped}"
                     )
                 }
             } catch (e: Exception) {

@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.data.repository
 
+import androidx.room.withTransaction
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.RecycleBinEntity
@@ -20,88 +21,114 @@ class ExpiryRepositoryImpl @Inject constructor(
 ) : ExpiryRepository {
 
     private val dao = database.expiryItemDao()
+    private val binDao = database.recycleBinDao()
+    private val projDao = database.projectDao()
 
-    override fun getAllItems(projectId: Long): Flow<List<ExpiryItem>> {
-        return dao.getAllItems(projectId).map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override fun getAllItems(projectId: Long): Flow<List<ExpiryItem>> =
+        dao.getAllItems(projectId).map { entities -> entities.map { it.toDomain() } }
 
-    override suspend fun getItemsOnce(projectId: Long): List<ExpiryItem> {
-        return dao.getAllItemsOnce(projectId).map { it.toDomain() }
-    }
+    override suspend fun getItemsOnce(projectId: Long): List<ExpiryItem> =
+        dao.getAllItemsOnce(projectId).map { it.toDomain() }
 
-    override suspend fun getItemById(id: Long): ExpiryItem? {
-        return dao.getItemById(id)?.toDomain()
-    }
+    override suspend fun getItemById(id: Long): ExpiryItem? = dao.getItemById(id)?.toDomain()
 
-    override suspend fun getSerialNumber(projectId: Long, effectiveOrder: Long, id: Long): Int {
-        return dao.getSerialNumber(projectId, effectiveOrder, id)
-    }
+    override suspend fun getSerialNumber(projectId: Long, effectiveOrder: Long, id: Long): Int =
+        dao.getSerialNumber(projectId, effectiveOrder, id)
 
     override suspend fun clearDisplayOrder(projectId: Long) {
         dao.clearDisplayOrder(projectId)
     }
 
-    override suspend fun findByBarcodeExpiryUnit(projectId: Long, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
-        return dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
-    }
+    override suspend fun findByBarcodeExpiryUnit(
+        projectId: Long,
+        barcode: String,
+        expiryDate: String,
+        unit: String?
+    ): ExpiryItem? = dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
 
-    override suspend fun findDuplicate(projectId: Long, itemCode: String?, barcode: String, expiryDate: String, unit: String?): ExpiryItem? {
-        // Prefer matching on POS/item code (same product across barcodes);
-        // fall back to barcode for codeless items.
+    override suspend fun findDuplicate(
+        projectId: Long,
+        itemCode: String?,
+        barcode: String,
+        expiryDate: String,
+        unit: String?
+    ): ExpiryItem? = findDuplicateEntity(projectId, itemCode, barcode, expiryDate, unit)?.toDomain()
+
+    private suspend fun findDuplicateEntity(
+        projectId: Long,
+        itemCode: String?,
+        barcode: String,
+        expiryDate: String,
+        unit: String?
+    ): ExpiryItemEntity? {
         val code = itemCode?.takeIf { it.isNotBlank() }
         return if (code != null) {
-            dao.findByItemCodeExpiryUnit(projectId, code, expiryDate, unit)?.toDomain()
+            dao.findByItemCodeExpiryUnit(projectId, code, expiryDate, unit)
         } else {
-            dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)?.toDomain()
+            dao.findByBarcodeExpiryUnit(projectId, barcode, expiryDate, unit)
         }
     }
 
-    override suspend fun findAllForItem(projectId: Long, itemCode: String?, barcode: String): List<ExpiryItem> {
+    override suspend fun findAllForItem(
+        projectId: Long,
+        itemCode: String?,
+        barcode: String
+    ): List<ExpiryItem> {
         val code = itemCode?.takeIf { it.isNotBlank() }
         return dao.findAllForItem(projectId, code, barcode).map { it.toDomain() }
     }
 
-    override suspend fun insertItem(item: ExpiryItemEntity): Long {
-        return dao.insert(item)
-    }
+    override suspend fun insertItem(item: ExpiryItemEntity): Long = dao.insert(item)
 
     override suspend fun updateItem(item: ExpiryItemEntity) {
         dao.update(item)
     }
 
     override suspend fun deleteItem(item: ExpiryItem) {
-        moveToBin(listOf(item.toEntity()))
-        dao.delete(item.toEntity())
+        database.withTransaction {
+            val entity = item.toEntity()
+            archiveToBin(listOf(entity))
+            dao.delete(entity)
+        }
     }
 
     override suspend fun deleteItemsByIds(ids: List<Long>) {
         if (ids.isEmpty()) return
-        moveToBin(dao.getByIds(ids))
-        dao.deleteByIds(ids)
+        database.withTransaction {
+            archiveToBin(dao.getByIds(ids))
+            dao.deleteByIds(ids)
+        }
     }
 
     override suspend fun deleteAllInProject(projectId: Long) {
-        moveToBin(dao.getAllItemsOnce(projectId))
-        dao.deleteAllInProject(projectId)
+        database.withTransaction {
+            archiveToBin(dao.getAllItemsOnce(projectId))
+            dao.deleteAllInProject(projectId)
+        }
+    }
+
+    override suspend fun replaceProjectItems(projectId: Long, items: List<ExpiryItemEntity>) {
+        database.withTransaction {
+            archiveToBin(dao.getAllItemsOnce(projectId))
+            dao.deleteAllInProject(projectId)
+            items.forEach { item ->
+                dao.insert(item.copy(id = 0, projectId = projectId))
+            }
+        }
     }
 
     // ── Recycle bin ────────────────────────────────────────────────────────
 
-    private val binDao = database.recycleBinDao()
-    private val projDao = database.projectDao()
-
-    /** Copies [entities] into the recycle bin (with their project's name). */
-    private suspend fun moveToBin(entities: List<ExpiryItemEntity>) {
+    /** Writes recycle-bin entries inside the caller's transaction. */
+    private suspend fun archiveToBin(entities: List<ExpiryItemEntity>) {
         if (entities.isEmpty()) return
         val now = System.currentTimeMillis()
         val names = HashMap<Long, String>()
-        val bins = entities.map { e ->
-            val name = names.getOrPut(e.projectId) {
-                projDao.getProjectById(e.projectId)?.name ?: "Deleted project"
+        val bins = entities.map { entity ->
+            val name = names.getOrPut(entity.projectId) {
+                projDao.getProjectById(entity.projectId)?.name ?: "Deleted project"
             }
-            e.toBinEntity(projectName = name, deletedAt = now)
+            entity.toBinEntity(projectName = name, deletedAt = now)
         }
         binDao.insertAll(bins)
     }
@@ -110,16 +137,23 @@ class ExpiryRepositoryImpl @Inject constructor(
 
     override suspend fun restoreFromBin(binIds: List<Long>, fallbackProjectId: Long): Int {
         if (binIds.isEmpty()) return 0
-        val entries = binDao.getByIds(binIds)
-        var restored = 0
-        for (entry in entries) {
-            // Back to the original project if it still exists, else the fallback.
-            val target = if (projDao.getProjectById(entry.projectId) != null) entry.projectId else fallbackProjectId
-            dao.insert(entry.toItemEntity(target))
-            restored++
+        return database.withTransaction {
+            val entries = binDao.getByIds(binIds)
+            var restored = 0
+            entries.forEach { entry ->
+                val target = if (projDao.getProjectById(entry.projectId) != null) {
+                    entry.projectId
+                } else {
+                    fallbackProjectId
+                }
+                dao.insert(entry.toItemEntity(target))
+                restored++
+            }
+            // Delete only the entries that were actually restored. This avoids
+            // removing concurrently missing/unknown requested IDs.
+            if (entries.isNotEmpty()) binDao.deleteByIds(entries.map { it.id })
+            restored
         }
-        binDao.deleteByIds(binIds)
-        return restored
     }
 
     override suspend fun deleteFromBinPermanently(binIds: List<Long>) {
@@ -136,7 +170,8 @@ class ExpiryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun moveItemsToProject(ids: List<Long>, targetProjectId: Long) {
-        if (ids.isNotEmpty()) {
+        if (ids.isEmpty()) return
+        database.withTransaction {
             dao.moveItemsToProject(ids, targetProjectId, System.currentTimeMillis())
         }
     }

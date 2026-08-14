@@ -1,7 +1,10 @@
 package com.nearexpiry.manager.domain.repository
 
+import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.domain.model.MergeMode
 import com.nearexpiry.manager.domain.model.Project
+import com.nearexpiry.manager.domain.model.ProjectRestoreBundle
+import com.nearexpiry.manager.domain.model.ProjectRestoreMergeResult
 import kotlinx.coroutines.flow.Flow
 
 interface ProjectRepository {
@@ -43,4 +46,22 @@ interface ProjectRepository {
      * number merged.
      */
     suspend fun moveItemsToProject(itemIds: List<Long>, targetProjectId: Long, mergeMode: MergeMode): Int
+
+    /**
+     * Atomically merges imported rows into an existing project or creates a
+     * new one and merges into it as one database operation.
+     */
+    suspend fun restoreItemsIntoProject(
+        projectId: Long?,
+        newProjectName: String?,
+        colorHex: String,
+        items: List<ExpiryItemEntity>
+    ): ProjectRestoreMergeResult
+
+    /**
+     * Atomically replaces the items of every backed-up project. Existing
+     * projects with matching names are reused; otherwise a project is created.
+     * Projects not represented in [bundles] are left unchanged.
+     */
+    suspend fun restoreProjectsFromBackup(bundles: List<ProjectRestoreBundle>)
 }
