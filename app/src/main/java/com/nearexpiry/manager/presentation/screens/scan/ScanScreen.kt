@@ -41,13 +41,13 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
-import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.scan.components.BarcodeScannerOverlay
@@ -265,8 +265,6 @@ fun ScanScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            ActiveProjectHeader(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-
             // ── Camera area ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
@@ -560,9 +558,10 @@ private fun ManualBarcodeInputBox(
                 supportingText = { error?.let { Text(it, color = ErrorRed) } },
                 // Explicit typography and colors keep entered digits visible
                 // on devices with manufacturer-specific text-field styling.
-                textStyle = MaterialTheme.typography.titleMedium.copy(
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
+                    lineHeight = 30.sp,
                     textDirection = TextDirection.Ltr
                 ),
                 keyboardOptions = KeyboardOptions(
@@ -582,6 +581,7 @@ private fun ManualBarcodeInputBox(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 72.dp)
                     .focusRequester(focusRequester)
             )
             // Search the catalog by product name/POS code when a barcode won't scan.

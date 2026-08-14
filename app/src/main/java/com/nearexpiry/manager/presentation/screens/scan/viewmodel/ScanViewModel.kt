@@ -839,7 +839,7 @@ class ScanViewModel @Inject constructor(
     private fun rejectBarcodeNotFound() {
         scanErrorSequence += 1
         val resumeManualEntry = currentEntryManual
-        soundManager.playErrorBeep()
+        soundManager.playWarningTripleBeep()
         _uiState.update {
             it.copy(
                 scanError = "⚠️ Barcode Not Found",

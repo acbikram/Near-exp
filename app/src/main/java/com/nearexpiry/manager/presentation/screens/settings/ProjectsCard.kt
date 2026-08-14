@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,44 +49,57 @@ fun ProjectsSection(
     var cloneTarget by remember { mutableStateOf<Long?>(null) }
     var deleteTarget by remember { mutableStateOf<Long?>(null) }
     var colorTarget by remember { mutableStateOf<Long?>(null) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                stringResource(R.string.projects),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = CyanAccent,
-                    fontWeight = FontWeight.Bold
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.projects),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = CyanAccent,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
+                Text(
+                    if (expanded) stringResource(R.string.projects_description)
+                    else "${projects.size} project${if (projects.size == 1) "" else "s"} • Tap to select or manage",
+                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                )
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "Collapse projects" else "Expand projects",
+                tint = CyanAccent
             )
+        }
+
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
             TextButton(onClick = { showCreate = true }) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.project_create), color = CyanAccent)
             }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.projects_description),
-            style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
-        )
-        Spacer(Modifier.height(8.dp))
-
-        projects.forEach { summary ->
-            ProjectRow(
-                summary = summary,
-                isActive = summary.project.id == activeProjectId,
-                onSwitch = { onSwitch(summary.project.id) },
-                onRename = { renameTarget = summary.project.id },
-                onClone = { cloneTarget = summary.project.id },
-                onRecolor = { colorTarget = summary.project.id },
-                onDelete = { deleteTarget = summary.project.id }
-            )
-            Spacer(Modifier.height(8.dp))
+            projects.forEach { summary ->
+                ProjectRow(
+                    summary = summary,
+                    isActive = summary.project.id == activeProjectId,
+                    onSwitch = { onSwitch(summary.project.id) },
+                    onRename = { renameTarget = summary.project.id },
+                    onClone = { cloneTarget = summary.project.id },
+                    onRecolor = { colorTarget = summary.project.id },
+                    onDelete = { deleteTarget = summary.project.id }
+                )
+                Spacer(Modifier.height(8.dp))
+            }
         }
     }
 

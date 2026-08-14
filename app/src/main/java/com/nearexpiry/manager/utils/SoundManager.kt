@@ -19,9 +19,9 @@ import kotlin.math.sin
  * [android.media.ToneGenerator] which is silenced on many devices when the
  * notification stream is muted or the volume is low.
  *
- * Single beep  → new (unique) barcode
- * Double beep  → duplicate barcode
- * Low long beep → barcode/item code is absent from the catalog
+ * Single beep → new (unique) barcode
+ * Double beep → duplicate barcode
+ * Triple beep → barcode/item code is absent from the catalog
  */
 @Singleton
 class SoundManager @Inject constructor(
@@ -33,8 +33,6 @@ class SoundManager @Inject constructor(
     private val sampleRate = 44_100
     private val beepFreq   = 1_800.0   // Hz – classic scanner tone
     private val beepMs     = 140       // ms per success pulse
-    private val errorFreq  = 560.0     // Hz – clearly lower than the success tone
-    private val errorMs    = 320       // ms – clearly longer than the success tone
     private val gapMs      = 120L      // ms gap between double-beep pulses
 
     /** Build a sine-wave PCM buffer with fade-in/out to avoid clicks. */
@@ -53,7 +51,6 @@ class SoundManager @Inject constructor(
     }
 
     private val beepBuffer: ShortArray by lazy { buildBeepBuffer(beepFreq, beepMs) }
-    private val errorBuffer: ShortArray by lazy { buildBeepBuffer(errorFreq, errorMs) }
 
     /** Play a generated tone immediately on the IO dispatcher. */
     private fun playOnce(buffer: ShortArray, durationMs: Int) {
@@ -104,10 +101,22 @@ class SoundManager @Inject constructor(
         }
     }
 
-    /** Low, longer alert used only when a scanned code is not in the catalog. */
-    fun playErrorBeep() {
-        scope.launch { playOnce(errorBuffer, errorMs) }
+    /**
+     * Three success-tone pulses used as the warning for a barcode that is not
+     * present in the catalog. The matching tone keeps audio consistent while
+     * the three-pulse pattern remains immediately recognisable as a warning.
+     */
+    fun playWarningTripleBeep() {
+        scope.launch {
+            repeat(3) { index ->
+                playOnce(beepBuffer, beepMs)
+                if (index < 2) delay(beepMs.toLong() + gapMs)
+            }
+        }
     }
+
+    /** Compatibility alias for existing callers. */
+    fun playErrorBeep() = playWarningTripleBeep()
 
     /** Legacy alias. */
     fun playBeep() = playSingleBeep()
