@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.ImeAction
@@ -502,9 +503,10 @@ private fun ManualBarcodeInputBox(
     barcodeNotFoundMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
-    // A simple saved String state avoids resetting the IME's composing region
-    // on devices where TextFieldValue replacement causes typed digits to be
-    // accepted but not visibly drawn inside Material's outlined field.
+    // Keep the exact text supplied by the IME while the user is typing.
+    // Normalizing inside onValueChange replaces the keyboard's composing text
+    // on some OEMs, where the input is accepted but rendered as an almost
+    // invisible glyph. Normalization happens only when the barcode is sent.
     var barcodeText by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -519,12 +521,12 @@ private fun ManualBarcodeInputBox(
     }
 
     val handleDone = {
-        val trimmed = barcodeText.trim()
-        if (trimmed.isEmpty()) {
+        val normalizedBarcode = normalizeBarcodeDigits(barcodeText)
+        if (normalizedBarcode.isEmpty()) {
             error = pleaseEnterBarcodeMsg
         } else {
             keyboardController?.hide()
-            onBarcodeEntered(trimmed)
+            onBarcodeEntered(normalizedBarcode)
         }
     }
 
@@ -554,7 +556,10 @@ private fun ManualBarcodeInputBox(
             OutlinedTextField(
                 value = barcodeText,
                 onValueChange = { rawInput ->
-                    barcodeText = normalizeBarcodeDigits(rawInput)
+                    // Do not transform the value while the IME owns a
+                    // composing region. This keeps every typed digit visible
+                    // on keyboards that use OEM-specific composition logic.
+                    barcodeText = rawInput
                     error = null
                 },
                 label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
@@ -565,14 +570,17 @@ private fun ManualBarcodeInputBox(
                 // on devices with manufacturer-specific text-field styling.
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 30.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    lineHeight = 32.sp,
                     textDirection = TextDirection.Ltr
                 ),
                 keyboardOptions = KeyboardOptions(
-                    // Digit pad; the digit-filtering in onValueChange handles any
-                    // stray characters, which is what makes entry reliable across
-                    // keyboards that previously left the field empty.
+                    // Use a digit pad; normalization at submission accepts
+                    // standard and Arabic-Indic digits without disrupting the
+                    // IME's visible composing text while the user types.
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
