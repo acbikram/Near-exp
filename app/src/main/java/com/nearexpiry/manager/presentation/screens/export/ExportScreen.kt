@@ -250,6 +250,25 @@ fun ExportScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Export Stock Check Excel")
                         }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.generateStockReport(context, sendToPc = true) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = uiState.allItems.isNotEmpty() &&
+                                !uiState.isExporting &&
+                                uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
+                                uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
+                        ) {
+                            Icon(Icons.Default.Computer, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                when (uiState.sendToPcState) {
+                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                    else -> "Send Stock Excel to PC (Wi-Fi)"
+                                }
+                            )
+                        }
                     } else {
                         Text(
                             stringResource(R.string.company_report_desc),

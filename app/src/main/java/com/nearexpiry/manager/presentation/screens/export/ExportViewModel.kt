@@ -295,7 +295,7 @@ class ExportViewModel @Inject constructor(
      * project. Rows are true scan order (first scan first); column B is the
      * POS code with a yellow warning when description or UOM is incomplete.
      */
-    fun generateStockReport(context: Context) {
+    fun generateStockReport(context: Context, sendToPc: Boolean = false) {
         viewModelScope.launch {
             val state = _uiState.value
             if (!state.isStockMode) {
@@ -345,11 +345,20 @@ class ExportViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isExporting = false,
-                        reportFileUri = uri,
+                        // Wi-Fi transfer uses the file path directly. Only
+                        // create a share-sheet URI for the explicit Share action.
+                        reportFileUri = if (sendToPc) null else uri,
                         reportFilePath = file.absolutePath,
                         reportFileName = file.name,
                         reportSummary = "${rows.size} stock items · Recheck on $dateLabel"
                     )
+                }
+                if (sendToPc) {
+                    // The workbook has been generated in the same cache folder
+                    // used by the existing PC receiver. Route it through the
+                    // shared XLSX transfer path immediately, without requiring
+                    // the user to generate it first and press a second button.
+                    sendReportToPc()
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message ?: "Stock export failed") }
