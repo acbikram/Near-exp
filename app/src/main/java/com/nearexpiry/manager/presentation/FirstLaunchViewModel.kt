@@ -21,15 +21,24 @@ class FirstLaunchViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val alreadyShown = preferencesManager.languagePromptShownFlow.first()
+            // A corrupt or OEM-locked preference store must not make the
+            // first visible screen fatal. In that rare case we skip this
+            // optional first-run prompt; language remains available later in
+            // Settings.
+            val alreadyShown = runCatching {
+                preferencesManager.languagePromptShownFlow.first()
+            }.getOrDefault(true)
             _showLanguagePrompt.value = !alreadyShown
         }
     }
 
     fun onLanguagePromptDismissed() {
         viewModelScope.launch {
-            preferencesManager.setLanguagePromptShown()
+            // Hide the optional dialog before persisting its completion so an
+            // OEM-specific DataStore failure cannot leave the activity in an
+            // unstable first-launch state.
             _showLanguagePrompt.value = false
+            runCatching { preferencesManager.setLanguagePromptShown() }
         }
     }
 }

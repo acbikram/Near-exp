@@ -85,7 +85,11 @@ class MainActivity : AppCompatActivity() {
                         )
                     }
 
-                    if (showBatteryOptDialog.value) {
+                    // On first launch, keep OEM battery-optimization UI out
+                    // of the same composition as the mandatory language picker.
+                    // Some EMUI builds are unstable when two modal surfaces are
+                    // requested during their initial activity resume.
+                    if (!showLanguagePrompt && showBatteryOptDialog.value) {
                         BatteryOptimizationDialog(
                             onAllow = { requestIgnoreBatteryOptimizations() },
                             onDismiss = {

@@ -21,15 +21,15 @@ object LanguageManager {
     }
 
     /** Currently selected app language (defaults to SYSTEM_DEFAULT if none set). */
-    fun getCurrentLanguage(): AppLanguage {
+    fun getCurrentLanguage(): AppLanguage = runCatching {
         val tags = AppCompatDelegate.getApplicationLocales().toLanguageTags()
-        return when {
+        when {
             tags.isEmpty() -> AppLanguage.SYSTEM_DEFAULT
             tags.startsWith("ar") -> AppLanguage.ARABIC
             tags.startsWith("en") -> AppLanguage.ENGLISH
             else -> AppLanguage.SYSTEM_DEFAULT
         }
-    }
+    }.getOrDefault(AppLanguage.SYSTEM_DEFAULT)
 
     /**
      * True if the app is currently displaying Arabic — either because the
@@ -44,11 +44,16 @@ object LanguageManager {
 
     /** Applies the chosen language app-wide (recreates activities to apply it). */
     fun setLanguage(language: AppLanguage) {
-        val locales = if (language.tag == null) {
-            LocaleListCompat.getEmptyLocaleList()
-        } else {
-            LocaleListCompat.forLanguageTags(language.tag)
+        // Per-app locale support is optional on older OEM Android builds. A
+        // failed locale hand-off must leave the app usable in its current
+        // system language instead of terminating the activity.
+        runCatching {
+            val locales = if (language.tag == null) {
+                LocaleListCompat.getEmptyLocaleList()
+            } else {
+                LocaleListCompat.forLanguageTags(language.tag)
+            }
+            AppCompatDelegate.setApplicationLocales(locales)
         }
-        AppCompatDelegate.setApplicationLocales(locales)
     }
 }
