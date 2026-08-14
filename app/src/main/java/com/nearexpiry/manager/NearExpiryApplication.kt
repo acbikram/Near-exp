@@ -39,26 +39,27 @@ class NearExpiryApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // Create notification channels on every start (safe; OS ignores duplicates).
-        NotificationHelper.createChannels(this)
-        // Schedule the daily 8 AM expiry check (KEEP policy — won't reset on restart).
-        ExpiryNotificationWorker.schedule(this)
-        // Schedule the daily background update check.
-        UpdateCheckWorker.schedule(this)
-        AutoBackupWorker.schedule(this)
+        // These launch conveniences must never block the app UI on OEM Android
+        // builds that reject a notification or WorkManager request at startup.
+        runCatching { NotificationHelper.createChannels(this) }
+        runCatching { ExpiryNotificationWorker.schedule(this) }
+        runCatching { UpdateCheckWorker.schedule(this) }
+        runCatching { AutoBackupWorker.schedule(this) }
         // Delete update APKs already installed (version <= current). APKs for a
         // newer, downloaded-but-not-yet-installed version are kept so the user
         // can tap "Install" without re-downloading. This approximates
         // "delete after install": if they installed it, this launch is that new
         // version, so the matching APK is now same-version → removed.
         CoroutineScope(Dispatchers.IO).launch {
-            AppUpdater.cleanupInstalledApks(this@NearExpiryApplication, BuildConfig.VERSION_NAME)
+            runCatching {
+                AppUpdater.cleanupInstalledApks(this@NearExpiryApplication, BuildConfig.VERSION_NAME)
+            }
         }
         // If the previously-active project was deleted, fall back to a valid one.
         CoroutineScope(Dispatchers.IO).launch {
-            activeProjectManager.ensureValidActiveProject()
+            runCatching { activeProjectManager.ensureValidActiveProject() }
             // Recycle bin: drop entries older than 30 days.
-            expiryRepository.purgeOldBinEntries(30)
+            runCatching { expiryRepository.purgeOldBinEntries(30) }
         }
         // Cheap, local, unthrottled check — every launch: if the app has been
         // updated to (or past) the version an "Update Available" notification
@@ -67,28 +68,32 @@ class NearExpiryApplication : Application(), Configuration.Provider {
         // app's own download flow, which the network-based check below
         // (throttled to once a day) could otherwise miss for up to a day.
         CoroutineScope(Dispatchers.IO).launch {
-            val notifiedVersionCode = preferencesManager.getLastNotifiedUpdateVersionCode()
-            if (notifiedVersionCode > 0 && BuildConfig.VERSION_CODE.toLong() >= notifiedVersionCode) {
-                NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
-                preferencesManager.setLastNotifiedUpdateVersionCode(0L)
+            runCatching {
+                val notifiedVersionCode = preferencesManager.getLastNotifiedUpdateVersionCode()
+                if (notifiedVersionCode > 0 && BuildConfig.VERSION_CODE.toLong() >= notifiedVersionCode) {
+                    NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
+                    preferencesManager.setLastNotifiedUpdateVersionCode(0L)
+                }
             }
         }
         // On-launch update check, throttled to at most once per day.
         CoroutineScope(Dispatchers.IO).launch {
-            val now = System.currentTimeMillis()
-            val last = preferencesManager.getLastUpdateCheck()
-            if (now - last >= 24 * 60 * 60 * 1000L) {
-                val result = AppUpdater.check(
-                    currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
-                    currentVersionName = BuildConfig.VERSION_NAME
-                )
-                preferencesManager.setLastUpdateCheck(now)
-                if (result is AppUpdater.CheckResult.UpdateAvailable) {
-                    preferencesManager.setLastNotifiedUpdateVersionCode(result.info.versionCode)
-                    NotificationHelper.postUpdateAvailableNotification(this@NearExpiryApplication, result.info.versionName)
-                } else {
-                    NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
-                    preferencesManager.setLastNotifiedUpdateVersionCode(0L)
+            runCatching {
+                val now = System.currentTimeMillis()
+                val last = preferencesManager.getLastUpdateCheck()
+                if (now - last >= 24 * 60 * 60 * 1000L) {
+                    val result = AppUpdater.check(
+                        currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                        currentVersionName = BuildConfig.VERSION_NAME
+                    )
+                    preferencesManager.setLastUpdateCheck(now)
+                    if (result is AppUpdater.CheckResult.UpdateAvailable) {
+                        preferencesManager.setLastNotifiedUpdateVersionCode(result.info.versionCode)
+                        NotificationHelper.postUpdateAvailableNotification(this@NearExpiryApplication, result.info.versionName)
+                    } else {
+                        NotificationHelper.cancelUpdateAvailableNotification(this@NearExpiryApplication)
+                        preferencesManager.setLastNotifiedUpdateVersionCode(0L)
+                    }
                 }
             }
         }

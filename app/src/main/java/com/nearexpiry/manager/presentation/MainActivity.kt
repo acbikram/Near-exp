@@ -158,8 +158,14 @@ class MainActivity : AppCompatActivity() {
      */
     private fun ensureBatteryOptimizationExempt() {
         if (batteryOptDismissedThisSession) return
-        val pm = getSystemService(android.os.PowerManager::class.java)
-        val exempt = pm?.isIgnoringBatteryOptimizations(packageName) ?: true
+        // Some Honor/Huawei Android 10–12 builds throw from PowerManager while
+        // evaluating this optional OEM battery setting. It must never prevent
+        // the Home screen from opening; a later Settings visit can still show
+        // the guidance where the device supports it.
+        val exempt = runCatching {
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            pm?.isIgnoringBatteryOptimizations(packageName) ?: true
+        }.getOrDefault(true)
         showBatteryOptDialog.value = !exempt
     }
 
