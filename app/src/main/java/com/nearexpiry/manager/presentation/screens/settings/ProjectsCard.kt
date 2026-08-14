@@ -218,10 +218,11 @@ private fun ProjectRow(
                         Icon(Icons.Default.Check, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(16.dp))
                     }
                 }
-                val summaryText = if (summary.nearestExpiry != null) {
-                    stringResource(R.string.project_summary_format, summary.itemCount, summary.nearestExpiry)
-                } else {
-                    stringResource(R.string.project_summary_no_expiry_format, summary.itemCount)
+                val isStockProject = summary.project.isStockMode || summary.project.name.contains("stock", ignoreCase = true)
+                val summaryText = when {
+                    isStockProject -> "Stock Check • ${summary.itemCount} item${if (summary.itemCount == 1) "" else "s"}"
+                    summary.nearestExpiry != null -> stringResource(R.string.project_summary_format, summary.itemCount, summary.nearestExpiry)
+                    else -> stringResource(R.string.project_summary_no_expiry_format, summary.itemCount)
                 }
                 Text(summaryText, style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray))
             }

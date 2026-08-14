@@ -98,10 +98,11 @@ class SettingsViewModel @Inject constructor(
                     val today = LocalDate.now()
                     val summaries = projects.map { project ->
                         val items = repository.getItemsOnce(project.id)
+                        val isStockProject = project.isStockMode || project.name.contains("stock", ignoreCase = true)
                         ProjectSummary(
                             project = project,
                             itemCount = items.size,
-                            nearestExpiry = nearestExpiry(items, today)
+                            nearestExpiry = if (isStockProject) null else nearestExpiry(items, today)
                         )
                     }
                     _uiState.update { it.copy(projects = summaries, activeProjectId = activeId) }
