@@ -10,7 +10,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.await
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
@@ -20,6 +19,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.first
 
 /**
  * Result of one diagnostic/production notification-check run, for the
@@ -128,8 +128,8 @@ class ExpiryNotificationWorker @AssistedInject constructor(
          */
         suspend fun ensureScheduled(context: Context) {
             val infos = WorkManager.getInstance(context)
-                .getWorkInfosForUniqueWork(WORK_NAME)
-                .await()
+                .getWorkInfosForUniqueWorkFlow(WORK_NAME)
+                .first()
             val alive = infos.any { !it.state.isFinished }
             if (!alive) schedule(context)
         }

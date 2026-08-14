@@ -1,12 +1,16 @@
 package com.nearexpiry.manager.notifications
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.presentation.MainActivity
@@ -62,7 +66,7 @@ object NotificationHelper {
             builder.addAction(snoozeItemAction(context, item.id, daysLeft))
         }
 
-        NotificationManagerCompat.from(context).notify(notifId(item.id, daysLeft), builder.build())
+        notifyIfPermitted(context, notifId(item.id, daysLeft), builder.build())
     }
 
     /** Prefixes a notification title with the project name when present. */
@@ -117,7 +121,7 @@ object NotificationHelper {
             context.getString(R.string.ignore),
             ignorePi
         )
-        NotificationManagerCompat.from(context).notify(800_000, builder.build())
+        notifyIfPermitted(context, 800_000, builder.build())
     }
 
     /**
@@ -129,6 +133,26 @@ object NotificationHelper {
      */
     fun cancelUpdateAvailableNotification(context: Context) {
         NotificationManagerCompat.from(context).cancel(800_000)
+    }
+
+    /**
+     * Android 13+ can deny POST_NOTIFICATIONS at runtime. Keep the permission
+     * check immediately adjacent to notify() so both lint and runtime behavior
+     * prevent a rejected-permission notification call.
+     */
+    fun notifyIfPermitted(
+        context: Context,
+        notificationId: Int,
+        notification: android.app.Notification
+    ) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

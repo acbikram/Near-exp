@@ -78,7 +78,7 @@ fun ScannerView(
     )
 }
 
-@OptIn(ExperimentalGetImage::class)
+@androidx.annotation.OptIn(markerClass = [ExperimentalGetImage::class])
 private fun processImageProxy(
     scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
     imageProxy: ImageProxy,

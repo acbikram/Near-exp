@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -52,15 +51,20 @@ class UpdateDownloadWorker(
                 if (percent != lastNotifiedPercent) {
                     lastNotifiedPercent = percent
                     setProgressAsync(workDataOf(KEY_PROGRESS_PERCENT to percent))
-                    NotificationManagerCompat.from(applicationContext)
-                        .notify(PROGRESS_NOTIF_ID, progressNotification(percent))
+                    NotificationHelper.notifyIfPermitted(
+                        applicationContext,
+                        PROGRESS_NOTIF_ID,
+                        progressNotification(percent)
+                    )
                 }
             }
-            NotificationManagerCompat.from(applicationContext).cancel(PROGRESS_NOTIF_ID)
+            applicationContext.getSystemService(android.app.NotificationManager::class.java)
+                .cancel(PROGRESS_NOTIF_ID)
             postCompleteNotification(versionName)
             Result.success(workDataOf(KEY_VERSION_NAME to versionName))
         } catch (e: Exception) {
-            NotificationManagerCompat.from(applicationContext).cancel(PROGRESS_NOTIF_ID)
+            applicationContext.getSystemService(android.app.NotificationManager::class.java)
+                .cancel(PROGRESS_NOTIF_ID)
             postErrorNotification(e.message ?: "Download failed")
             Result.failure(workDataOf(KEY_ERROR to (e.message ?: "Download failed")))
         }
@@ -104,7 +108,7 @@ class UpdateDownloadWorker(
             .addAction(R.drawable.ic_launcher_foreground, applicationContext.getString(R.string.install_update), installPi)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify(COMPLETE_NOTIF_ID, notification)
+        NotificationHelper.notifyIfPermitted(applicationContext, COMPLETE_NOTIF_ID, notification)
     }
 
     private fun postErrorNotification(message: String) {
@@ -115,7 +119,7 @@ class UpdateDownloadWorker(
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify(COMPLETE_NOTIF_ID, notification)
+        NotificationHelper.notifyIfPermitted(applicationContext, COMPLETE_NOTIF_ID, notification)
     }
 
     companion object {
