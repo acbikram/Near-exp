@@ -19,11 +19,10 @@ import com.nearexpiry.manager.utils.AppUpdater
 /**
  * Downloads an app-update APK in the background, with a visible progress
  * notification, so it keeps going even if the user leaves the Settings
- * screen or backgrounds the app entirely. On success, replaces the progress
- * notification with a "Download complete — tap to install" one; tapping it
- * launches the system installer directly via [UpdateInstallReceiver], with no
- * need to reopen the app. Does NOT auto-install — the user always taps
- * either the notification or the in-app "Install Now" button.
+ * screen or backgrounds the app entirely. When a user requested an update,
+ * success immediately opens Android's package installer for the downloaded APK.
+ * Android remains responsible for its mandatory installation confirmation and
+ * any first-time "allow from this source" permission step.
  *
  * Not a HiltWorker — only needs a Context (AppUpdater/NotificationHelper are
  * plain objects), so the default WorkerFactory can build it, same as
@@ -60,7 +59,13 @@ class UpdateDownloadWorker(
             }
             applicationContext.getSystemService(android.app.NotificationManager::class.java)
                 .cancel(PROGRESS_NOTIF_ID)
-            postCompleteNotification(versionName)
+            val file = AppUpdater.downloadedApk(applicationContext, versionName)
+                ?: throw IllegalStateException("Downloaded update APK was not found")
+            if (inputData.getBoolean(KEY_AUTO_INSTALL, true)) {
+                AppUpdater.install(applicationContext, file)
+            } else {
+                postCompleteNotification(versionName)
+            }
             Result.success(workDataOf(KEY_VERSION_NAME to versionName))
         } catch (e: Exception) {
             applicationContext.getSystemService(android.app.NotificationManager::class.java)
@@ -128,17 +133,24 @@ class UpdateDownloadWorker(
         const val KEY_VERSION_NAME = "version_name"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
         const val KEY_ERROR = "error"
+        const val KEY_AUTO_INSTALL = "auto_install"
         private const val PROGRESS_NOTIF_ID = 802_100
         private const val COMPLETE_NOTIF_ID = 802_200
 
         /** Enqueues the background download. Replaces any prior attempt for a
          *  different version; a same-version retry just re-attaches. */
-        fun enqueue(context: Context, apkUrl: String, versionName: String) {
+        fun enqueue(
+            context: Context,
+            apkUrl: String,
+            versionName: String,
+            autoInstall: Boolean = true
+        ) {
             val request = OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
                 .setInputData(
                     Data.Builder()
                         .putString(KEY_APK_URL, apkUrl)
                         .putString(KEY_VERSION_NAME, versionName)
+                        .putBoolean(KEY_AUTO_INSTALL, autoInstall)
                         .build()
                 )
                 .build()

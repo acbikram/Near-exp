@@ -263,27 +263,17 @@ fun SettingsScreen(
                                     )
                                 }
                                 Spacer(Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        when (uiState.updateState) {
-                                            SettingsViewModel.UpdateState.DOWNLOADED -> viewModel.installUpdate()
-                                            SettingsViewModel.UpdateState.AVAILABLE -> viewModel.downloadUpdate()
-                                            else -> {}
-                                        }
+                                Text(
+                                    text = when (uiState.updateState) {
+                                        SettingsViewModel.UpdateState.DOWNLOADING ->
+                                            "The installer will open automatically when the download finishes."
+                                        SettingsViewModel.UpdateState.DOWNLOADED ->
+                                            "Download complete. Opening the Android installer…"
+                                        else -> "Preparing the update download…"
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.DOWNLOADING
-                                ) {
-                                    Text(
-                                        when (uiState.updateState) {
-                                            SettingsViewModel.UpdateState.DOWNLOADING ->
-                                                stringResource(R.string.downloading_percent_format, uiState.updateProgressPercent)
-                                            SettingsViewModel.UpdateState.DOWNLOADED ->
-                                                stringResource(R.string.install_update)
-                                            else -> stringResource(R.string.update_now)
-                                        }
-                                    )
-                                }
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SubtleGray
+                                )
                             }
                             else -> {
                                 Button(

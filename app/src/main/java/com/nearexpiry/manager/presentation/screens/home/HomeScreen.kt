@@ -129,6 +129,13 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                     onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_TODAY&sort=EXPIRY_DATE") }
                 )
+                ClickableStatCard(
+                    label = "Total Items",
+                    value = uiState.totalRecords,
+                    accentColor = CyanAccent,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE") }
+                )
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -148,6 +155,13 @@ fun HomeScreen(
                     accentColor = Color(0xFF42A5F5),
                     modifier = Modifier.weight(1f),
                     onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE") }
+                )
+                ClickableStatCard(
+                    label = "Total Quantity",
+                    value = uiState.totalQuantity,
+                    accentColor = GreenAccent,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") }
                 )
             }
 

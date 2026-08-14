@@ -178,7 +178,8 @@ class SettingsViewModel @Inject constructor(
     // ── App update (GitHub Releases) ───────────────────────────────────────
 
     /** Whether a check is currently meaningful (not mid-download/install). */
-    fun checkForUpdate(autoStartDownload: Boolean = false) {
+    /** Checks for a newer release and starts download/install immediately when one is found. */
+    fun checkForUpdate(autoStartDownload: Boolean = true) {
         _uiState.update { it.copy(updateState = UpdateState.CHECKING, updateError = "") }
         viewModelScope.launch {
             when (val r = AppUpdater.check(
@@ -200,8 +201,12 @@ class SettingsViewModel @Inject constructor(
                     }
                     preferencesManager.setLastNotifiedUpdateVersionCode(r.info.versionCode)
                     NotificationHelper.postUpdateAvailableNotification(appContext, r.info.versionName)
-                    // Coming from the notification's "Update Now": start at once.
-                    if (autoStartDownload && !already) downloadUpdate()
+                    // A user-initiated check should proceed without a second in-app
+                    // confirmation: download straight away, then open Android's package
+                    // installer as soon as the signed APK is ready.
+                    if (autoStartDownload) {
+                        if (already) installUpdate() else downloadUpdate()
+                    }
                 }
                 AppUpdater.CheckResult.UpToDate -> {
                     com.nearexpiry.manager.notifications.NotificationHelper.cancelUpdateAvailableNotification(appContext)
@@ -220,25 +225,32 @@ class SettingsViewModel @Inject constructor(
     /**
      * Starts the update download as a background job (WorkManager, with a
      * visible progress notification) so it keeps going even if the user
-     * leaves Settings or backgrounds the app. Does NOT auto-install when
-     * done — the state becomes DOWNLOADED and the user taps "Install Now"
-     * (in-app or from the notification).
+     * leaves Settings or backgrounds the app. Once the APK completes, the
+     * worker immediately opens Android's package installer. Android itself
+     * still requires the user to approve the installation; a sideloaded app
+     * cannot silently install an APK.
      */
     fun downloadUpdate() {
         val url = _uiState.value.updateApkUrl
         val version = _uiState.value.updateVersionName
         if (url.isBlank() || version.isBlank()) return
 
-        // Already downloaded → nothing to do, straight to DOWNLOADED state.
+        // Reuse a completed APK and immediately hand it to the system installer.
         if (AppUpdater.downloadedApk(appContext, version) != null) {
             _uiState.update {
                 it.copy(updateState = UpdateState.DOWNLOADED, updateProgress = 1f, updateProgressPercent = 100)
             }
+            installUpdate()
             return
         }
 
         _uiState.update { it.copy(updateState = UpdateState.DOWNLOADING, updateProgress = 0f, updateProgressPercent = 0) }
-        com.nearexpiry.manager.notifications.UpdateDownloadWorker.enqueue(appContext, url, version)
+        com.nearexpiry.manager.notifications.UpdateDownloadWorker.enqueue(
+            context = appContext,
+            apkUrl = url,
+            versionName = version,
+            autoInstall = true
+        )
     }
 
     /** Watches the background download's WorkInfo and mirrors it into the UI
@@ -302,7 +314,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Launches the installer for the already-downloaded APK (no re-download). */
+    /** Launches the Android system installer for the already-downloaded APK (no re-download). */
     fun installUpdate() {
         val version = _uiState.value.updateVersionName
         val file = AppUpdater.downloadedApk(appContext, version)
