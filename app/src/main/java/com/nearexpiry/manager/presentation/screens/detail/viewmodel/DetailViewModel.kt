@@ -33,6 +33,8 @@ class DetailViewModel @Inject constructor(
         val projectName: String = "",
         val isStockMode: Boolean = false,
         val expiryDate: String = "",
+        /** Editable UOM / Unit Type for this item; blank clears a previously set unit. */
+        val unitText: String = "",
         /** Raw text shown in the quantity field, kept separate from the validated value. */
         val quantityText: String = "0",
         /** Non-null while [quantityText] is not a valid 1..99999 quantity; blocks saving. */
@@ -71,6 +73,7 @@ class DetailViewModel @Inject constructor(
                         projectName = projectName,
                         isStockMode = isStockMode,
                         expiryDate = item?.expiryDate ?: "",
+                        unitText = item?.unit.orEmpty(),
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },
                         quantityError = null,
                         isLoading = false,
@@ -110,6 +113,12 @@ class DetailViewModel @Inject constructor(
      * during scanning. Saving is blocked while [DetailUiState.quantityError]
      * is non-null.
      */
+    fun updateUnit(rawText: String) {
+        // Units are short labels such as PCS, CTN, KG, or OFR. Preserve the
+        // entered casing while preventing an accidental unbounded value.
+        _uiState.update { it.copy(unitText = rawText.take(30)) }
+    }
+
     fun updateQuantity(rawText: String) {
         // Allow digits and at most one decimal point
         if (rawText.count { char -> char == '.' } > 1 || !rawText.all { char -> char.isDigit() || char == '.' }) {
@@ -144,6 +153,7 @@ class DetailViewModel @Inject constructor(
                 val updatedItem = current.item?.copy(
                     expiryDate = current.expiryDate,
                     quantity = quantity,
+                    unit = current.unitText.trim().takeIf { it.isNotEmpty() },
                     updatedAt = System.currentTimeMillis()
                 ) ?: return@launch
                 repository.updateItem(updatedItem.toEntity())

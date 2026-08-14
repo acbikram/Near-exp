@@ -467,8 +467,10 @@ fun ScanScreen(
             expiryDate = uiState.editExpiryDate,
             showExpiry = !uiState.isStockMode,
             quantity = uiState.editQuantity,
+            unit = uiState.editUnit,
             onExpiryDateChange = { viewModel.updateEditExpiryDate(it) },
             onQuantityChange = { viewModel.updateEditQuantity(it) },
+            onUnitChange = viewModel::updateEditUnit,
             onConfirm = { viewModel.confirmEdit() },
             onDismiss = { viewModel.dismissEditDialog() }
         )
@@ -530,6 +532,20 @@ private fun ManualBarcodeInputBox(
         }
     }
 
+    // This Text is intentionally rendered independently from Material's
+    // internal text painter. Certain OEM Compose/IME combinations accept the
+    // input but fail to draw that painter; the overlay guarantees the exact
+    // typed barcode remains visible in Manual Mode.
+    val visibleBarcodeTextStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = Color.White,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        lineHeight = 32.sp,
+        textDirection = TextDirection.Ltr
+    )
+
     Box(
         modifier = modifier
             .background(Color(0xFF0D0D0D))
@@ -553,50 +569,53 @@ private fun ManualBarcodeInputBox(
                     containerColor = Color(0xFF651818)
                 )
             }
-            OutlinedTextField(
-                value = barcodeText,
-                onValueChange = { rawInput ->
-                    // Do not transform the value while the IME owns a
-                    // composing region. This keeps every typed digit visible
-                    // on keyboards that use OEM-specific composition logic.
-                    barcodeText = rawInput
-                    error = null
-                },
-                label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
-                singleLine = true,
-                isError = error != null,
-                supportingText = { error?.let { Text(it, color = ErrorRed) } },
-                // Explicit typography and colors keep entered digits visible
-                // on devices with manufacturer-specific text-field styling.
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    lineHeight = 32.sp,
-                    textDirection = TextDirection.Ltr
-                ),
-                keyboardOptions = KeyboardOptions(
-                    // Use a digit pad; normalization at submission accepts
-                    // standard and Arabic-Indic digits without disrupting the
-                    // IME's visible composing text while the user types.
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { handleDone() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor  = CyanAccent,
-                    unfocusedBorderColor = SubtleGray,
-                    focusedTextColor    = Color.White,
-                    unfocusedTextColor  = Color.White,
-                    cursorColor         = CyanAccent
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 72.dp)
-                    .focusRequester(focusRequester)
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = barcodeText,
+                    onValueChange = { rawInput ->
+                        // Do not transform the value while the IME owns a
+                        // composing region. This keeps every typed digit visible
+                        // on keyboards that use OEM-specific composition logic.
+                        barcodeText = rawInput
+                        error = null
+                    },
+                    label = { Text(stringResource(R.string.barcode_label), color = SubtleGray) },
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = { error?.let { Text(it, color = ErrorRed) } },
+                    // The platform field stays fully active for focus, cursor,
+                    // selection and IME behavior. Its OEM-dependent glyph layer
+                    // is transparent because the explicit Text below is the
+                    // stable, high-contrast visual source of the barcode.
+                    textStyle = visibleBarcodeTextStyle.copy(color = Color.Transparent),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { handleDone() }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyanAccent,
+                        unfocusedBorderColor = SubtleGray,
+                        focusedTextColor = Color.Transparent,
+                        unfocusedTextColor = Color.Transparent,
+                        cursorColor = CyanAccent
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 72.dp)
+                        .focusRequester(focusRequester)
+                )
+                if (barcodeText.isNotEmpty()) {
+                    Text(
+                        text = barcodeText,
+                        style = visibleBarcodeTextStyle,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 16.dp, end = 16.dp)
+                    )
+                }
+            }
             // Search the catalog by product name/POS code when a barcode won't scan.
             TextButton(onClick = {
                 keyboardController?.hide()
@@ -744,8 +763,10 @@ private fun EditScanItemDialog(
     expiryDate: String,
     showExpiry: Boolean = true,
     quantity: Double,
+    unit: String,
     onExpiryDateChange: (String) -> Unit,
     onQuantityChange: (Double) -> Unit,
+    onUnitChange: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -780,6 +801,14 @@ private fun EditScanItemDialog(
                     label = { Text(stringResource(R.string.quantity_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = onUnitChange,
+                    label = { Text("UOM / Unit Type") },
+                    supportingText = { Text("Examples: PCS, CTN, KG, OFR") },
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
             }

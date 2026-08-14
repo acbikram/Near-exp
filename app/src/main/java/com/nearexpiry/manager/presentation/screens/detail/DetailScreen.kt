@@ -38,6 +38,7 @@ fun DetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var editingQuantity by remember { mutableStateOf(false) }
     var editingExpiry by remember { mutableStateOf(false) }
+    var editingUnit by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -180,6 +181,17 @@ fun DetailScreen(
                             enabled = !uiState.isSaving
                         )
                     }
+                    if (editingUnit) {
+                        OutlinedTextField(
+                            value = uiState.unitText,
+                            onValueChange = viewModel::updateUnit,
+                            label = { Text("UOM / Unit Type") },
+                            supportingText = { Text("Examples: PCS, CTN, KG, OFR") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = !uiState.isSaving
+                        )
+                    }
                     Button(
                         onClick = { viewModel.saveChanges() },
                         modifier = Modifier.fillMaxWidth(),
@@ -195,15 +207,24 @@ fun DetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(onClick = { editingQuantity = !editingQuantity }, modifier = if (uiState.isStockMode) Modifier.fillMaxWidth() else Modifier.weight(1f), enabled = !uiState.isSaving) {
-                            Text("Edit Quantity")
-                        }
+                        OutlinedButton(
+                            onClick = { editingQuantity = !editingQuantity },
+                            modifier = Modifier.weight(1f),
+                            enabled = !uiState.isSaving
+                        ) { Text("Edit Quantity") }
                         if (!uiState.isStockMode) {
-                            OutlinedButton(onClick = { editingExpiry = !editingExpiry }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
-                                Text("Change Expiry")
-                            }
+                            OutlinedButton(
+                                onClick = { editingExpiry = !editingExpiry },
+                                modifier = Modifier.weight(1f),
+                                enabled = !uiState.isSaving
+                            ) { Text("Change Expiry") }
                         }
                     }
+                    OutlinedButton(
+                        onClick = { editingUnit = !editingUnit },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isSaving
+                    ) { Text("Edit UOM / Unit Type") }
                     Button(
                         onClick = viewModel::requestMove,
                         modifier = Modifier.fillMaxWidth(),

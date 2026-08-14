@@ -101,6 +101,8 @@ class ScanViewModel @Inject constructor(
         val editProductNameArabic: String? = null,
         val editExpiryDate: String = "",
         val editQuantity: Double = 1.0,
+        /** Editable UOM / Unit Type for the selected recent-scan item. */
+        val editUnit: String = "",
         // Delete confirm dialog state
         val showDeleteConfirmDialog: Boolean = false,
         val deleteItemId: Long = 0,
@@ -818,7 +820,8 @@ class ScanViewModel @Inject constructor(
                 editProductName = item.productName,
                 editProductNameArabic = item.productNameArabic,
                 editExpiryDate = item.expiryDate,
-                editQuantity = item.quantity
+                editQuantity = item.quantity,
+                editUnit = item.unit.orEmpty()
             )
         }
     }
@@ -831,6 +834,12 @@ class ScanViewModel @Inject constructor(
         _uiState.update { it.copy(editQuantity = qty) }
     }
 
+    fun updateEditUnit(value: String) {
+        // UOM is a short display label (PCS, CTN, KG, etc.). Keep its user
+        // input separate from the catalog and cap it to a practical length.
+        _uiState.update { it.copy(editUnit = value.take(30)) }
+    }
+
     fun confirmEdit() {
         viewModelScope.launch {
             val state = _uiState.value
@@ -838,6 +847,7 @@ class ScanViewModel @Inject constructor(
             val updated = existing.copy(
                 expiryDate = state.editExpiryDate,
                 quantity = state.editQuantity,
+                unit = state.editUnit.trim().takeIf { it.isNotEmpty() },
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateItem(updated.toEntity())
