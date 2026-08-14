@@ -3,3 +3,7 @@
 *.jks
 *.keystore
 release.jks
+
+# Local Gradle and Android SDK state
+.gradle/
+local.properties

@@ -14,8 +14,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 38
-        versionName = "2.27"
+        versionCode = 39
+        versionName = "2.28"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -76,9 +76,10 @@ android {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
 
-    // Disable lint abort on error for debug builds only (to allow experimental APIs)
+    // The CI quality job runs lintDebug before any release build. Fail on
+    // lint errors so defects cannot silently pass into a published APK.
     lint {
-        abortOnError = false
+        abortOnError = true
         checkReleaseBuilds = false
     }
 }
