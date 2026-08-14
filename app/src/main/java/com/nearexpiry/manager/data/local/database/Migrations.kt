@@ -4,6 +4,106 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
+ * Room migrations run in a transaction, so a normal upgrade is atomic. These
+ * helpers are deliberately limited to the migration-repair step below: they
+ * make additive repairs safe for databases left in an inconsistent state by a
+ * legacy pre-release build, a device-level restore, or interrupted external
+ * file handling. Table names are internal constants, never user input.
+ */
+private fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean =
+    db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '$table'").use {
+        it.moveToFirst()
+    }
+
+private fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
+    db.query("PRAGMA table_info(`$table`)").use { cursor ->
+        val nameIndex = cursor.getColumnIndex("name")
+        while (cursor.moveToNext()) {
+            if (cursor.getString(nameIndex) == column) return@use true
+        }
+        false
+    }
+
+private fun addColumnIfMissing(
+    db: SupportSQLiteDatabase,
+    table: String,
+    column: String,
+    definition: String
+) {
+    if (!columnExists(db, table, column)) {
+        db.execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $definition")
+    }
+}
+
+/**
+ * SQLite cannot add or change a DEFAULT constraint in place. Rebuild the two
+ * affected tables inside Room's migration transaction so version-10 databases
+ * produced by different historical paths converge on one validated schema.
+ * Every persisted row is copied before the original table is replaced.
+ */
+private fun normalizeExpiryItemsSchema(db: SupportSQLiteDatabase) {
+    db.execSQL("DROP TABLE IF EXISTS `expiry_items_repaired`")
+    db.execSQL(
+        """
+        CREATE TABLE `expiry_items_repaired` (
+            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            `barcode` TEXT NOT NULL,
+            `expiryDate` TEXT NOT NULL,
+            `quantity` REAL NOT NULL,
+            `createdAt` INTEGER NOT NULL,
+            `updatedAt` INTEGER NOT NULL,
+            `productName` TEXT,
+            `productNameArabic` TEXT,
+            `unit` TEXT,
+            `itemCode` TEXT,
+            `projectId` INTEGER NOT NULL DEFAULT 1,
+            `displayOrder` INTEGER
+        )
+        """.trimIndent()
+    )
+    db.execSQL(
+        """
+        INSERT INTO `expiry_items_repaired`
+            (`id`, `barcode`, `expiryDate`, `quantity`, `createdAt`, `updatedAt`,
+             `productName`, `productNameArabic`, `unit`, `itemCode`, `projectId`, `displayOrder`)
+        SELECT `id`, `barcode`, `expiryDate`, `quantity`, `createdAt`, `updatedAt`,
+               `productName`, `productNameArabic`, `unit`, `itemCode`,
+               COALESCE(`projectId`, 1), `displayOrder`
+        FROM `expiry_items`
+        """.trimIndent()
+    )
+    db.execSQL("DROP TABLE `expiry_items`")
+    db.execSQL("ALTER TABLE `expiry_items_repaired` RENAME TO `expiry_items`")
+}
+
+private fun normalizeProjectsSchema(db: SupportSQLiteDatabase) {
+    db.execSQL("DROP TABLE IF EXISTS `projects_repaired`")
+    db.execSQL(
+        """
+        CREATE TABLE `projects_repaired` (
+            `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            `name` TEXT NOT NULL,
+            `colorHex` TEXT NOT NULL,
+            `createdAt` INTEGER NOT NULL,
+            `hasCustomSort` INTEGER NOT NULL DEFAULT 0,
+            `isStockMode` INTEGER NOT NULL DEFAULT 0
+        )
+        """.trimIndent()
+    )
+    db.execSQL(
+        """
+        INSERT INTO `projects_repaired`
+            (`id`, `name`, `colorHex`, `createdAt`, `hasCustomSort`, `isStockMode`)
+        SELECT `id`, `name`, `colorHex`, `createdAt`,
+               COALESCE(`hasCustomSort`, 0), COALESCE(`isStockMode`, 0)
+        FROM `projects`
+        """.trimIndent()
+    )
+    db.execSQL("DROP TABLE `projects`")
+    db.execSQL("ALTER TABLE `projects_repaired` RENAME TO `projects`")
+}
+
+/**
  * Central place for all Room migrations. Add one object per version bump
  * and register it in [ExpiryDatabase.getInstance] via `.addMigrations(...)`.
  *
@@ -206,6 +306,168 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+/**
+ * v10 -> v11: non-destructive repair pass for legacy installations.
+ *
+ * All historical migrations above remain the canonical upgrade path. This
+ * final pass repairs missing additive columns/tables and indexes, then
+ * normalizes SQL defaults that SQLite cannot change in place. Normalization
+ * copies every persisted row inside the Room migration transaction before the
+ * legacy table is replaced. It also recreates project records for orphaned
+ * item project IDs so legacy inventory remains visible rather than failing
+ * project queries.
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        if (!tableExists(db, "expiry_items")) {
+            db.execSQL(
+                """
+                CREATE TABLE `expiry_items` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `barcode` TEXT NOT NULL,
+                    `expiryDate` TEXT NOT NULL,
+                    `quantity` REAL NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `productName` TEXT,
+                    `productNameArabic` TEXT,
+                    `unit` TEXT,
+                    `itemCode` TEXT,
+                    `projectId` INTEGER NOT NULL DEFAULT 1,
+                    `displayOrder` INTEGER
+                )
+                """.trimIndent()
+            )
+        } else {
+            addColumnIfMissing(db, "expiry_items", "productName", "TEXT")
+            addColumnIfMissing(db, "expiry_items", "productNameArabic", "TEXT")
+            addColumnIfMissing(db, "expiry_items", "unit", "TEXT")
+            addColumnIfMissing(db, "expiry_items", "itemCode", "TEXT")
+            addColumnIfMissing(db, "expiry_items", "projectId", "INTEGER NOT NULL DEFAULT 1")
+            addColumnIfMissing(db, "expiry_items", "displayOrder", "INTEGER")
+            normalizeExpiryItemsSchema(db)
+        }
+
+        if (!tableExists(db, "custom_products")) {
+            db.execSQL(
+                """
+                CREATE TABLE `custom_products` (
+                    `barcode` TEXT NOT NULL PRIMARY KEY,
+                    `nameEn` TEXT,
+                    `nameAr` TEXT,
+                    `unit` TEXT,
+                    `itemCode` TEXT
+                )
+                """.trimIndent()
+            )
+        } else {
+            addColumnIfMissing(db, "custom_products", "itemCode", "TEXT")
+        }
+
+        if (!tableExists(db, "projects")) {
+            db.execSQL(
+                """
+                CREATE TABLE `projects` (
+                    `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    `name` TEXT NOT NULL,
+                    `colorHex` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `hasCustomSort` INTEGER NOT NULL DEFAULT 0,
+                    `isStockMode` INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent()
+            )
+        } else {
+            addColumnIfMissing(db, "projects", "hasCustomSort", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(db, "projects", "isStockMode", "INTEGER NOT NULL DEFAULT 0")
+            normalizeProjectsSchema(db)
+        }
+
+        if (!tableExists(db, "recycle_bin")) {
+            db.execSQL(
+                """
+                CREATE TABLE `recycle_bin` (
+                    `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    `originalId` INTEGER NOT NULL,
+                    `barcode` TEXT NOT NULL,
+                    `expiryDate` TEXT NOT NULL,
+                    `quantity` REAL NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `productName` TEXT,
+                    `productNameArabic` TEXT,
+                    `unit` TEXT,
+                    `itemCode` TEXT,
+                    `projectId` INTEGER NOT NULL,
+                    `projectName` TEXT NOT NULL,
+                    `deletedAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_expiry_items_barcode_expiryDate` " +
+                "ON `expiry_items` (`barcode`, `expiryDate`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_expiry_items_projectId` " +
+                "ON `expiry_items` (`projectId`)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recycle_bin_deletedAt` ON `recycle_bin` (`deletedAt`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recycle_bin_originalId` ON `recycle_bin` (`originalId`)")
+
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO `projects`
+                (`id`, `name`, `colorHex`, `createdAt`, `hasCustomSort`, `isStockMode`)
+            VALUES (1, 'Project 1', '#26C6DA', ?, 0, 0)
+            """.trimIndent(),
+            arrayOf<Any>(now)
+        )
+        db.execSQL("UPDATE `expiry_items` SET `projectId` = 1 WHERE `projectId` IS NULL")
+        // Preserve items whose project rows were lost instead of silently
+        // redirecting them to Project 1 or making them disappear from Home.
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO `projects`
+                (`id`, `name`, `colorHex`, `createdAt`, `hasCustomSort`, `isStockMode`)
+            SELECT DISTINCT `expiry_items`.`projectId`,
+                'Recovered Project ' || `expiry_items`.`projectId`,
+                '#26C6DA', ?, 0, 0
+            FROM `expiry_items`
+            LEFT JOIN `projects` ON `projects`.`id` = `expiry_items`.`projectId`
+            WHERE `projects`.`id` IS NULL
+            """.trimIndent(),
+            arrayOf<Any>(now)
+        )
+        // v9->v10 originally latched only names containing "stock". Include
+        // existing Recheck projects so their Stock Mode survives a later rename.
+        db.execSQL(
+            """
+            UPDATE `projects`
+            SET `isStockMode` = 1
+            WHERE `isStockMode` = 0
+              AND (LOWER(`name`) LIKE '%stock%' OR LOWER(`name`) LIKE '%recheck%')
+              AND EXISTS (
+                  SELECT 1 FROM `expiry_items`
+                  WHERE `expiry_items`.`projectId` = `projects`.`id`
+              )
+            """.trimIndent()
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
-    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+    MIGRATION_1_2,
+    MIGRATION_2_3,
+    MIGRATION_3_4,
+    MIGRATION_4_5,
+    MIGRATION_5_6,
+    MIGRATION_6_7,
+    MIGRATION_7_8,
+    MIGRATION_8_9,
+    MIGRATION_9_10,
+    MIGRATION_10_11
 )

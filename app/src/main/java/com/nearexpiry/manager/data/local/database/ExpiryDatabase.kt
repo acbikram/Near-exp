@@ -18,7 +18,7 @@ import com.nearexpiry.manager.data.local.typeconverter.Converters
 
 @Database(
     entities = [ExpiryItemEntity::class, CustomProductEntity::class, ProjectEntity::class, RecycleBinEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
