@@ -20,6 +20,7 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.MergeMode
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
+import com.nearexpiry.manager.utils.QuantityFormatter
 
 /**
  * Shown when a scan/manual entry matches an existing item (same POS code +
@@ -35,9 +36,7 @@ fun DuplicateItemDialog(
     onDismiss: () -> Unit,
     productName: String? = null
 ) {
-    val formatQty: (Double) -> String = { qty ->
-        if (qty % 1.0 == 0.0) qty.toInt().toString() else qty.toString()
-    }
+    val formatQty: (Double) -> String = QuantityFormatter::format
 
     AlertDialog(
         onDismissRequest = onDismiss,

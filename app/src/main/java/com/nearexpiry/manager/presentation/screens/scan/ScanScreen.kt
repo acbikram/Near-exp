@@ -63,6 +63,7 @@ import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.utils.LanguageManager
+import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDateTime
@@ -444,6 +445,7 @@ fun ScanScreen(
             onAddQty = { id -> viewModel.existingChooseQtyAction(id, addMode = true) },
             onReplaceQty = { id -> viewModel.existingChooseQtyAction(id, addMode = false) },
             onAddNewDate = { viewModel.existingAddNewDate() },
+            showExpiryActions = !uiState.isStockMode,
             onDismiss = { viewModel.dismissExistingItemDialog() }
         )
     }
@@ -703,13 +705,13 @@ private fun RecentScanCard(
                         text = if (item.unit != null)
                             stringResource(
                                 R.string.qty_unit_format,
-                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                                QuantityFormatter.format(item.quantity),
                                 item.unit
                             )
                         else
                             stringResource(
                                 R.string.qty_format,
-                                if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                                QuantityFormatter.format(item.quantity)
                             ),
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
@@ -740,7 +742,7 @@ private fun EditScanItemDialog(
     onDismiss: () -> Unit
 ) {
     var qtyText by remember(quantity) {
-        mutableStateOf(if (quantity % 1.0 == 0.0) quantity.toInt().toString() else quantity.toString())
+        mutableStateOf(QuantityFormatter.format(quantity))
     }
 
     AlertDialog(
@@ -871,7 +873,7 @@ private fun ScanConfirmationCard(
             Spacer(Modifier.height(3.dp))
             Text(
                 text = buildString {
-                    append("Qty ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}${item.unit?.let { " $it" }.orEmpty()}")
+                    append("Qty ${QuantityFormatter.format(item.quantity)}${item.unit?.let { " $it" }.orEmpty()}")
                     if (showExpiry) append("  •  Expiry ${item.expiryDate}")
                 },
                 style = MaterialTheme.typography.bodySmall,

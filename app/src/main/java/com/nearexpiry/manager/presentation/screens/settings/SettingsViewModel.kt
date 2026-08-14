@@ -11,6 +11,7 @@ import com.nearexpiry.manager.utils.AppUpdater
 import com.nearexpiry.manager.notifications.NotificationHelper
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import com.nearexpiry.manager.BuildConfig
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -98,7 +99,7 @@ class SettingsViewModel @Inject constructor(
                     val today = LocalDate.now()
                     val summaries = projects.map { project ->
                         val items = repository.getItemsOnce(project.id)
-                        val isStockProject = project.isStockMode || project.name.contains("stock", ignoreCase = true)
+                        val isStockProject = StockProjectClassifier.isStockProject(project.isStockMode, project.name)
                         ProjectSummary(
                             project = project,
                             itemCount = items.size,

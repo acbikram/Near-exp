@@ -30,6 +30,7 @@ import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
+import com.nearexpiry.manager.utils.QuantityFormatter
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import kotlinx.coroutines.launch
@@ -319,13 +320,13 @@ fun RecentItemCard(
                     text = if (item.unit != null)
                         stringResource(
                             R.string.qty_unit_format,
-                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                            QuantityFormatter.format(item.quantity),
                             item.unit
                         )
                     else
                         stringResource(
                             R.string.qty_format,
-                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                            QuantityFormatter.format(item.quantity)
                         ),
                     style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                 )

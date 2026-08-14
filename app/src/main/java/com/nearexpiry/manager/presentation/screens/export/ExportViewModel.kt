@@ -19,6 +19,7 @@ import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.StockReportExcel
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -160,7 +161,7 @@ class ExportViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             projectName = project?.name ?: "",
-                            isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                            isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                         )
                     }
                 }
@@ -257,6 +258,14 @@ class ExportViewModel @Inject constructor(
         return "${safeName}_${System.currentTimeMillis()}.csv"
     }
 
+    fun buildStockReportFilename(): String {
+        val safeName = _uiState.value.projectName
+            .ifBlank { "Stock Check" }
+            .replace(Regex("[\\\\/:*?\\\"<>|]"), "_")
+            .trim()
+        return "$safeName.xlsx"
+    }
+
     fun shareAsCsv(context: Context) {
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true, error = null, success = false) }
@@ -342,6 +351,44 @@ class ExportViewModel @Inject constructor(
                         reportSummary = "${rows.size} stock items · Recheck on $dateLabel"
                     )
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isExporting = false, error = e.message ?: "Stock export failed") }
+            }
+        }
+    }
+
+    /** Writes the required Recheck workbook directly to the user-selected Save location. */
+    fun exportStockReportToUri(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (!state.isStockMode || state.allItems.isEmpty()) {
+                _uiState.update { it.copy(error = "This Stock project has no items to export.") }
+                return@launch
+            }
+            _uiState.update { it.copy(isExporting = true, error = null, success = false) }
+            try {
+                val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
+                val firstDate = Instant.ofEpochMilli(ordered.first().createdAt)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+                val dateLabel = firstDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                val rows = ordered.map { item ->
+                    val description = item.productName?.takeIf { it.isNotBlank() }
+                        ?: item.productNameArabic?.takeIf { it.isNotBlank() }.orEmpty()
+                    val uom = item.unit?.takeIf { it.isNotBlank() }.orEmpty()
+                    StockReportExcel.Row(
+                        posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode,
+                        description = description,
+                        uom = uom,
+                        quantity = item.quantity,
+                        highlightPosCode = description.isBlank() || uom.isBlank()
+                    )
+                }
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        StockReportExcel.write(output, rows, "Recheck on $dateLabel", dateLabel)
+                    } ?: error("Unable to open the selected export location")
+                }
+                _uiState.update { it.copy(isExporting = false, success = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message ?: "Stock export failed") }
             }

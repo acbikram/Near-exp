@@ -8,6 +8,7 @@ import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +64,7 @@ class DetailViewModel @Inject constructor(
                 }
                 val project = item?.let { projectRepository.getProjectById(it.projectId) }
                 val projectName = project?.name.orEmpty()
-                val isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                val isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                 _uiState.update {
                     it.copy(
                         item = item,

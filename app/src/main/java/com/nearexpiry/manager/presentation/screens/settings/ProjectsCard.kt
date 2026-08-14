@@ -28,6 +28,7 @@ import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
+import com.nearexpiry.manager.utils.StockProjectClassifier
 
 /**
  * The "Projects" section shown in Settings: a selectable list of projects
@@ -218,7 +219,7 @@ private fun ProjectRow(
                         Icon(Icons.Default.Check, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(16.dp))
                     }
                 }
-                val isStockProject = summary.project.isStockMode || summary.project.name.contains("stock", ignoreCase = true)
+                val isStockProject = StockProjectClassifier.isStockProject(summary.project.isStockMode, summary.project.name)
                 val summaryText = when {
                     isStockProject -> "Stock Check • ${summary.itemCount} item${if (summary.itemCount == 1) "" else "s"}"
                     summary.nearestExpiry != null -> stringResource(R.string.project_summary_format, summary.itemCount, summary.nearestExpiry)

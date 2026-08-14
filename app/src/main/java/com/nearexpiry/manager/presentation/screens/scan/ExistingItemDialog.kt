@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.QuantityFormatter
 
 /**
  * Shown when a scanned item already exists in the current project. Lists every
@@ -37,6 +38,8 @@ fun ExistingItemDialog(
     onAddQty: (entryId: Long) -> Unit,
     onReplaceQty: (entryId: Long) -> Unit,
     onAddNewDate: () -> Unit,
+    /** Stock entries share one inventory line and therefore never offer a new expiry date. */
+    showExpiryActions: Boolean = true,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -62,12 +65,16 @@ fun ExistingItemDialog(
                     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                stringResource(
-                                    R.string.existing_entry_line,
-                                    ExpiryDateUtils.toCsvDate(entry.expiryDate),
-                                    formatQty(entry.quantity),
-                                    entry.unit ?: ""
-                                ),
+                                text = if (showExpiryActions) {
+                                    stringResource(
+                                        R.string.existing_entry_line,
+                                        ExpiryDateUtils.toCsvDate(entry.expiryDate),
+                                        QuantityFormatter.format(entry.quantity),
+                                        entry.unit ?: ""
+                                    )
+                                } else {
+                                    "Current quantity: ${QuantityFormatter.format(entry.quantity)}${entry.unit?.let { " $it" }.orEmpty()}"
+                                },
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(Modifier.height(8.dp))
@@ -85,8 +92,10 @@ fun ExistingItemDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onAddNewDate) {
-                Text(stringResource(R.string.add_new_expiry_date))
+            if (showExpiryActions) {
+                TextButton(onClick = onAddNewDate) {
+                    Text(stringResource(R.string.add_new_expiry_date))
+                }
             }
         },
         dismissButton = {
@@ -96,6 +105,3 @@ fun ExistingItemDialog(
         }
     )
 }
-
-private fun formatQty(q: Double): String =
-    if (q == q.toLong().toDouble()) q.toLong().toString() else q.toString()

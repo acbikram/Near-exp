@@ -10,6 +10,7 @@ import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.model.ProjectRestoreBundle
 import com.nearexpiry.manager.domain.model.ProjectRestoreMergeResult
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -253,7 +254,7 @@ class ProjectRepositoryImpl @Inject constructor(
     /** Latches Stock Mode once a project name contains "stock" and it has inventory. */
     private suspend fun latchStockModeIfEligible(projectId: Long) {
         val project = projectDao.getProjectById(projectId) ?: return
-        if (project.isStockMode || !project.name.contains("stock", ignoreCase = true)) return
+        if (project.isStockMode || !StockProjectClassifier.hasStockKeyword(project.name)) return
         if (itemDao.getAllItemsOnce(projectId).isNotEmpty()) {
             projectDao.update(project.copy(isStockMode = true))
         }

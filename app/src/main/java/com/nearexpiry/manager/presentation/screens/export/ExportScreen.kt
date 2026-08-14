@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.clickable
 import com.nearexpiry.manager.utils.CompanyReportBuilder
+import com.nearexpiry.manager.utils.QuantityFormatter
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,13 +58,19 @@ fun ExportScreen(
     val shareCsvLabel = stringResource(R.string.share_csv)
 
     val itemsToExport = uiState.itemsToExport
-    val canExport = !uiState.isExporting && itemsToExport.isNotEmpty()
+    val canExport = !uiState.isExporting && if (uiState.isStockMode) uiState.allItems.isNotEmpty() else itemsToExport.isNotEmpty()
 
+    val saveMimeType = if (uiState.isStockMode) {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    } else {
+        "text/csv"
+    }
     val saveLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
+        contract = ActivityResultContracts.CreateDocument(saveMimeType)
     ) { uri ->
         if (uri != null) {
-            viewModel.exportToUri(context, uri)
+            if (uiState.isStockMode) viewModel.exportStockReportToUri(context, uri)
+            else viewModel.exportToUri(context, uri)
         }
     }
 
@@ -193,24 +200,32 @@ fun ExportScreen(
                 item {
                     Spacer(Modifier.height(4.dp))
                     Button(
-                        onClick = { saveLauncher.launch(viewModel.buildCsvFilename()) },
+                        onClick = {
+                            saveLauncher.launch(
+                                if (uiState.isStockMode) viewModel.buildStockReportFilename()
+                                else viewModel.buildCsvFilename()
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = canExport
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.save_csv))
+                        Text(if (uiState.isStockMode) "Save Stock Check Excel" else stringResource(R.string.save_csv))
                     }
                 }
                 item {
                     Button(
-                        onClick = { viewModel.shareAsCsv(context) },
+                        onClick = {
+                            if (uiState.isStockMode) viewModel.generateStockReport(context)
+                            else viewModel.shareAsCsv(context)
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = canExport
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.share_csv))
+                        Text(if (uiState.isStockMode) "Share Stock Check Excel" else stringResource(R.string.share_csv))
                     }
                 }
                 item {
@@ -665,7 +680,7 @@ private fun SelectableExportItemRow(
                     Text(
                         text = stringResource(
                             R.string.qty_format,
-                            if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                            QuantityFormatter.format(item.quantity)
                         ),
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )

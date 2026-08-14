@@ -9,6 +9,7 @@ import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -189,11 +190,12 @@ class HistoryViewModel @Inject constructor(
             ) { projects, activeId ->
                 projects.firstOrNull { it.id == activeId }
             }.collect { project ->
+                val isStockProject = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                 _uiState.update {
                     it.copy(
                         hasCustomSort = project?.hasCustomSort == true,
-                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true,
-                        filter = if (project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true) Filter.ALL else it.filter
+                        isStockMode = isStockProject,
+                        filter = if (isStockProject) Filter.ALL else it.filter
                     )
                 }
                 applyFiltersAndSort()

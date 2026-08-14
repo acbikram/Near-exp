@@ -43,6 +43,7 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.LanguageManager
+import com.nearexpiry.manager.utils.QuantityFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -230,5 +231,4 @@ fun RecycleBinScreen(
     }
 }
 
-private fun formatQty(q: Double): String =
-    if (q == q.toLong().toDouble()) q.toLong().toString() else q.toString()
+private fun formatQty(q: Double): String = QuantityFormatter.format(q)

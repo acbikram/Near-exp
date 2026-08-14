@@ -252,7 +252,7 @@ object NotificationHelper {
             ?: item.barcode
 
     private fun formatQty(context: Context, qty: Double, unit: String?): String {
-        val qtyStr = if (qty % 1.0 == 0.0) qty.toInt().toString() else qty.toString()
+        val qtyStr = com.nearexpiry.manager.utils.QuantityFormatter.format(qty)
         return if (!unit.isNullOrBlank())
             context.getString(R.string.qty_unit_format, qtyStr, unit)
         else

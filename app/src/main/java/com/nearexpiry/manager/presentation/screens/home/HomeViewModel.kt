@@ -7,6 +7,8 @@ import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.ItemNavigationContext
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -20,7 +22,7 @@ class HomeViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
-    private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
+    private val itemNavigationContext: ItemNavigationContext
 ) : ViewModel() {
 
     data class HomeUiState(
@@ -62,7 +64,7 @@ class HomeViewModel @Inject constructor(
                     it.copy(
                         activeProjectName = project?.name ?: "",
                         activeProjectColorHex = project?.colorHex ?: "",
-                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                        isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                     )
                 }
             }

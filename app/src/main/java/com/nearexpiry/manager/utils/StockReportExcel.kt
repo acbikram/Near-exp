@@ -136,7 +136,7 @@ object StockReportExcel {
         append("</sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:H1\"/></mergeCells></worksheet>")
     }
 
-    private fun qty(value: Double): String = if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+    private fun qty(value: Double): String = QuantityFormatter.format(value)
 
     private fun letter(column: Int): String = ('A'.code + column - 1).toChar().toString()
 

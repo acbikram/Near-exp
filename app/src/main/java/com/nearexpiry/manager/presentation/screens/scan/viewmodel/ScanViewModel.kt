@@ -17,6 +17,7 @@ import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
 import com.nearexpiry.manager.utils.EmbeddedBarcode
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.SoundManager
+import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -164,7 +165,7 @@ class ScanViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         activeProjectName = project?.name ?: "",
-                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                        isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                     )
                 }
             }
@@ -319,14 +320,14 @@ class ScanViewModel @Inject constructor(
             // Same item already in this project? (by item code, else barcode)
             val projectId = activeProjectManager.getActiveProjectId()
             val existing = repository.findAllForItem(projectId, product.itemCode, barcode)
-            if (_uiState.value.isStockMode) {
-                // Stock checks use one inventory line per catalog product, so no
-                // expiry chooser is ever shown; the quantity is merged on save.
-                requestStockQuantity()
-            } else if (existing.isNotEmpty()) {
+            if (existing.isNotEmpty()) {
+                // Existing Stock/Recheck inventory must be confirmed explicitly:
+                // the user can add to or replace its current quantity.
                 soundManager.playDoubleBeep()
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
+            } else if (_uiState.value.isStockMode) {
+                requestStockQuantity()
             } else {
                 requestExpiryDate()
             }
@@ -369,14 +370,14 @@ class ScanViewModel @Inject constructor(
             val existing = repository.findAllForItem(
                 projectId, product.itemCode ?: parsed.itemCode, parsed.itemCode
             )
-            if (_uiState.value.isStockMode) {
-                // Stock checks use one inventory line per catalog product, so no
-                // expiry chooser is ever shown; the quantity is merged on save.
-                requestStockQuantity()
-            } else if (existing.isNotEmpty()) {
+            if (existing.isNotEmpty()) {
+                // Existing Stock/Recheck inventory must be confirmed explicitly:
+                // the user can add to or replace its current quantity.
                 soundManager.playDoubleBeep()
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
+            } else if (_uiState.value.isStockMode) {
+                requestStockQuantity()
             } else {
                 requestExpiryDate()
             }
@@ -422,12 +423,13 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = repository.getItemById(entryId) ?: return@launch
             val newQty = if (addMode) existing.quantity + quantity else quantity
-            repository.updateItem(
-                existing.copy(quantity = newQty, updatedAt = System.currentTimeMillis()).toEntity()
-            )
+            val updated = existing.copy(quantity = newQty, updatedAt = System.currentTimeMillis())
+            repository.updateItem(updated.toEntity())
+            projectRepository.activateStockModeIfEligible(existing.projectId)
             recordModeUse()
             loadRecentScans()
             resetAfterScan()
+            showSavedConfirmation(updated)
         }
     }
 

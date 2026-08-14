@@ -50,7 +50,7 @@ object CsvExporter {
                         item.itemCode ?: "",
                         item.productName ?: "",
                         item.unit ?: "",
-                        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString(),
+                        QuantityFormatter.format(item.quantity),
                         ExpiryDateUtils.toCsvDate(item.expiryDate),
                         warning
                     )

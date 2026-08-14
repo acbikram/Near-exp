@@ -218,8 +218,7 @@ object CompanyReportExcel {
         return sb.toString()
     }
 
-    private fun fmtQty(q: Double): String =
-        if (q == q.toLong().toDouble()) q.toLong().toString() else q.toString()
+    private fun fmtQty(q: Double): String = QuantityFormatter.format(q)
 
     private fun esc(s: String): String = buildString {
         for (ch in s) when (ch) {
