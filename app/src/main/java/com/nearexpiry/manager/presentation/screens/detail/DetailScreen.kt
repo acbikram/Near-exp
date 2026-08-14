@@ -1,6 +1,8 @@
 package com.nearexpiry.manager.presentation.screens.detail
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +17,11 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.Code39Barcode
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
+import com.nearexpiry.manager.presentation.theme.CyanAccent
+import com.nearexpiry.manager.presentation.theme.ErrorRed
+import com.nearexpiry.manager.presentation.theme.GreenAccent
+import com.nearexpiry.manager.presentation.theme.OrangeAccent
+import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.LanguageManager
 import kotlinx.coroutines.launch
 
@@ -29,6 +36,8 @@ fun DetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var editingQuantity by remember { mutableStateOf(false) }
+    var editingExpiry by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -51,12 +60,21 @@ fun DetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(16.dp),
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Column {
                         val item = uiState.item!!
                         val isArabic = LanguageManager.isArabic()
+                        val today = java.time.LocalDate.now()
+                        val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate)
+                        val (expiryLabel, expiryColor) = when {
+                            expiry?.isBefore(today) == true -> "EXPIRED" to ErrorRed
+                            expiry == today -> "EXPIRES TODAY" to OrangeAccent
+                            expiry != null && !expiry.isAfter(today.plusDays(7)) -> "EXPIRES IN 1-7 DAYS" to OrangeAccent
+                            else -> "SAFE EXPIRY" to GreenAccent
+                        }
                         // Sr No. — scan-order rank within the project.
                         uiState.srNo?.let { srNo ->
                             Text(
@@ -98,6 +116,25 @@ fun DetailScreen(
                                 stringResource(R.string.barcode_format, item.barcode),
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        if (uiState.projectName.isNotBlank()) {
+                            Text(
+                                text = "Project: ${uiState.projectName}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CyanAccent
+                            )
+                        }
+                        Surface(
+                            color = expiryColor.copy(alpha = 0.15f),
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text(
+                                text = expiryLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = expiryColor,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                     // Scannable barcode (white card, Code39) — encodes the item/POS
                     // code exactly (falls back to the scanned barcode if no item
@@ -121,51 +158,87 @@ fun DetailScreen(
                             )
                         }
                     }
-                    ExpiryDateField(
-                        value = uiState.expiryDate,
-                        onValueChange = viewModel::updateExpiryDate,
+                    if (editingExpiry) {
+                        ExpiryDateField(
+                            value = uiState.expiryDate,
+                            onValueChange = viewModel::updateExpiryDate,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isSaving
+                        )
+                    }
+                    if (editingQuantity) {
+                        OutlinedTextField(
+                            value = uiState.quantityText,
+                            onValueChange = viewModel::updateQuantity,
+                            label = { Text(stringResource(R.string.quantity_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            isError = uiState.quantityError != null,
+                            supportingText = { uiState.quantityError?.let { Text(it) } },
+                            enabled = !uiState.isSaving
+                        )
+                    }
+                    Button(
+                        onClick = { viewModel.saveChanges() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isSaving
-                    )
-                    OutlinedTextField(
-                        value = uiState.quantityText,
-                        onValueChange = viewModel::updateQuantity,
-                        label = { Text(stringResource(R.string.quantity_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        isError = uiState.quantityError != null,
-                        supportingText = {
-                            uiState.quantityError?.let { Text(it) }
-                        },
-                        enabled = !uiState.isSaving
-                    )
+                        enabled = !uiState.isSaving && uiState.quantityError == null && uiState.expiryDate.isNotBlank()
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(stringResource(R.string.save_changes))
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = { viewModel.saveChanges() },
-                            modifier = Modifier.weight(1f),
-                            enabled = !uiState.isSaving && uiState.quantityError == null && uiState.expiryDate.isNotBlank()
-                        ) {
-                            if (uiState.isSaving) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(stringResource(R.string.save_changes))
+                        OutlinedButton(onClick = { editingQuantity = !editingQuantity }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
+                            Text("Edit Quantity")
                         }
-                        Button(
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            enabled = !uiState.isSaving
-                        ) {
-                            Text(stringResource(R.string.delete))
+                        OutlinedButton(onClick = { editingExpiry = !editingExpiry }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
+                            Text("Change Expiry")
                         }
                     }
+                    Button(
+                        onClick = viewModel::requestMove,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                        enabled = !uiState.isSaving
+                    ) { Text("Move to Project") }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        enabled = !uiState.isSaving
+                    ) { Text(stringResource(R.string.delete)) }
                 }
             }
         }
+    }
+
+    if (uiState.showMoveDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissMoveDialog,
+            title = { Text("Move to project") },
+            text = {
+                if (uiState.otherProjects.isEmpty()) {
+                    Text("Create another project in Settings before moving this item.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Choose the destination project.")
+                        uiState.otherProjects.forEach { project ->
+                            TextButton(onClick = { viewModel.moveItem(project.id) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(project.name, modifier = Modifier.fillMaxWidth())
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = viewModel::dismissMoveDialog) { Text(stringResource(R.string.cancel)) } }
+        )
     }
 
     if (showDeleteDialog) {

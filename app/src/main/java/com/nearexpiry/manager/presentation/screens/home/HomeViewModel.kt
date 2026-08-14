@@ -27,9 +27,14 @@ class HomeViewModel @Inject constructor(
         val totalRecords: Int = 0,
         val uniqueProducts: Int = 0,
         val totalQuantity: Double = 0.0,
+        /** Dates before today only. */
         val expiredCount: Int = 0,
-        val expiringIn7Days: Int = 0,
-        val expiringIn30Days: Int = 0,
+        /** Today only. */
+        val expiringToday: Int = 0,
+        /** Tomorrow through seven days from today, inclusive. */
+        val expiring1to7Days: Int = 0,
+        /** Eight through thirty days from today, inclusive. */
+        val expiring8to30Days: Int = 0,
         /** All items expiring within 3 days from today (incl. already expired), soonest first. */
         val expiringSoonItems: List<ExpiryItem> = emptyList(),
         val activeProjectName: String = "",
@@ -75,22 +80,28 @@ class HomeViewModel @Inject constructor(
                     val totalRecords = allItems.size
                     val uniqueProducts = allItems.map { it.barcode }.distinct().size
                     val totalQuantity = allItems.sumOf { it.quantity }
+                    val tomorrow = today.plusDays(1)
+                    val daySeven = today.plusDays(7)
+                    val dayEight = today.plusDays(8)
+                    val dayThirty = today.plusDays(30)
+                    val dates = allItems.associateWith { ExpiryDateUtils.parseOrNull(it.expiryDate) }
 
-                    val expiredCount = allItems.count {
-                        ExpiryDateUtils.isExpired(it.expiryDate, today)
+                    val expiredCount = allItems.count { dates[it]?.isBefore(today) == true }
+                    val expiringToday = allItems.count { dates[it] == today }
+                    val expiring1to7Days = allItems.count {
+                        val date = dates[it]
+                        date != null && !date.isBefore(tomorrow) && !date.isAfter(daySeven)
                     }
-                    val expiringIn7Days = allItems.count {
-                        ExpiryDateUtils.isExpiringWithin(it.expiryDate, 7, today)
-                    }
-                    val expiringIn30Days = allItems.count {
-                        ExpiryDateUtils.isExpiringWithin(it.expiryDate, 30, today)
+                    val expiring8to30Days = allItems.count {
+                        val date = dates[it]
+                        date != null && !date.isBefore(dayEight) && !date.isAfter(dayThirty)
                     }
 
-                    // Items expiring within 3 days from today (includes any
-                    // already-expired), soonest expiry first.
+                    // Items requiring attention in the next three days, including
+                    // already-expired records, shown soonest first.
                     val expiringSoonItems = allItems
-                        .filter { ExpiryDateUtils.isExpiringWithin(it.expiryDate, 3, today) }
-                        .sortedBy { ExpiryDateUtils.parseOrNull(it.expiryDate) }
+                        .filter { dates[it]?.isAfter(today.plusDays(3)) == false }
+                        .sortedBy { dates[it] }
 
                     _uiState.update {
                         it.copy(
@@ -98,8 +109,9 @@ class HomeViewModel @Inject constructor(
                             uniqueProducts = uniqueProducts,
                             totalQuantity = totalQuantity,
                             expiredCount = expiredCount,
-                            expiringIn7Days = expiringIn7Days,
-                            expiringIn30Days = expiringIn30Days,
+                            expiringToday = expiringToday,
+                            expiring1to7Days = expiring1to7Days,
+                            expiring8to30Days = expiring8to30Days,
                             expiringSoonItems = expiringSoonItems,
                             error = null
                         )

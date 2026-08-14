@@ -47,6 +47,10 @@ class ScanViewModel @Inject constructor(
     data class ScanUiState(
         val recentScans: List<ExpiryItem> = emptyList(),
         val activeProjectName: String = "",
+        /** Last item successfully created or quantity-updated from this screen. */
+        val lastSavedItem: ExpiryItem? = null,
+        /** Keeps the green scan confirmation visible for two seconds. */
+        val showScanConfirmation: Boolean = false,
         val scannerInactive: Boolean = false,
         /** Barcode shown on the camera overlay immediately after detection. */
         val detectedBarcode: String = "",
@@ -683,7 +687,8 @@ class ScanViewModel @Inject constructor(
                     itemCode = currentState.pendingItemCode,
                     projectId = projectId
                 )
-                repository.insertItem(newItem)
+                val insertedId = repository.insertItem(newItem)
+                val savedItem = repository.getItemById(insertedId)
                 recordModeUse()
                 loadRecentScans()
                 _uiState.update {
@@ -700,6 +705,7 @@ class ScanViewModel @Inject constructor(
                         scannerInactive    = false
                     )
                 }
+                savedItem?.let(::showSavedConfirmation)
                 startInactivityTimer()
             }
         }
@@ -742,6 +748,7 @@ class ScanViewModel @Inject constructor(
                     scannerInactive     = false
                 )
             }
+            showSavedConfirmation(updatedItem)
             startInactivityTimer()
         }
     }
@@ -813,6 +820,20 @@ class ScanViewModel @Inject constructor(
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
+
+    private fun showSavedConfirmation(item: ExpiryItem) {
+        _uiState.update { it.copy(lastSavedItem = item, showScanConfirmation = true) }
+        viewModelScope.launch {
+            delay(2_000)
+            _uiState.update { state ->
+                if (state.lastSavedItem?.id == item.id) {
+                    state.copy(showScanConfirmation = false)
+                } else {
+                    state
+                }
+            }
+        }
+    }
 
     /** Rejects unknown camera/manual input without ever reaching date or quantity entry. */
     private fun rejectBarcodeNotFound() {

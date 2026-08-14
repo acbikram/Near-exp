@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
@@ -41,8 +42,9 @@ import java.time.format.DateTimeFormatter
 const val FILTER_ALL       = "ALL"
 const val FILTER_UNIQUE    = "UNIQUE"
 const val FILTER_EXPIRED   = "EXPIRED"
-const val FILTER_7D        = "SEVEN_DAYS"
-const val FILTER_30D       = "THIRTY_DAYS"
+const val FILTER_TODAY     = "TODAY"
+const val FILTER_7D        = "ONE_TO_SEVEN"
+const val FILTER_30D       = "EIGHT_TO_THIRTY"
 const val FILTER_QUANTITY  = "QUANTITY"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,119 +98,57 @@ fun HomeScreen(
                 )
             }
 
+            ActiveProjectHeader()
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Dashboard card ──────────────────────────────────────────────
-            Card(
+            Text(
+                text = "EXPIRY ACTION DASHBOARD",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = CyanAccent,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dashboard),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                        )
-                        if (uiState.activeProjectName.isNotBlank()) {
-                            val projectColor = remember(uiState.activeProjectColorHex) {
-                                runCatching { Color(android.graphics.Color.parseColor(uiState.activeProjectColorHex)) }
-                                    .getOrDefault(OrangeAccent)
-                            }
-                            Text(
-                                text = uiState.activeProjectName,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = projectColor,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        ClickableStatCard(
-                            label = stringResource(R.string.total_records),
-                            value = uiState.totalRecords,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE"
-                                )
-                            }
-                        )
-                        ClickableStatCard(
-                            label = stringResource(R.string.unique_products),
-                            value = uiState.uniqueProducts,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE"
-                                )
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        ClickableStatCard(
-                            label = stringResource(R.string.expired),
-                            value = uiState.expiredCount,
-                            accentColor = if (uiState.expiredCount > 0) Color(0xFFE53935) else CyanAccent,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_EXPIRED&sort=EXPIRY_DATE"
-                                )
-                            }
-                        )
-                        ClickableStatCard(
-                            label = stringResource(R.string.expiring_in_7d),
-                            value = uiState.expiringIn7Days,
-                            accentColor = if (uiState.expiringIn7Days > 0) Color(0xFFFF7043) else CyanAccent,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_7D&sort=EXPIRY_DATE"
-                                )
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        ClickableStatCard(
-                            label = stringResource(R.string.expiring_in_30d),
-                            value = uiState.expiringIn30Days,
-                            accentColor = if (uiState.expiringIn30Days > 0) Color(0xFFFFCA28) else CyanAccent,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE"
-                                )
-                            }
-                        )
-                        ClickableStatCard(
-                            label = stringResource(R.string.total_quantity),
-                            value = uiState.totalQuantity,
-                            onClick = {
-                                navController.navigate(
-                                    "${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY"
-                                )
-                            }
-                        )
-                    }
-                }
+                ClickableStatCard(
+                    label = stringResource(R.string.expired),
+                    value = uiState.expiredCount,
+                    accentColor = Color(0xFFE53935),
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_EXPIRED&sort=EXPIRY_DATE") }
+                )
+                ClickableStatCard(
+                    label = "Today",
+                    value = uiState.expiringToday,
+                    accentColor = Color(0xFFFF7043),
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_TODAY&sort=EXPIRY_DATE") }
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ClickableStatCard(
+                    label = "1-7 Days",
+                    value = uiState.expiring1to7Days,
+                    accentColor = Color(0xFFFFC107),
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_7D&sort=EXPIRY_DATE") }
+                )
+                ClickableStatCard(
+                    label = "8-30 Days",
+                    value = uiState.expiring8to30Days,
+                    accentColor = Color(0xFF42A5F5),
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE") }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -243,11 +183,14 @@ fun HomeScreen(
                 }
                 if (uiState.expiringSoonItems.isEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(stringResource(R.string.no_items_expiring_soon), style = MaterialTheme.typography.bodyMedium)
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(34.dp))
+                            Text("Nothing needs attention right now", style = MaterialTheme.typography.titleSmall, color = GreenAccent)
+                            Text("Scan products to begin tracking expiry dates.", style = MaterialTheme.typography.bodySmall, color = SubtleGray)
                         }
                     }
                 }
@@ -270,11 +213,11 @@ fun ClickableStatCard(
     label: String,
     value: Number,
     accentColor: Color = CyanAccent,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .width(140.dp)
+        modifier = modifier
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
         shape = RoundedCornerShape(10.dp),

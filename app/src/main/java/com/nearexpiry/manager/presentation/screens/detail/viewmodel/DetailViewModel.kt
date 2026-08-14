@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
+import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,12 +22,14 @@ private const val MAX_QUANTITY = 99_999.0
 @HiltViewModel
 class DetailViewModel @Inject constructor(
     private val repository: ExpiryRepository,
+    private val projectRepository: ProjectRepository,
     private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     data class DetailUiState(
         val item: ExpiryItem? = null,
+        val projectName: String = "",
         val expiryDate: String = "",
         /** Raw text shown in the quantity field, kept separate from the validated value. */
         val quantityText: String = "0",
@@ -39,7 +43,10 @@ class DetailViewModel @Inject constructor(
         val srNo: Int? = null,
         /** Whether swipe left/right has somewhere to go, for the swipe hint UI. */
         val hasNext: Boolean = false,
-        val hasPrevious: Boolean = false
+        val hasPrevious: Boolean = false,
+        /** Projects available as a destination for the open item. */
+        val otherProjects: List<Project> = emptyList(),
+        val showMoveDialog: Boolean = false
     )
 
     private val _uiState = MutableStateFlow(DetailUiState())
@@ -53,9 +60,11 @@ class DetailViewModel @Inject constructor(
                 val srNo = item?.let {
                     repository.getSerialNumber(it.projectId, it.effectiveOrder, it.id)
                 }
+                val projectName = item?.let { projectRepository.getProjectById(it.projectId)?.name }.orEmpty()
                 _uiState.update {
                     it.copy(
                         item = item,
+                        projectName = projectName,
                         expiryDate = item?.expiryDate ?: "",
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },
                         quantityError = null,
@@ -139,6 +148,40 @@ class DetailViewModel @Inject constructor(
                     preferencesManager.resetExpiryDateShortcut()
                 }
                 _uiState.update { it.copy(navigateBack = true, isSaving = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message, isSaving = false) }
+            }
+        }
+    }
+
+    fun requestMove() {
+        val item = _uiState.value.item ?: return
+        viewModelScope.launch {
+            try {
+                val targets = projectRepository.getAllProjectsOnce().filter { it.id != item.projectId }
+                _uiState.update { it.copy(otherProjects = targets, showMoveDialog = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun dismissMoveDialog() {
+        _uiState.update { it.copy(showMoveDialog = false) }
+    }
+
+    /** Moves the open item using the repository's transaction-safe merge behavior. */
+    fun moveItem(targetProjectId: Long) {
+        val item = _uiState.value.item ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            try {
+                projectRepository.moveItemsToProject(
+                    itemIds = listOf(item.id),
+                    targetProjectId = targetProjectId,
+                    mergeMode = com.nearexpiry.manager.domain.model.MergeMode.ADD
+                )
+                _uiState.update { it.copy(showMoveDialog = false, navigateBack = true, isSaving = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isSaving = false) }
             }

@@ -2,6 +2,7 @@ package com.nearexpiry.manager.presentation.screens.history
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -35,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
@@ -224,6 +226,24 @@ fun HistoryScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
+            ActiveProjectHeader(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+            Text(
+                text = "Expiry status",
+                style = MaterialTheme.typography.labelLarge.copy(color = CyanAccent, fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                HistoryFilterChip("All", Filter.ALL, uiState, viewModel)
+                HistoryFilterChip("Expired", Filter.EXPIRED, uiState, viewModel)
+                HistoryFilterChip("Today", Filter.TODAY, uiState, viewModel)
+                HistoryFilterChip("1-7 Days", Filter.ONE_TO_SEVEN, uiState, viewModel)
+                HistoryFilterChip("8-30 Days", Filter.EIGHT_TO_THIRTY, uiState, viewModel)
+                HistoryFilterChip("Later", Filter.LATER, uiState, viewModel)
+            }
+
             // ── Filter / sort controls ──────────────────────────────────────
             // Horizontally scrollable so it can never clip/overflow, regardless
             // of how many chips are shown (e.g. the "Reset to Scan Order" chip
@@ -309,28 +329,6 @@ fun HistoryScreen(
                             )
                         }
                         FilterChip(
-                            selected = uiState.filter != Filter.ALL || uiState.specificDate != null || uiState.specificMonth != null,
-                            onClick = { viewModel.cycleFilter() },
-                            label = {
-                                Text(
-                                    when {
-                                        uiState.specificDate != null ->
-                                            ExpiryDateUtils.toCsvDate(uiState.specificDate!!)
-                                        uiState.specificMonth != null ->
-                                            uiState.availableMonths.firstOrNull { it.key == uiState.specificMonth }?.label
-                                                ?: uiState.specificMonth!!
-                                        else -> uiState.filter.name.replace('_', ' ')
-                                    },
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CyanAccent.copy(alpha = 0.2f),
-                                selectedLabelColor = CyanAccent
-                            )
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        FilterChip(
                             selected = uiState.unitFilter != UnitFilter.ALL,
                             onClick = { viewModel.cycleUnitFilter() },
                             label = {
@@ -399,15 +397,18 @@ fun HistoryScreen(
                 }
                 if (uiState.filteredItems.isEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 32.dp),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray, modifier = Modifier.size(34.dp))
+                            Text("No matching products", style = MaterialTheme.typography.titleSmall, color = CyanAccent)
                             Text(
-                                stringResource(R.string.no_items_found),
-                                style = MaterialTheme.typography.bodyLarge.copy(color = SubtleGray)
+                                if (uiState.searchQuery.isBlank()) "Try another expiry status or add products from Scan."
+                                else "Try a product name, item code, or barcode.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SubtleGray
                             )
                         }
                     }
@@ -634,6 +635,24 @@ fun HistoryScreen(
     }
 }
 
+@Composable
+private fun HistoryFilterChip(
+    label: String,
+    filter: Filter,
+    state: HistoryViewModel.HistoryUiState,
+    viewModel: HistoryViewModel
+) {
+    FilterChip(
+        selected = state.filter == filter && state.specificDate == null && state.specificMonth == null,
+        onClick = { viewModel.setFilter(filter) },
+        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = CyanAccent.copy(alpha = 0.2f),
+            selectedLabelColor = CyanAccent
+        )
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryItemCard(
@@ -645,6 +664,14 @@ fun HistoryItemCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
+    val today = java.time.LocalDate.now()
+    val expiryDate = ExpiryDateUtils.parseOrNull(item.expiryDate)
+    val (expiryLabel, expiryColor) = when {
+        expiryDate?.isBefore(today) == true -> "EXPIRED" to ErrorRed
+        expiryDate == today -> "TODAY" to OrangeAccent
+        expiryDate != null && !expiryDate.isAfter(today.plusDays(7)) -> "1-7 DAYS" to OrangeAccent
+        else -> "SAFE" to GreenAccent
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -659,6 +686,13 @@ fun HistoryItemCard(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .width(5.dp)
+                    .height(84.dp)
+                    .background(expiryColor, RoundedCornerShape(8.dp))
+            )
+            Spacer(Modifier.width(10.dp))
             if (selectionMode) {
                 Checkbox(
                     checked = isSelected,
@@ -668,6 +702,18 @@ fun HistoryItemCard(
                 Spacer(Modifier.width(4.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = expiryColor.copy(alpha = 0.16f)
+                ) {
+                    Text(
+                        text = expiryLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = expiryColor,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
                 if (srNo != null) {
                     Text(
                         text = stringResource(R.string.sr_no_format, srNo),
@@ -698,7 +744,7 @@ fun HistoryItemCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         text = stringResource(R.string.expiry_format, item.expiryDate),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = expiryColor)
                     )
                     Text(
                         text = if (item.unit != null)

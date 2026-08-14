@@ -47,6 +47,7 @@ import androidx.navigation.NavController
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
 import com.nearexpiry.manager.presentation.screens.scan.components.BarcodeScannerOverlay
@@ -264,6 +265,8 @@ fun ScanScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            ActiveProjectHeader(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+
             // ── Camera area ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
@@ -348,18 +351,13 @@ fun ScanScreen(
                         }
                     }
                 }
-            }
-
-            // ── Active project label ──────────────────────────────────────
-            if (uiState.activeProjectName.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.active_project_format, uiState.activeProjectName),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = OrangeAccent,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
+                if (uiState.showScanConfirmation && uiState.lastSavedItem != null) {
+                    ScanConfirmationCard(
+                        item = uiState.lastSavedItem!!,
+                        projectName = uiState.activeProjectName,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
+                    )
+                }
             }
 
             // ── Recent scans list ─────────────────────────────────────────
@@ -380,11 +378,14 @@ fun ScanScreen(
                 }
                 if (uiState.recentScans.isEmpty()) {
                     item {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text(
-                                stringResource(R.string.no_recent_scans),
-                                style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray)
-                            )
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(30.dp))
+                            Text("Ready for your first scan", style = MaterialTheme.typography.titleSmall, color = GreenAccent)
+                            Text("Use the camera or keyboard button to add a product.", style = MaterialTheme.typography.bodySmall, color = SubtleGray)
                         }
                     }
                 }
@@ -831,4 +832,45 @@ private fun CatalogSearchDialog(
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
+}
+
+@Composable
+private fun ScanConfirmationCard(
+    item: ExpiryItem,
+    projectName: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = GreenAccent.copy(alpha = 0.96f)),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "SAVED SUCCESSFULLY",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = Color(0xFF003300)
+            )
+            Text(
+                text = item.displayName,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFF003300),
+                maxLines = 1
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = "Qty ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}${item.unit?.let { " $it" }.orEmpty()}  •  Expiry ${item.expiryDate}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF003300)
+            )
+            if (projectName.isNotBlank()) {
+                Text(
+                    text = projectName,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFF003300)
+                )
+            }
+        }
+    }
 }

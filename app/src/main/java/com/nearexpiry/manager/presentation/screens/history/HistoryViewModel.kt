@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
-enum class Filter { ALL, EXPIRED, TODAY, SEVEN_DAYS, THIRTY_DAYS }
+enum class Filter { ALL, EXPIRED, TODAY, ONE_TO_SEVEN, EIGHT_TO_THIRTY, LATER }
 enum class SortOrder { NEWEST, OLDEST, EXPIRY_DATE, QUANTITY }
 
 /**
@@ -122,11 +122,12 @@ class HistoryViewModel @Inject constructor(
 
     fun applyInitialFilterAndSort(filterStr: String, sortStr: String) {
         val filter = when (filterStr) {
-            "EXPIRED"     -> Filter.EXPIRED
-            "SEVEN_DAYS"  -> Filter.SEVEN_DAYS
-            "THIRTY_DAYS" -> Filter.THIRTY_DAYS
-            "TODAY"       -> Filter.TODAY
-            else          -> Filter.ALL
+            "EXPIRED" -> Filter.EXPIRED
+            "TODAY" -> Filter.TODAY
+            "ONE_TO_SEVEN", "SEVEN_DAYS" -> Filter.ONE_TO_SEVEN
+            "EIGHT_TO_THIRTY", "THIRTY_DAYS" -> Filter.EIGHT_TO_THIRTY
+            "LATER" -> Filter.LATER
+            else -> Filter.ALL
         }
         val sort = when (sortStr) {
             "EXPIRY_DATE" -> SortOrder.EXPIRY_DATE
@@ -193,14 +194,19 @@ class HistoryViewModel @Inject constructor(
 
     fun cycleFilter() {
         val next = when (_uiState.value.filter) {
-            Filter.ALL        -> Filter.EXPIRED
-            Filter.EXPIRED    -> Filter.TODAY
-            Filter.TODAY      -> Filter.SEVEN_DAYS
-            Filter.SEVEN_DAYS -> Filter.THIRTY_DAYS
-            Filter.THIRTY_DAYS -> Filter.ALL
+            Filter.ALL -> Filter.EXPIRED
+            Filter.EXPIRED -> Filter.TODAY
+            Filter.TODAY -> Filter.ONE_TO_SEVEN
+            Filter.ONE_TO_SEVEN -> Filter.EIGHT_TO_THIRTY
+            Filter.EIGHT_TO_THIRTY -> Filter.LATER
+            Filter.LATER -> Filter.ALL
         }
-        // Using the relative bucket clears any specific date/month override.
-        _uiState.update { it.copy(filter = next, specificDate = null, specificMonth = null) }
+        setFilter(next)
+    }
+
+    /** Selects a relative expiry bucket from the dedicated History filter chips. */
+    fun setFilter(filter: Filter) {
+        _uiState.update { it.copy(filter = filter, specificDate = null, specificMonth = null) }
         applyFiltersAndSort()
     }
 
@@ -273,12 +279,16 @@ class HistoryViewModel @Inject constructor(
         return matchesDateFilter(item, state.filter, today)
     }
 
-    private fun matchesDateFilter(item: ExpiryItem, filter: Filter, today: LocalDate): Boolean = when (filter) {
-        Filter.ALL         -> true
-        Filter.EXPIRED     -> ExpiryDateUtils.isExpired(item.expiryDate, today)
-        Filter.TODAY       -> ExpiryDateUtils.isExpiringToday(item.expiryDate, today)
-        Filter.SEVEN_DAYS  -> ExpiryDateUtils.isExpiringWithin(item.expiryDate, 7, today)
-        Filter.THIRTY_DAYS -> ExpiryDateUtils.isExpiringWithin(item.expiryDate, 30, today)
+    private fun matchesDateFilter(item: ExpiryItem, filter: Filter, today: LocalDate): Boolean {
+        val date = ExpiryDateUtils.parseOrNull(item.expiryDate)
+        return when (filter) {
+            Filter.ALL -> true
+            Filter.EXPIRED -> date?.isBefore(today) == true
+            Filter.TODAY -> date == today
+            Filter.ONE_TO_SEVEN -> date != null && !date.isBefore(today.plusDays(1)) && !date.isAfter(today.plusDays(7))
+            Filter.EIGHT_TO_THIRTY -> date != null && !date.isBefore(today.plusDays(8)) && !date.isAfter(today.plusDays(30))
+            Filter.LATER -> date?.isAfter(today.plusDays(30)) == true
+        }
     }
 
     private fun applyFiltersAndSort() {
