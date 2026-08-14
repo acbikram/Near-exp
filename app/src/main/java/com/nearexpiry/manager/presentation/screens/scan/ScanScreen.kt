@@ -353,6 +353,7 @@ fun ScanScreen(
                     ScanConfirmationCard(
                         item = uiState.lastSavedItem!!,
                         projectName = uiState.activeProjectName,
+                        showExpiry = !uiState.isStockMode,
                         modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
                     )
                 }
@@ -370,6 +371,7 @@ fun ScanScreen(
                 items(uiState.recentScans, key = { it.id }) { item ->
                     RecentScanCard(
                         item = item,
+                        showExpiry = !uiState.isStockMode,
                         onEdit = { viewModel.requestEdit(item) },
                         onDelete = { viewModel.requestDelete(item) }
                     )
@@ -460,6 +462,7 @@ fun ScanScreen(
             barcode = uiState.editBarcode,
             productName = editDisplayName,
             expiryDate = uiState.editExpiryDate,
+            showExpiry = !uiState.isStockMode,
             quantity = uiState.editQuantity,
             onExpiryDateChange = { viewModel.updateEditExpiryDate(it) },
             onQuantityChange = { viewModel.updateEditQuantity(it) },
@@ -647,6 +650,7 @@ private fun ScanErrorBanner(
 @Composable
 private fun RecentScanCard(
     item: ExpiryItem,
+    showExpiry: Boolean = true,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -689,10 +693,12 @@ private fun RecentScanCard(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.expiry_format, item.expiryDate),
-                        style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
-                    )
+                    if (showExpiry) {
+                        Text(
+                            text = stringResource(R.string.expiry_format, item.expiryDate),
+                            style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
+                        )
+                    }
                     Text(
                         text = if (item.unit != null)
                             stringResource(
@@ -726,6 +732,7 @@ private fun EditScanItemDialog(
     barcode: String,
     productName: String?,
     expiryDate: String,
+    showExpiry: Boolean = true,
     quantity: Double,
     onExpiryDateChange: (String) -> Unit,
     onQuantityChange: (Double) -> Unit,
@@ -745,11 +752,13 @@ private fun EditScanItemDialog(
                     Text(text = productName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
                 Text(text = stringResource(R.string.barcode_format, barcode), style = MaterialTheme.typography.bodyMedium.copy(color = SubtleGray))
-                ExpiryDateField(
-                    value = expiryDate,
-                    onValueChange = onExpiryDateChange,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (showExpiry) {
+                    ExpiryDateField(
+                        value = expiryDate,
+                        onValueChange = onExpiryDateChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 OutlinedTextField(
                     value = qtyText,
                     onValueChange = { v ->
@@ -766,7 +775,7 @@ private fun EditScanItemDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = expiryDate.isNotBlank()) {
+            TextButton(onClick = onConfirm, enabled = !showExpiry || expiryDate.isNotBlank()) {
                 Text(stringResource(R.string.save), color = GreenAccent)
             }
         },
@@ -838,6 +847,7 @@ private fun CatalogSearchDialog(
 private fun ScanConfirmationCard(
     item: ExpiryItem,
     projectName: String,
+    showExpiry: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -860,7 +870,10 @@ private fun ScanConfirmationCard(
             )
             Spacer(Modifier.height(3.dp))
             Text(
-                text = "Qty ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}${item.unit?.let { " $it" }.orEmpty()}  •  Expiry ${item.expiryDate}",
+                text = buildString {
+                    append("Qty ${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else item.quantity}${item.unit?.let { " $it" }.orEmpty()}")
+                    if (showExpiry) append("  •  Expiry ${item.expiryDate}")
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF003300)
             )

@@ -10,5 +10,6 @@ import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 data class ProjectRestoreBundle(
     val name: String,
     val colorHex: String,
-    val items: List<ExpiryItemEntity>
+    val items: List<ExpiryItemEntity>,
+    val isStockMode: Boolean = false
 )

@@ -18,6 +18,8 @@ interface ProjectRepository {
     suspend fun updateProjectColor(id: Long, colorHex: String)
     /** Flips the "Custom Sort" flag (set by Move Up/Down, cleared by Reset to Scan Order). */
     suspend fun setHasCustomSort(projectId: Long, value: Boolean)
+    /** Permanently enables Stock Mode when an eligible stock-named project has inventory. */
+    suspend fun activateStockModeIfEligible(projectId: Long)
 
     /**
      * Deletes a project and all its items. Refuses (returns false) if it's

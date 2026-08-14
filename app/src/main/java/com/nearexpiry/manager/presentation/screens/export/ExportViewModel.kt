@@ -18,6 +18,7 @@ import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.StockReportExcel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,7 +27,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /** The "Tag/Type" values an item's [ExpiryItem.unit] can take — see ProductCatalogRepositoryImpl. */
@@ -61,8 +65,10 @@ class ExportViewModel @Inject constructor(
         val isExporting: Boolean = false,
         val error: String? = null,
         val success: Boolean = false,
-        /** Active project name, used in the CSV filename. */
+        /** Active project name, used in filenames and report labels. */
         val projectName: String = "",
+        /** True for a permanent Stock project or a newly named Stock candidate. */
+        val isStockMode: Boolean = false,
         /** Set once a CSV has been written to a shareable cache file; consumed by the UI to launch a share sheet. */
         val shareFileUri: Uri? = null,
         // ── Company Near-Expiry report ───────────────────────────────────
@@ -150,8 +156,13 @@ class ExportViewModel @Inject constructor(
         viewModelScope.launch {
             activeProjectManager.activeProjectIdFlow
                 .onEach { projectId ->
-                    val name = projectRepository.getProjectById(projectId)?.name ?: ""
-                    _uiState.update { it.copy(projectName = name) }
+                    val project = projectRepository.getProjectById(projectId)
+                    _uiState.update {
+                        it.copy(
+                            projectName = project?.name ?: "",
+                            isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                        )
+                    }
                 }
                 .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
@@ -266,6 +277,73 @@ class ExportViewModel @Inject constructor(
                 _uiState.update { it.copy(isExporting = false, shareFileUri = uri) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Generates the supplied Recheck-format workbook for the active Stock
+     * project. Rows are true scan order (first scan first); column B is the
+     * POS code with a yellow warning when description or UOM is incomplete.
+     */
+    fun generateStockReport(context: Context) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (!state.isStockMode) {
+                _uiState.update { it.copy(error = "Stock export is available only for Stock projects.") }
+                return@launch
+            }
+            if (state.allItems.isEmpty()) {
+                _uiState.update { it.copy(error = "This Stock project has no items to export.") }
+                return@launch
+            }
+            _uiState.update { it.copy(isExporting = true, error = null, reportFileUri = null) }
+            try {
+                val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
+                val firstDate = Instant.ofEpochMilli(ordered.first().createdAt)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+                val dateLabel = firstDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                val rows = ordered.map { item ->
+                    val posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode
+                    val description = item.productName?.takeIf { it.isNotBlank() }
+                        ?: item.productNameArabic?.takeIf { it.isNotBlank() }.orEmpty()
+                    val uom = item.unit?.takeIf { it.isNotBlank() }.orEmpty()
+                    StockReportExcel.Row(
+                        posCode = posCode,
+                        description = description,
+                        uom = uom,
+                        quantity = item.quantity,
+                        highlightPosCode = description.isBlank() || uom.isBlank()
+                    )
+                }
+                val safeProjectName = state.projectName.ifBlank { "Stock Check" }
+                    .replace(Regex("[\\\\/:*?\\\"<>|]"), "_")
+                    .trim()
+                val file = withContext(Dispatchers.IO) {
+                    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+                    File(dir, "$safeProjectName.xlsx").also { report ->
+                        FileOutputStream(report).use { output ->
+                            StockReportExcel.write(
+                                out = output,
+                                rows = rows,
+                                title = "Recheck on $dateLabel",
+                                sheetName = dateLabel
+                            )
+                        }
+                    }
+                }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        reportFileUri = uri,
+                        reportFilePath = file.absolutePath,
+                        reportFileName = file.name,
+                        reportSummary = "${rows.size} stock items · Recheck on $dateLabel"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isExporting = false, error = e.message ?: "Stock export failed") }
             }
         }
     }

@@ -76,14 +76,21 @@ class ProjectRepositoryImpl @Inject constructor(
 
     override suspend fun cloneProject(sourceId: Long, newName: String, colorHex: String): Long =
         database.withTransaction {
+            val source = projectDao.getProjectById(sourceId)
             val newId = projectDao.insert(
-                ProjectEntity(name = newName, colorHex = colorHex, createdAt = System.currentTimeMillis())
+                ProjectEntity(
+                    name = newName,
+                    colorHex = colorHex,
+                    createdAt = System.currentTimeMillis(),
+                    isStockMode = source?.isStockMode == true
+                )
             )
             // Copy every item from the source into the new project as fresh rows.
             val now = System.currentTimeMillis()
             itemDao.getAllItemsOnce(sourceId).forEach { item ->
                 itemDao.insert(item.copy(id = 0, projectId = newId, createdAt = now, updatedAt = now))
             }
+            latchStockModeIfEligible(newId)
             newId
         }
 
@@ -114,6 +121,7 @@ class ProjectRepositoryImpl @Inject constructor(
                 itemDao.insert(src.copy(id = 0, projectId = targetProjectId, createdAt = now, updatedAt = now))
             }
         }
+        latchStockModeIfEligible(targetProjectId)
         merged
     }
 
@@ -147,6 +155,7 @@ class ProjectRepositoryImpl @Inject constructor(
                 itemDao.update(src.copy(projectId = targetProjectId, updatedAt = now))
             }
         }
+        latchStockModeIfEligible(targetProjectId)
         merged
     }
 
@@ -189,6 +198,7 @@ class ProjectRepositoryImpl @Inject constructor(
             }
             quantityAdded += item.quantity
         }
+        latchStockModeIfEligible(targetId)
         ProjectRestoreMergeResult(targetId, inserted, merged, quantityAdded)
     }
 
@@ -197,13 +207,19 @@ class ProjectRepositoryImpl @Inject constructor(
         database.withTransaction {
             val existingByName = projectDao.getAllProjectsOnce().associateBy { it.name }.toMutableMap()
             bundles.forEach { bundle ->
-                val target = existingByName[bundle.name] ?: ProjectEntity(
+                var target = existingByName[bundle.name] ?: ProjectEntity(
                     name = bundle.name,
                     colorHex = bundle.colorHex,
-                    createdAt = System.currentTimeMillis()
+                    createdAt = System.currentTimeMillis(),
+                    isStockMode = bundle.isStockMode
                 ).let { created ->
                     val id = projectDao.insert(created)
                     created.copy(id = id).also { existingByName[bundle.name] = it }
+                }
+                if (bundle.isStockMode && !target.isStockMode) {
+                    target = target.copy(isStockMode = true)
+                    projectDao.update(target)
+                    existingByName[bundle.name] = target
                 }
 
                 // Preserve the current restore behavior: archive the project's
@@ -214,6 +230,7 @@ class ProjectRepositoryImpl @Inject constructor(
                 bundle.items.forEach { item ->
                     itemDao.insert(item.copy(id = 0, projectId = target.id))
                 }
+                latchStockModeIfEligible(target.id)
             }
         }
     }
@@ -229,8 +246,22 @@ class ProjectRepositoryImpl @Inject constructor(
         name = name,
         colorHex = colorHex,
         createdAt = createdAt,
-        hasCustomSort = hasCustomSort
+        hasCustomSort = hasCustomSort,
+        isStockMode = isStockMode
     )
+
+    /** Latches Stock Mode once a project name contains "stock" and it has inventory. */
+    private suspend fun latchStockModeIfEligible(projectId: Long) {
+        val project = projectDao.getProjectById(projectId) ?: return
+        if (project.isStockMode || !project.name.contains("stock", ignoreCase = true)) return
+        if (itemDao.getAllItemsOnce(projectId).isNotEmpty()) {
+            projectDao.update(project.copy(isStockMode = true))
+        }
+    }
+
+    override suspend fun activateStockModeIfEligible(projectId: Long) = database.withTransaction {
+        latchStockModeIfEligible(projectId)
+    }
 
     override suspend fun setHasCustomSort(projectId: Long, value: Boolean) {
         val project = projectDao.getProjectById(projectId) ?: return

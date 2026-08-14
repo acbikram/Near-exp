@@ -28,5 +28,7 @@ data class ProjectEntity(
      * label flag — "Scan Order" vs "Custom Sort" — set the moment the first
      * move happens, and cleared by "Reset to Scan Order".
      */
-    val hasCustomSort: Boolean = false
+    val hasCustomSort: Boolean = false,
+    /** Latches once this is recognized as a Stock project with at least one item. */
+    val isStockMode: Boolean = false
 )

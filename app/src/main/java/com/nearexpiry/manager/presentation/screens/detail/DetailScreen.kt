@@ -123,17 +123,19 @@ fun DetailScreen(
                                 color = CyanAccent
                             )
                         }
-                        Surface(
-                            color = expiryColor.copy(alpha = 0.15f),
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) {
-                            Text(
-                                text = expiryLabel,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = expiryColor,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                            )
+                        if (!uiState.isStockMode) {
+                            Surface(
+                                color = expiryColor.copy(alpha = 0.15f),
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text(
+                                    text = expiryLabel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = expiryColor,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
                         }
                     }
                     // Scannable barcode (white card, Code39) — encodes the item/POS
@@ -158,7 +160,7 @@ fun DetailScreen(
                             )
                         }
                     }
-                    if (editingExpiry) {
+                    if (editingExpiry && !uiState.isStockMode) {
                         ExpiryDateField(
                             value = uiState.expiryDate,
                             onValueChange = viewModel::updateExpiryDate,
@@ -193,11 +195,13 @@ fun DetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(onClick = { editingQuantity = !editingQuantity }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
+                        OutlinedButton(onClick = { editingQuantity = !editingQuantity }, modifier = if (uiState.isStockMode) Modifier.fillMaxWidth() else Modifier.weight(1f), enabled = !uiState.isSaving) {
                             Text("Edit Quantity")
                         }
-                        OutlinedButton(onClick = { editingExpiry = !editingExpiry }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
-                            Text("Change Expiry")
+                        if (!uiState.isStockMode) {
+                            OutlinedButton(onClick = { editingExpiry = !editingExpiry }, modifier = Modifier.weight(1f), enabled = !uiState.isSaving) {
+                                Text("Change Expiry")
+                            }
                         }
                     }
                     Button(

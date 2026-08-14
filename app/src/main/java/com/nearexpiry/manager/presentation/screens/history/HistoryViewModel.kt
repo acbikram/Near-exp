@@ -50,6 +50,8 @@ class HistoryViewModel @Inject constructor(
         val srNoMap: Map<Long, Int> = emptyMap(),
         /** Whether the active project has been manually reordered via Move Up/Down. */
         val hasCustomSort: Boolean = false,
+        /** True for permanent inventory/stock-check projects with no expiry workflow. */
+        val isStockMode: Boolean = false,
         val filteredItems: List<ExpiryItem> = emptyList(),
         /** Items matching the current [filter] only (ignores search) — used for "delete all in filter". */
         val itemsInFilter: List<ExpiryItem> = emptyList(),
@@ -135,7 +137,12 @@ class HistoryViewModel @Inject constructor(
             "OLDEST"      -> SortOrder.OLDEST
             else          -> SortOrder.NEWEST
         }
-        _uiState.update { it.copy(filter = filter, sortOrder = sort) }
+        _uiState.update {
+            it.copy(
+                filter = if (it.isStockMode) Filter.ALL else filter,
+                sortOrder = if (it.isStockMode && sort == SortOrder.EXPIRY_DATE) SortOrder.NEWEST else sort
+            )
+        }
         applyFiltersAndSort()
     }
 
@@ -180,9 +187,16 @@ class HistoryViewModel @Inject constructor(
                 projectRepository.getAllProjects(),
                 activeProjectManager.activeProjectIdFlow
             ) { projects, activeId ->
-                projects.firstOrNull { it.id == activeId }?.hasCustomSort ?: false
-            }.collect { hasCustomSort ->
-                _uiState.update { it.copy(hasCustomSort = hasCustomSort) }
+                projects.firstOrNull { it.id == activeId }
+            }.collect { project ->
+                _uiState.update {
+                    it.copy(
+                        hasCustomSort = project?.hasCustomSort == true,
+                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true,
+                        filter = if (project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true) Filter.ALL else it.filter
+                    )
+                }
+                applyFiltersAndSort()
             }
         }
     }
@@ -229,11 +243,20 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun toggleSortOrder() {
-        val next = when (_uiState.value.sortOrder) {
-            SortOrder.NEWEST      -> SortOrder.OLDEST
-            SortOrder.OLDEST      -> SortOrder.EXPIRY_DATE
-            SortOrder.EXPIRY_DATE -> SortOrder.QUANTITY
-            SortOrder.QUANTITY    -> SortOrder.NEWEST
+        val state = _uiState.value
+        val next = if (state.isStockMode) {
+            when (state.sortOrder) {
+                SortOrder.NEWEST -> SortOrder.OLDEST
+                SortOrder.OLDEST -> SortOrder.QUANTITY
+                SortOrder.QUANTITY, SortOrder.EXPIRY_DATE -> SortOrder.NEWEST
+            }
+        } else {
+            when (state.sortOrder) {
+                SortOrder.NEWEST -> SortOrder.OLDEST
+                SortOrder.OLDEST -> SortOrder.EXPIRY_DATE
+                SortOrder.EXPIRY_DATE -> SortOrder.QUANTITY
+                SortOrder.QUANTITY -> SortOrder.NEWEST
+            }
         }
         _uiState.update { it.copy(sortOrder = next) }
         applyFiltersAndSort()
@@ -266,6 +289,15 @@ class HistoryViewModel @Inject constructor(
      * expiry date or month, when set, overrides the relative [filter] bucket.
      */
     private fun matchesDateDimension(item: ExpiryItem, state: HistoryUiState, today: LocalDate): Boolean {
+        if (state.isStockMode) {
+            val scanDate = java.time.Instant.ofEpochMilli(item.createdAt)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            state.specificDate?.let { return scanDate.toString() == it }
+            state.specificMonth?.let { ym ->
+                return "%04d-%02d".format(scanDate.year, scanDate.monthValue) == ym
+            }
+            return true
+        }
         // Specific date overrides everything else in the date dimension.
         state.specificDate?.let { iso ->
             return item.expiryDate == iso ||
@@ -331,14 +363,23 @@ class HistoryViewModel @Inject constructor(
         val validIds = state.allItems.map { it.id }.toSet()
         val prunedSelection = state.selectedIds.intersect(validIds)
 
-        // Distinct expiry months present in the data, newest first.
+        // Distinct expiry months for regular projects, or scan months for Stock Mode.
         val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH)
-        val availableMonths = state.allItems
-            .mapNotNull { ExpiryDateUtils.parseOrNull(it.expiryDate) }
-            .map { "%04d-%02d".format(it.year, it.monthValue) to it.withDayOfMonth(1) }
-            .distinctBy { it.first }
-            .sortedByDescending { it.second }
-            .map { MonthOption(key = it.first, label = it.second.format(monthFmt)) }
+        val availableMonths = if (state.isStockMode) {
+            state.allItems
+                .map { java.time.Instant.ofEpochMilli(it.createdAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate() }
+                .map { "%04d-%02d".format(it.year, it.monthValue) to it.withDayOfMonth(1) }
+                .distinctBy { it.first }
+                .sortedByDescending { it.second }
+                .map { MonthOption(key = it.first, label = it.second.format(monthFmt)) }
+        } else {
+            state.allItems
+                .mapNotNull { ExpiryDateUtils.parseOrNull(it.expiryDate) }
+                .map { "%04d-%02d".format(it.year, it.monthValue) to it.withDayOfMonth(1) }
+                .distinctBy { it.first }
+                .sortedByDescending { it.second }
+                .map { MonthOption(key = it.first, label = it.second.format(monthFmt)) }
+        }
 
         _uiState.update {
             it.copy(

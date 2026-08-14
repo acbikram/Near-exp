@@ -227,21 +227,23 @@ fun HistoryScreen(
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
             ActiveProjectHeader(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-            Text(
-                text = "Expiry status",
-                style = MaterialTheme.typography.labelLarge.copy(color = CyanAccent, fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                HistoryFilterChip("All", Filter.ALL, uiState, viewModel)
-                HistoryFilterChip("Expired", Filter.EXPIRED, uiState, viewModel)
-                HistoryFilterChip("Today", Filter.TODAY, uiState, viewModel)
-                HistoryFilterChip("1-7 Days", Filter.ONE_TO_SEVEN, uiState, viewModel)
-                HistoryFilterChip("8-30 Days", Filter.EIGHT_TO_THIRTY, uiState, viewModel)
-                HistoryFilterChip("Later", Filter.LATER, uiState, viewModel)
+            if (!uiState.isStockMode) {
+                Text(
+                    text = "Expiry status",
+                    style = MaterialTheme.typography.labelLarge.copy(color = CyanAccent, fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    HistoryFilterChip("All", Filter.ALL, uiState, viewModel)
+                    HistoryFilterChip("Expired", Filter.EXPIRED, uiState, viewModel)
+                    HistoryFilterChip("Today", Filter.TODAY, uiState, viewModel)
+                    HistoryFilterChip("1-7 Days", Filter.ONE_TO_SEVEN, uiState, viewModel)
+                    HistoryFilterChip("8-30 Days", Filter.EIGHT_TO_THIRTY, uiState, viewModel)
+                    HistoryFilterChip("Later", Filter.LATER, uiState, viewModel)
+                }
             }
 
             // ── Filter / sort controls ──────────────────────────────────────
@@ -270,7 +272,7 @@ fun HistoryScreen(
                                 onDismissRequest = { showDateMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.filter_by_expiry_date)) },
+                                    text = { Text(if (uiState.isStockMode) "Filter by scan date" else stringResource(R.string.filter_by_expiry_date)) },
                                     leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
                                     onClick = {
                                         showDateMenu = false
@@ -278,7 +280,7 @@ fun HistoryScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.filter_by_expiry_month)) },
+                                    text = { Text(if (uiState.isStockMode) "Filter by scan month" else stringResource(R.string.filter_by_expiry_month)) },
                                     leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
                                     onClick = {
                                         showDateMenu = false
@@ -377,6 +379,7 @@ fun HistoryScreen(
                     HistoryItemCard(
                         item = item,
                         srNo = uiState.srNoMap[item.id],
+                        showExpiryStatus = !uiState.isStockMode,
                         modifier = Modifier.animateItemPlacement(),
                         selectionMode = uiState.selectionMode,
                         isSelected = item.id in uiState.selectedIds,
@@ -405,8 +408,10 @@ fun HistoryScreen(
                             Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray, modifier = Modifier.size(34.dp))
                             Text("No matching products", style = MaterialTheme.typography.titleSmall, color = CyanAccent)
                             Text(
-                                if (uiState.searchQuery.isBlank()) "Try another expiry status or add products from Scan."
-                                else "Try a product name, item code, or barcode.",
+                                if (uiState.searchQuery.isBlank()) {
+                                    if (uiState.isStockMode) "Scan catalog products to build this stock check."
+                                    else "Try another expiry status or add products from Scan."
+                                } else "Try a product name, item code, or barcode.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SubtleGray
                             )
@@ -658,6 +663,8 @@ private fun HistoryFilterChip(
 fun HistoryItemCard(
     item: ExpiryItem,
     srNo: Int? = null,
+    /** False for Stock Mode, which has no expiry workflow or expiry visuals. */
+    showExpiryStatus: Boolean = true,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
     modifier: Modifier = Modifier,
@@ -686,13 +693,15 @@ fun HistoryItemCard(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .width(5.dp)
-                    .height(84.dp)
-                    .background(expiryColor, RoundedCornerShape(8.dp))
-            )
-            Spacer(Modifier.width(10.dp))
+            if (showExpiryStatus) {
+                Box(
+                    modifier = Modifier
+                        .width(5.dp)
+                        .height(84.dp)
+                        .background(expiryColor, RoundedCornerShape(8.dp))
+                )
+                Spacer(Modifier.width(10.dp))
+            }
             if (selectionMode) {
                 Checkbox(
                     checked = isSelected,
@@ -702,18 +711,20 @@ fun HistoryItemCard(
                 Spacer(Modifier.width(4.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = expiryColor.copy(alpha = 0.16f)
-                ) {
-                    Text(
-                        text = expiryLabel,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = expiryColor,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                    )
+                if (showExpiryStatus) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = expiryColor.copy(alpha = 0.16f)
+                    ) {
+                        Text(
+                            text = expiryLabel,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = expiryColor,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(4.dp))
                 if (srNo != null) {
                     Text(
                         text = stringResource(R.string.sr_no_format, srNo),
@@ -742,10 +753,12 @@ fun HistoryItemCard(
                 }
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.expiry_format, item.expiryDate),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = expiryColor)
-                    )
+                    if (showExpiryStatus) {
+                        Text(
+                            text = stringResource(R.string.expiry_format, item.expiryDate),
+                            style = MaterialTheme.typography.bodyMedium.copy(color = expiryColor)
+                        )
+                    }
                     Text(
                         text = if (item.unit != null)
                             stringResource(

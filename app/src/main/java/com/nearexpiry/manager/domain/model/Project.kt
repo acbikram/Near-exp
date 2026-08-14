@@ -5,5 +5,7 @@ data class Project(
     val name: String,
     val colorHex: String,
     val createdAt: Long,
-    val hasCustomSort: Boolean = false
+    val hasCustomSort: Boolean = false,
+    /** Permanently true after this project is activated as an inventory/stock check. */
+    val isStockMode: Boolean = false
 )

@@ -188,7 +188,8 @@ class BackupRestoreViewModel @Inject constructor(
                                     ProjectRestoreBundle(
                                         name = bundle.project.name,
                                         colorHex = bundle.project.colorHex,
-                                        items = bundle.items
+                                        items = bundle.items,
+                                        isStockMode = bundle.project.isStockMode
                                     )
                                 }
                             )
@@ -197,6 +198,7 @@ class BackupRestoreViewModel @Inject constructor(
                             val entities = JsonBackup.importFromJson(text.byteInputStream())
                             val projectId = activeProjectManager.getActiveProjectId()
                             repository.replaceProjectItems(projectId, entities)
+                            projectRepository.activateStockModeIfEligible(projectId)
                         }
                         _uiState.update { it.copy(isLoading = false, success = true) }
                     }

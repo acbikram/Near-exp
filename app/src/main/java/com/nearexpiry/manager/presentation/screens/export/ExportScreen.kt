@@ -215,38 +215,58 @@ fun ExportScreen(
                 }
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Text(
-                        stringResource(R.string.company_report_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Button(
-                        onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.SHARE) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Description, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.make_excel_file))
-                    }
-                    // Send-to-PC is always available; it runs the same branch/month
-                    // flow, then sends the generated file to the PC over WiFi.
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.PC) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
-                                  uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
-                    ) {
-                        Icon(Icons.Default.Computer, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
+                    if (uiState.isStockMode) {
                         Text(
-                            when (uiState.sendToPcState) {
-                                ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
-                                ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
-                                else -> stringResource(R.string.send_to_pc)
-                            }
+                            text = "Stock Check Excel",
+                            style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold)
                         )
+                        Text(
+                            text = "Exports ${uiState.projectName} in the Recheck layout: scan order, POS code, description, UOM, and quantity.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                        Button(
+                            onClick = { viewModel.generateStockReport(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = uiState.allItems.isNotEmpty() && !uiState.isExporting
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Export Stock Check Excel")
+                        }
+                    } else {
+                        Text(
+                            stringResource(R.string.company_report_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Button(
+                            onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.SHARE) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.make_excel_file))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.PC) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
+                                      uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
+                        ) {
+                            Icon(Icons.Default.Computer, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                when (uiState.sendToPcState) {
+                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                    else -> stringResource(R.string.send_to_pc)
+                                }
+                            )
+                        }
                     }
                 }
             }

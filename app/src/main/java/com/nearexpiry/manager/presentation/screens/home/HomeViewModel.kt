@@ -37,6 +37,9 @@ class HomeViewModel @Inject constructor(
         val expiring8to30Days: Int = 0,
         /** All items expiring within 3 days from today (incl. already expired), soonest first. */
         val expiringSoonItems: List<ExpiryItem> = emptyList(),
+        /** Most recently scanned items, used by permanent Stock projects. */
+        val recentScanItems: List<ExpiryItem> = emptyList(),
+        val isStockMode: Boolean = false,
         val activeProjectName: String = "",
         /** Colour tag of the active project (hex), used to tint the dashboard project name. */
         val activeProjectColorHex: String = "",
@@ -58,7 +61,8 @@ class HomeViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         activeProjectName = project?.name ?: "",
-                        activeProjectColorHex = project?.colorHex ?: ""
+                        activeProjectColorHex = project?.colorHex ?: "",
+                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
                     )
                 }
             }
@@ -102,6 +106,7 @@ class HomeViewModel @Inject constructor(
                     val expiringSoonItems = allItems
                         .filter { dates[it]?.isAfter(today.plusDays(3)) == false }
                         .sortedBy { dates[it] }
+                    val recentScanItems = allItems.sortedByDescending { it.createdAt }.take(20)
 
                     _uiState.update {
                         it.copy(
@@ -113,6 +118,7 @@ class HomeViewModel @Inject constructor(
                             expiring1to7Days = expiring1to7Days,
                             expiring8to30Days = expiring8to30Days,
                             expiringSoonItems = expiringSoonItems,
+                            recentScanItems = recentScanItems,
                             error = null
                         )
                     }
@@ -120,9 +126,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Sets swipe order in Detail to match this screen's expiring-soon list. */
+    /** Sets swipe order in Detail to match the current Home list. */
     fun prepareItemNavigation() {
-        itemNavigationContext.set(_uiState.value.expiringSoonItems.map { it.id })
+        val state = _uiState.value
+        val items = if (state.isStockMode) state.recentScanItems else state.expiringSoonItems
+        itemNavigationContext.set(items.map { it.id })
     }
 
     fun clearError() {

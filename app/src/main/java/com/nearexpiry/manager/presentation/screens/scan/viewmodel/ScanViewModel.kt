@@ -47,6 +47,8 @@ class ScanViewModel @Inject constructor(
     data class ScanUiState(
         val recentScans: List<ExpiryItem> = emptyList(),
         val activeProjectName: String = "",
+        /** True when the active project is a permanent Stock / inventory check. */
+        val isStockMode: Boolean = false,
         /** Last item successfully created or quantity-updated from this screen. */
         val lastSavedItem: ExpiryItem? = null,
         /** Keeps the green scan confirmation visible for two seconds. */
@@ -158,8 +160,13 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             activeProjectManager.activeProjectIdFlow.collect { id ->
                 loadRecentScans()
-                val name = projectRepository.getProjectById(id)?.name ?: ""
-                _uiState.update { it.copy(activeProjectName = name) }
+                val project = projectRepository.getProjectById(id)
+                _uiState.update {
+                    it.copy(
+                        activeProjectName = project?.name ?: "",
+                        isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
+                    )
+                }
             }
         }
     }
@@ -254,7 +261,7 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog = false
             )
         }
-        requestExpiryDate()
+        requestEntryForActiveProject()
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
@@ -312,7 +319,11 @@ class ScanViewModel @Inject constructor(
             // Same item already in this project? (by item code, else barcode)
             val projectId = activeProjectManager.getActiveProjectId()
             val existing = repository.findAllForItem(projectId, product.itemCode, barcode)
-            if (existing.isNotEmpty()) {
+            if (_uiState.value.isStockMode) {
+                // Stock checks use one inventory line per catalog product, so no
+                // expiry chooser is ever shown; the quantity is merged on save.
+                requestStockQuantity()
+            } else if (existing.isNotEmpty()) {
                 soundManager.playDoubleBeep()
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
@@ -358,7 +369,11 @@ class ScanViewModel @Inject constructor(
             val existing = repository.findAllForItem(
                 projectId, product.itemCode ?: parsed.itemCode, parsed.itemCode
             )
-            if (existing.isNotEmpty()) {
+            if (_uiState.value.isStockMode) {
+                // Stock checks use one inventory line per catalog product, so no
+                // expiry chooser is ever shown; the quantity is merged on save.
+                requestStockQuantity()
+            } else if (existing.isNotEmpty()) {
                 soundManager.playDoubleBeep()
                 vibrateDouble()
                 _uiState.update { it.copy(existingEntries = existing, showExistingItemDialog = true) }
@@ -533,6 +548,23 @@ class ScanViewModel @Inject constructor(
      * Uses the globally remembered date after five matching explicit selections;
      * otherwise opens the picker with the existing same-day prefill behavior.
      */
+    private fun requestEntryForActiveProject() {
+        if (_uiState.value.isStockMode) requestStockQuantity() else requestExpiryDate()
+    }
+
+    /** Stock entries never show an expiry picker; all stock rows use this hidden stable marker. */
+    private fun requestStockQuantity() {
+        val embeddedQty = _uiState.value.pendingEmbeddedQty
+        _uiState.update {
+            it.copy(
+                pendingExpiryDate = STOCK_EXPIRY_SENTINEL,
+                showExpiryDialog = false,
+                showQuantityDialog = embeddedQty == null
+            )
+        }
+        if (embeddedQty != null) onQuantityConfirmed(embeddedQty)
+    }
+
     private fun requestExpiryDate() {
         viewModelScope.launch {
             val automaticDate = preferencesManager.getAutomaticExpiryDate()
@@ -660,7 +692,24 @@ class ScanViewModel @Inject constructor(
             val existing = repository.findDuplicate(
                 projectId, currentState.pendingItemCode, barcode, expiry, currentState.pendingUnit
             )
-            if (existing != null) {
+            if (existing != null && currentState.isStockMode) {
+                // Stock checks have one running inventory line per POS/barcode.
+                // Add the just-confirmed quantity with no expiry or duplicate dialog.
+                val updatedItem = existing.copy(
+                    quantity = existing.quantity + quantity,
+                    updatedAt = System.currentTimeMillis(),
+                    productName = existing.productName ?: currentState.pendingProductName,
+                    productNameArabic = existing.productNameArabic ?: currentState.pendingProductNameArabic,
+                    unit = existing.unit ?: currentState.pendingUnit,
+                    itemCode = existing.itemCode ?: currentState.pendingItemCode
+                )
+                repository.updateItem(updatedItem.toEntity())
+                projectRepository.activateStockModeIfEligible(projectId)
+                recordModeUse()
+                loadRecentScans()
+                resetAfterScan()
+                showSavedConfirmation(updatedItem)
+            } else if (existing != null) {
                 // ── Duplicate: play extra beep + haptic (single was already played on detection)
                 soundManager.playDoubleBeep()
                 vibrateDouble()
@@ -688,6 +737,9 @@ class ScanViewModel @Inject constructor(
                     projectId = projectId
                 )
                 val insertedId = repository.insertItem(newItem)
+                // A Stock-named project becomes permanently stock-focused as
+                // soon as its first inventory row has been saved.
+                projectRepository.activateStockModeIfEligible(projectId)
                 val savedItem = repository.getItemById(insertedId)
                 recordModeUse()
                 loadRecentScans()
@@ -833,6 +885,11 @@ class ScanViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private companion object {
+        /** Internal non-expiry marker used only for quantity-only Stock entries. */
+        const val STOCK_EXPIRY_SENTINEL = "9999-12-31"
     }
 
     /** Rejects unknown camera/manual input without ever reaching date or quantity entry. */

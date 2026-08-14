@@ -11,8 +11,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +49,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
+    var languageExpanded by rememberSaveable { mutableStateOf(false) }
+    var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Arrived from the notification's "Update Now": check + auto-start download.
     LaunchedEffect(autoStartUpdate) {
@@ -118,44 +124,25 @@ fun SettingsScreen(
                     shape  = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(R.string.language),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.language_description),
-                            style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
-                        )
-                        Spacer(Modifier.height(12.dp))
-
-                        LanguageOptionRow(
-                            label = stringResource(R.string.language_system_default),
-                            selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT,
-                            onClick = {
-                                currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT
-                                LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { languageExpanded = !languageExpanded }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
+                                Text(
+                                    if (languageExpanded) stringResource(R.string.language_description) else "Tap to choose the app language",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                                )
                             }
-                        )
-                        LanguageOptionRow(
-                            label = stringResource(R.string.language_english),
-                            selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH,
-                            onClick = {
-                                currentLanguage = LanguageManager.AppLanguage.ENGLISH
-                                LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH)
-                            }
-                        )
-                        LanguageOptionRow(
-                            label = stringResource(R.string.language_arabic),
-                            selected = currentLanguage == LanguageManager.AppLanguage.ARABIC,
-                            onClick = {
-                                currentLanguage = LanguageManager.AppLanguage.ARABIC
-                                LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC)
-                            }
-                        )
+                            Icon(if (languageExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = CyanAccent)
+                        }
+                        if (languageExpanded) {
+                            Spacer(Modifier.height(12.dp))
+                            LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
+                            LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
+                            LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
+                        }
                     }
                 }
             }
@@ -167,53 +154,29 @@ fun SettingsScreen(
                     shape  = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(R.string.data_management),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { navController.navigate(Screen.BackupRestore.route) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SurfaceVariant,
-                                contentColor   = CyanAccent
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text(stringResource(R.string.backup_restore)) }
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { navController.navigate(Screen.RecycleBin.route) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SurfaceVariant,
-                                contentColor   = CyanAccent
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text(stringResource(R.string.recycle_bin)) }
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { viewModel.testExpiryNotificationNow() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SurfaceVariant,
-                                contentColor   = CyanAccent
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text(stringResource(R.string.test_notification_now)) }
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { showClearDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ErrorRed.copy(alpha = 0.15f),
-                                contentColor   = ErrorRed
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text(stringResource(R.string.clear_all_records)) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { dataManagementExpanded = !dataManagementExpanded }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.data_management), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
+                                Text(
+                                    if (dataManagementExpanded) "Backup, restore, recycle bin, and notification tools" else "Tap to manage backups and app data",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                                )
+                            }
+                            Icon(if (dataManagementExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = CyanAccent)
+                        }
+                        if (dataManagementExpanded) {
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = { navController.navigate(Screen.BackupRestore.route) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.backup_restore)) }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { navController.navigate(Screen.RecycleBin.route) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.recycle_bin)) }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { viewModel.testExpiryNotificationNow() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.test_notification_now)) }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ErrorRed.copy(alpha = 0.15f), contentColor = ErrorRed), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.clear_all_records)) }
+                        }
                     }
                 }
             }

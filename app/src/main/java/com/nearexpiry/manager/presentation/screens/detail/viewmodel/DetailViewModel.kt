@@ -30,6 +30,7 @@ class DetailViewModel @Inject constructor(
     data class DetailUiState(
         val item: ExpiryItem? = null,
         val projectName: String = "",
+        val isStockMode: Boolean = false,
         val expiryDate: String = "",
         /** Raw text shown in the quantity field, kept separate from the validated value. */
         val quantityText: String = "0",
@@ -60,11 +61,14 @@ class DetailViewModel @Inject constructor(
                 val srNo = item?.let {
                     repository.getSerialNumber(it.projectId, it.effectiveOrder, it.id)
                 }
-                val projectName = item?.let { projectRepository.getProjectById(it.projectId)?.name }.orEmpty()
+                val project = item?.let { projectRepository.getProjectById(it.projectId) }
+                val projectName = project?.name.orEmpty()
+                val isStockMode = project?.isStockMode == true || project?.name?.contains("stock", ignoreCase = true) == true
                 _uiState.update {
                     it.copy(
                         item = item,
                         projectName = projectName,
+                        isStockMode = isStockMode,
                         expiryDate = item?.expiryDate ?: "",
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },
                         quantityError = null,
