@@ -58,16 +58,34 @@ class HomeViewModel @Inject constructor(
 
     private fun observeActiveProjectName() {
         viewModelScope.launch {
-            activeProjectManager.activeProjectIdFlow.collect { id ->
-                val project = projectRepository.getProjectById(id)
-                _uiState.update {
-                    it.copy(
-                        activeProjectName = project?.name ?: "",
-                        activeProjectColorHex = project?.colorHex ?: "",
-                        isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
-                    )
+            activeProjectManager.activeProjectIdFlow
+                .catch { error ->
+                    _uiState.update { it.copy(error = error.message ?: "Could not load the active project") }
                 }
-            }
+                .collect { id ->
+                    // A project lookup can force Room to open or migrate an
+                    // older on-device database after Home has already drawn.
+                    // Keep the dashboard usable if that optional header lookup
+                    // fails instead of letting the ViewModel coroutine crash.
+                    runCatching { projectRepository.getProjectById(id) }
+                        .onSuccess { project ->
+                            _uiState.update {
+                                it.copy(
+                                    activeProjectName = project?.name ?: "",
+                                    activeProjectColorHex = project?.colorHex ?: "",
+                                    isStockMode = StockProjectClassifier.isStockProject(
+                                        project?.isStockMode == true,
+                                        project?.name
+                                    )
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            _uiState.update {
+                                it.copy(error = error.message ?: "Could not load the active project")
+                            }
+                        }
+                }
         }
     }
 
@@ -81,48 +99,57 @@ class HomeViewModel @Inject constructor(
                 .flatMapLatest { projectId -> repository.getAllItems(projectId) }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
                 .collect { allItems ->
-                    val today = LocalDate.now()
+                    // Keep malformed legacy data or an edge-case date value
+                    // from escaping this startup collector as a fatal
+                    // ViewModel coroutine exception.
+                    runCatching {
+                        val today = LocalDate.now()
 
-                    val totalRecords = allItems.size
-                    val uniqueProducts = allItems.map { it.barcode }.distinct().size
-                    val totalQuantity = allItems.sumOf { it.quantity }
-                    val tomorrow = today.plusDays(1)
-                    val daySeven = today.plusDays(7)
-                    val dayEight = today.plusDays(8)
-                    val dayThirty = today.plusDays(30)
-                    val dates = allItems.associateWith { ExpiryDateUtils.parseOrNull(it.expiryDate) }
+                        val totalRecords = allItems.size
+                        val uniqueProducts = allItems.map { it.barcode }.distinct().size
+                        val totalQuantity = allItems.sumOf { it.quantity }
+                        val tomorrow = today.plusDays(1)
+                        val daySeven = today.plusDays(7)
+                        val dayEight = today.plusDays(8)
+                        val dayThirty = today.plusDays(30)
+                        val dates = allItems.associateWith { ExpiryDateUtils.parseOrNull(it.expiryDate) }
 
-                    val expiredCount = allItems.count { dates[it]?.isBefore(today) == true }
-                    val expiringToday = allItems.count { dates[it] == today }
-                    val expiring1to7Days = allItems.count {
-                        val date = dates[it]
-                        date != null && !date.isBefore(tomorrow) && !date.isAfter(daySeven)
-                    }
-                    val expiring8to30Days = allItems.count {
-                        val date = dates[it]
-                        date != null && !date.isBefore(dayEight) && !date.isAfter(dayThirty)
-                    }
+                        val expiredCount = allItems.count { dates[it]?.isBefore(today) == true }
+                        val expiringToday = allItems.count { dates[it] == today }
+                        val expiring1to7Days = allItems.count {
+                            val date = dates[it]
+                            date != null && !date.isBefore(tomorrow) && !date.isAfter(daySeven)
+                        }
+                        val expiring8to30Days = allItems.count {
+                            val date = dates[it]
+                            date != null && !date.isBefore(dayEight) && !date.isAfter(dayThirty)
+                        }
 
-                    // Items requiring attention in the next three days, including
-                    // already-expired records, shown soonest first.
-                    val expiringSoonItems = allItems
-                        .filter { dates[it]?.isAfter(today.plusDays(3)) == false }
-                        .sortedBy { dates[it] }
-                    val recentScanItems = allItems.sortedByDescending { it.createdAt }.take(20)
+                        // Items requiring attention in the next three days, including
+                        // already-expired records, shown soonest first.
+                        val expiringSoonItems = allItems
+                            .filter { dates[it]?.isAfter(today.plusDays(3)) == false }
+                            .sortedBy { dates[it] }
+                        val recentScanItems = allItems.sortedByDescending { it.createdAt }.take(20)
 
-                    _uiState.update {
-                        it.copy(
-                            totalRecords = totalRecords,
-                            uniqueProducts = uniqueProducts,
-                            totalQuantity = totalQuantity,
-                            expiredCount = expiredCount,
-                            expiringToday = expiringToday,
-                            expiring1to7Days = expiring1to7Days,
-                            expiring8to30Days = expiring8to30Days,
-                            expiringSoonItems = expiringSoonItems,
-                            recentScanItems = recentScanItems,
-                            error = null
-                        )
+                        _uiState.update {
+                            it.copy(
+                                totalRecords = totalRecords,
+                                uniqueProducts = uniqueProducts,
+                                totalQuantity = totalQuantity,
+                                expiredCount = expiredCount,
+                                expiringToday = expiringToday,
+                                expiring1to7Days = expiring1to7Days,
+                                expiring8to30Days = expiring8to30Days,
+                                expiringSoonItems = expiringSoonItems,
+                                recentScanItems = recentScanItems,
+                                error = null
+                            )
+                        }
+                    }.onFailure { error ->
+                        _uiState.update {
+                            it.copy(error = error.message ?: "Could not load dashboard data")
+                        }
                     }
                 }
         }

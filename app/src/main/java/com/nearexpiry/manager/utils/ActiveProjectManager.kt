@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,8 +39,13 @@ class ActiveProjectManager @Inject constructor(
 
     init {
         // Keep the cache in sync with the persisted value for the app's lifetime.
+        // DataStore is optional startup state: retain the safe default if its
+        // stream cannot be read, rather than allowing an uncaught background
+        // coroutine exception to terminate the process.
         scope.launch {
-            activeProjectIdFlow.collect { cachedActiveProjectId = it }
+            activeProjectIdFlow
+                .catch { cachedActiveProjectId = 1L }
+                .collect { cachedActiveProjectId = it }
         }
     }
 

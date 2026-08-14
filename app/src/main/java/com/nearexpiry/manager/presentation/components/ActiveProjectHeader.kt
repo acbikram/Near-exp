@@ -46,6 +46,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -64,12 +65,20 @@ class ActiveProjectHeaderViewModel @Inject constructor(
         viewModelScope.launch {
             combine(projectRepository.getAllProjects(), activeProjectManager.activeProjectIdFlow) { projects, activeId ->
                 UiState(activeId, projects)
-            }.collect { _uiState.value = it }
+            }
+                // This header is rendered on Home immediately. A legacy Room
+                // row or transient preference failure must leave the empty,
+                // non-interactive header visible instead of crashing the
+                // activity after first render.
+                .catch { _uiState.value = UiState() }
+                .collect { _uiState.value = it }
         }
     }
 
     fun switchProject(id: Long) {
-        viewModelScope.launch { activeProjectManager.setActiveProject(id) }
+        viewModelScope.launch {
+            runCatching { activeProjectManager.setActiveProject(id) }
+        }
     }
 }
 
