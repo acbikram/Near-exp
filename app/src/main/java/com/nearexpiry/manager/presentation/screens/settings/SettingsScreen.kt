@@ -231,12 +231,26 @@ fun SettingsScreen(
                                         SettingsViewModel.UpdateState.DOWNLOADING ->
                                             "The installer will open automatically when the download finishes."
                                         SettingsViewModel.UpdateState.DOWNLOADED ->
-                                            "Download complete. Opening the Android installer…"
+                                            "Download complete. If the Android installer did not stay open, tap Install Now."
                                         else -> "Preparing the update download…"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SubtleGray
                                 )
+                                if (uiState.updateState == SettingsViewModel.UpdateState.DOWNLOADED) {
+                                    Spacer(Modifier.height(12.dp))
+                                    Button(
+                                        onClick = { viewModel.installUpdate() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = GreenAccent,
+                                            contentColor = SurfaceDark
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Install Now", fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                             else -> {
                                 Button(
