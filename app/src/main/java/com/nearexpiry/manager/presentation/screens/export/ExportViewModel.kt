@@ -258,12 +258,20 @@ class ExportViewModel @Inject constructor(
         return "${safeName}_${System.currentTimeMillis()}.csv"
     }
 
-    fun buildStockReportFilename(): String {
-        val safeName = _uiState.value.projectName
-            .ifBlank { "Stock Check" }
-            .replace(Regex("[\\\\/:*?\\\"<>|]"), "_")
-            .trim()
-        return "$safeName.xlsx"
+    /**
+     * Stock Recheck exports always use the reference workbook's filename,
+     * based on the date of the first scanned item in the active project.
+     */
+    fun buildStockReportFilename(): String =
+        "Recheck ${stockReportDateLabel(_uiState.value.allItems)}.xlsx"
+
+    private fun stockReportDateLabel(items: List<ExpiryItem>): String {
+        val firstScannedAt = items.minWithOrNull(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })?.createdAt
+            ?: System.currentTimeMillis()
+        return Instant.ofEpochMilli(firstScannedAt)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
     }
 
     fun shareAsCsv(context: Context) {
@@ -309,9 +317,7 @@ class ExportViewModel @Inject constructor(
             _uiState.update { it.copy(isExporting = true, error = null, reportFileUri = null) }
             try {
                 val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
-                val firstDate = Instant.ofEpochMilli(ordered.first().createdAt)
-                    .atZone(ZoneId.systemDefault()).toLocalDate()
-                val dateLabel = firstDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                val dateLabel = stockReportDateLabel(ordered)
                 val rows = ordered.map { item ->
                     val posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode
                     val description = item.productName?.takeIf { it.isNotBlank() }
@@ -325,12 +331,9 @@ class ExportViewModel @Inject constructor(
                         highlightPosCode = description.isBlank() || uom.isBlank()
                     )
                 }
-                val safeProjectName = state.projectName.ifBlank { "Stock Check" }
-                    .replace(Regex("[\\\\/:*?\\\"<>|]"), "_")
-                    .trim()
                 val file = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    File(dir, "$safeProjectName.xlsx").also { report ->
+                    File(dir, "Recheck $dateLabel.xlsx").also { report ->
                         FileOutputStream(report).use { output ->
                             StockReportExcel.write(
                                 out = output,
@@ -377,9 +380,7 @@ class ExportViewModel @Inject constructor(
             _uiState.update { it.copy(isExporting = true, error = null, success = false) }
             try {
                 val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
-                val firstDate = Instant.ofEpochMilli(ordered.first().createdAt)
-                    .atZone(ZoneId.systemDefault()).toLocalDate()
-                val dateLabel = firstDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                val dateLabel = stockReportDateLabel(ordered)
                 val rows = ordered.map { item ->
                     val description = item.productName?.takeIf { it.isNotBlank() }
                         ?: item.productNameArabic?.takeIf { it.isNotBlank() }.orEmpty()

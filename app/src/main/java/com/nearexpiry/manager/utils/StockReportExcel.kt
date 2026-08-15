@@ -66,19 +66,23 @@ object StockReportExcel {
 <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>"""
 
-    /** Styles mirror the supplied Recheck workbook: Calibri, yellow title, navy headers, thin cell borders. */
+    /**
+     * Styles mirror the supplied Recheck workbook: a yellow title, navy header
+     * with bold white text, thin borders, and light-purple TOTAL_STOCK cells.
+     */
     private fun styles() = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <fonts count="3">
-<font><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="14"/><name val="Calibri"/></font>
+<font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+<font><b/><sz val="14"/><color rgb="FF000000"/><name val="Calibri"/></font>
 </fonts>
-<fills count="4">
+<fills count="5">
 <fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FF004D82"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE6E0EC"/><bgColor indexed="64"/></patternFill></fill>
 </fills>
 <borders count="3">
 <border><left/><right/><top/><bottom/><diagonal/></border>
@@ -86,13 +90,14 @@ object StockReportExcel {
 <border><left/><right/><top/><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border>
 </borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="6">
+<cellXfs count="7">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="2" fillId="2" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
 <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
 <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
 <xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>"""
@@ -130,10 +135,14 @@ object StockReportExcel {
             append("<c r=\"E$r\" s=\"3\"/>")
             append("<c r=\"F$r\" s=\"3\"><v>${qty(row.quantity)}</v></c>")
             append("<c r=\"G$r\" s=\"3\"/>")
-            append("<c r=\"H$r\" s=\"3\"><v>${qty(row.quantity)}</v></c>")
+            append("<c r=\"H$r\" s=\"6\"><v>${qty(row.quantity)}</v></c>")
             append("</row>\n")
         }
-        append("</sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:H1\"/></mergeCells></worksheet>")
+        append("</sheetData><mergeCells count=\"1\"><mergeCell ref=\"A1:H1\"/></mergeCells>")
+        // POS codes are deliberately exported as text to preserve leading zeros.
+        // Suppress Excel's numeric-as-text warning for the complete Item Code column.
+        append("<ignoredErrors><ignoredError sqref=\"B3:B1048576\" numberStoredAsText=\"1\" evalError=\"1\" formulaError=\"1\" formula=\"1\" twoDigitTextYear=\"1\" unlockedFormula=\"1\" emptyCellReference=\"1\" listDataValidation=\"1\" calculatedColumn=\"1\"/></ignoredErrors>")
+        append("</worksheet>")
     }
 
     private fun qty(value: Double): String = QuantityFormatter.format(value)
