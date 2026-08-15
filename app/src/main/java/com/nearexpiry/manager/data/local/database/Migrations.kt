@@ -482,6 +482,24 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+/**
+ * v12 -> v13: persists the POS / Item / Barcode values imported from the
+ * user-selected global Stock Recheck workbook. This table is intentionally
+ * independent of projects and inventory rows.
+ */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `recheck_codes` (
+                `code` TEXT NOT NULL,
+                PRIMARY KEY(`code`)
+            )
+            """.trimIndent()
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -493,5 +511,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_8_9,
     MIGRATION_9_10,
     MIGRATION_10_11,
-    MIGRATION_11_12
+    MIGRATION_11_12,
+    MIGRATION_12_13
 )

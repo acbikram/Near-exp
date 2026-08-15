@@ -63,6 +63,14 @@ fun BackupRestoreScreen(
         }
     }
 
+    val recheckExcelLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importRecheckExcel(context, uri)
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.backup_restore)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -173,6 +181,36 @@ fun BackupRestoreScreen(
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                // ── Global Stock Recheck File ──────────────────────────────
+                // The Catalog File validates every app project. This separate
+                // list is applied only to valid catalog scans in Stock/Recheck
+                // projects to decide whether a quantity check is required.
+                Spacer(Modifier.height(4.dp))
+                Button(
+                    onClick = {
+                        recheckExcelLauncher.launch(
+                            arrayOf(
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "application/vnd.ms-excel",
+                                "application/octet-stream"
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Stock Recheck File (Excel)")
+                }
+                Text(
+                    text = if (uiState.recheckCodeCount > 0) {
+                        "Selected: ${uiState.recheckFileName.ifBlank { "Recheck Excel" }} · ${uiState.recheckCodeCount} codes"
+                    } else {
+                        "Select the Excel file used to decide which Stock items need quantity recheck."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             if (uiState.isLoading) {
@@ -273,6 +311,15 @@ fun BackupRestoreScreen(
                 }
             }
         )
+    }
+
+    uiState.recheckImportResult?.let { result ->
+        LaunchedEffect(result) {
+            scope.launch {
+                snackbarHostState.showSnackbar(result)
+                viewModel.clearRecheckImportResult()
+            }
+        }
     }
 
     uiState.internalBackupName?.let { name ->

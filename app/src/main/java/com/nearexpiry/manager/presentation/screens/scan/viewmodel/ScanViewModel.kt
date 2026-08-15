@@ -41,6 +41,7 @@ class ScanViewModel @Inject constructor(
     private val projectRepository: com.nearexpiry.manager.domain.repository.ProjectRepository,
     private val preferencesManager: PreferencesManager,
     private val activeProjectManager: com.nearexpiry.manager.utils.ActiveProjectManager,
+    private val recheckCodeStore: com.nearexpiry.manager.utils.RecheckCodeStore,
     private val soundManager: SoundManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -264,7 +265,11 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog = false
             )
         }
-        requestEntryForActiveProject()
+        viewModelScope.launch {
+            if (passesStockRecheckGate(product)) {
+                requestEntryForActiveProject()
+            }
+        }
     }
 
     // ── Scan flow ────────────────────────────────────────────────────────────
@@ -306,6 +311,11 @@ class ScanViewModel @Inject constructor(
                 rejectBarcodeNotFound()
                 return@launch
             }
+
+            // A Recheck file is deliberately separate from the Catalog File.
+            // First confirm the product exists in the global catalog; then, and
+            // only for Stock/Recheck projects, decide whether it needs a qty check.
+            if (!passesStockRecheckGate(product)) return@launch
 
             // Valid catalog code: success feedback is deliberately delayed until
             // after validation so unknown codes get only the distinct error tone.
@@ -350,6 +360,7 @@ class ScanViewModel @Inject constructor(
                 return@launch
             }
             // Embedded barcode item code is present in the catalog.
+            if (!passesStockRecheckGate(product)) return@launch
             soundManager.playSingleBeep()
             vibrateSingle()
             _uiState.update {
@@ -904,14 +915,14 @@ class ScanViewModel @Inject constructor(
         const val STOCK_EXPIRY_SENTINEL = "9999-12-31"
     }
 
-    /** Rejects unknown camera/manual input without ever reaching date or quantity entry. */
-    private fun rejectBarcodeNotFound() {
+    /** Rejects an entry without ever reaching date or quantity entry. */
+    private fun rejectScan(message: String) {
         scanErrorSequence += 1
         val resumeManualEntry = currentEntryManual
         soundManager.playWarningTripleBeep()
         _uiState.update {
             it.copy(
-                scanError = "⚠️ Barcode Not Found",
+                scanError = message,
                 scanErrorId = scanErrorSequence,
                 showExpiryDialog = false,
                 showQuantityDialog = false,
@@ -936,6 +947,26 @@ class ScanViewModel @Inject constructor(
             )
         }
         if (!resumeManualEntry) startInactivityTimer()
+    }
+
+    /** Unknown Catalog File input keeps the established Barcode Not Found message. */
+    private fun rejectBarcodeNotFound() = rejectScan("⚠️ Barcode Not Found")
+
+    /**
+     * Applies the selected global Stock Recheck file only after Catalog File
+     * validation succeeds, and only while the active project is Stock/Recheck.
+     */
+    private suspend fun passesStockRecheckGate(product: ProductInfo): Boolean {
+        if (!_uiState.value.isStockMode) return true
+        if (!recheckCodeStore.hasSelectedFile()) {
+            rejectScan("Select The Recheck File First")
+            return false
+        }
+        if (!recheckCodeStore.containsCatalogItem(product.itemCode, product.barcode)) {
+            rejectScan("No Need Recheck For This Item")
+            return false
+        }
+        return true
     }
 
     private fun loadRecentScans() {

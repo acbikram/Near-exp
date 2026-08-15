@@ -10,15 +10,23 @@ import com.nearexpiry.manager.data.local.dao.CustomProductDao
 import com.nearexpiry.manager.data.local.dao.ExpiryItemDao
 import com.nearexpiry.manager.data.local.dao.ProjectDao
 import com.nearexpiry.manager.data.local.dao.RecycleBinDao
+import com.nearexpiry.manager.data.local.dao.RecheckCodeDao
 import com.nearexpiry.manager.data.local.entity.CustomProductEntity
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.ProjectEntity
 import com.nearexpiry.manager.data.local.entity.RecycleBinEntity
+import com.nearexpiry.manager.data.local.entity.RecheckCodeEntity
 import com.nearexpiry.manager.data.local.typeconverter.Converters
 
 @Database(
-    entities = [ExpiryItemEntity::class, CustomProductEntity::class, ProjectEntity::class, RecycleBinEntity::class],
-    version = 12,
+    entities = [
+        ExpiryItemEntity::class,
+        CustomProductEntity::class,
+        ProjectEntity::class,
+        RecycleBinEntity::class,
+        RecheckCodeEntity::class
+    ],
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -27,6 +35,7 @@ abstract class ExpiryDatabase : RoomDatabase() {
     abstract fun customProductDao(): CustomProductDao
     abstract fun projectDao(): ProjectDao
     abstract fun recycleBinDao(): RecycleBinDao
+    abstract fun recheckCodeDao(): RecheckCodeDao
 
     companion object {
         @Volatile

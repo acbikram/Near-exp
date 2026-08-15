@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.screens.backup
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
@@ -17,6 +18,9 @@ import com.nearexpiry.manager.utils.JsonBackup
 import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.AutoBackup
 import com.nearexpiry.manager.utils.XlsxReportReader
+import com.nearexpiry.manager.utils.RecheckCodeStore
+import com.nearexpiry.manager.utils.RecheckExcelReader
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +40,8 @@ class BackupRestoreViewModel @Inject constructor(
     private val catalogRepository: ProductCatalogRepository,
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
+    private val recheckCodeStore: RecheckCodeStore,
+    private val preferencesManager: PreferencesManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -67,7 +73,12 @@ class BackupRestoreViewModel @Inject constructor(
         val wifiStatus: String = "",
         val wifiProgress: Float = 0f,
         /** Current catalog product count, for the status indicator. */
-        val catalogCount: Int = 0
+        val catalogCount: Int = 0,
+        /** Global Stock Recheck workbook metadata; its codes live in Room. */
+        val recheckFileName: String = "",
+        val recheckCodeCount: Int = 0,
+        /** One-shot confirmation after the Recheck workbook replaces the old list. */
+        val recheckImportResult: String? = null
     )
 
     private val _uiState = MutableStateFlow(BackupUiState())
@@ -75,6 +86,20 @@ class BackupRestoreViewModel @Inject constructor(
 
     init {
         refreshCatalogCount()
+        refreshRecheckStatus()
+    }
+
+    private fun refreshRecheckStatus() {
+        viewModelScope.launch {
+            val storedCount = runCatching { recheckCodeStore.importedCodeCount() }.getOrDefault(0)
+            val storedName = runCatching { preferencesManager.getRecheckFileName() }.getOrDefault("")
+            _uiState.update {
+                it.copy(
+                    recheckFileName = storedName,
+                    recheckCodeCount = storedCount
+                )
+            }
+        }
     }
 
     /** Reloads the catalog product count for the status indicator. */
@@ -328,6 +353,59 @@ class BackupRestoreViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Catalog update failed") }
             }
         }
+    }
+
+    /**
+     * Imports the user-selected global Stock Recheck workbook. The Catalog File
+     * remains untouched and continues to validate all project scans; this list
+     * is consulted only after a valid catalog match in a Stock/Recheck project.
+     */
+    fun importRecheckExcel(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false, recheckImportResult = null) }
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("Unable to read the selected Excel file")
+                }
+                if (bytes.size < 2 || bytes[0] != 'P'.code.toByte() || bytes[1] != 'K'.code.toByte()) {
+                    error("Please select an .xlsx Stock Recheck Excel file.")
+                }
+                val codes = withContext(Dispatchers.Default) { RecheckExcelReader.readCodes(bytes) }
+                if (codes.isEmpty()) {
+                    error("No POS Code, Item Code, or Barcode header with usable codes was found in this Excel file.")
+                }
+                val count = recheckCodeStore.replaceCodes(codes)
+                val fileName = resolveDisplayName(context, uri)
+                preferencesManager.setRecheckFileMetadata(fileName, count)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        recheckFileName = fileName,
+                        recheckCodeCount = count,
+                        recheckImportResult = "$count Recheck codes loaded from $fileName."
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Unable to import the Recheck Excel file")
+                }
+            }
+        }
+    }
+
+    private fun resolveDisplayName(context: Context, uri: Uri): String = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
+            }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast('/')
+        ?: "Recheck File.xlsx"
+
+    fun clearRecheckImportResult() {
+        _uiState.update { it.copy(recheckImportResult = null) }
     }
 
     /**

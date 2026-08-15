@@ -39,6 +39,9 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val expiryDateStreakCountKey = longPreferencesKey("expiry_date_streak_count")
     private val automaticExpiryDateKey = stringPreferencesKey("automatic_expiry_date")
     private val lastBranchIdKey = stringPreferencesKey("last_branch_id")
+    // The actual Recheck codes live in Room; preferences store only UI metadata.
+    private val recheckFileNameKey = stringPreferencesKey("recheck_excel_file_name")
+    private val recheckCodeCountKey = longPreferencesKey("recheck_excel_code_count")
     // Sticky scan mode: after 2 consecutive uses of one mode, the Scan screen
     // opens in that mode by default.
     private val scanModeDefaultKey = stringPreferencesKey("scan_mode_default")   // "camera" | "manual"
@@ -94,6 +97,19 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
 
     suspend fun setLastBranchId(id: String) {
         context.dataStore.edit { it[lastBranchIdKey] = id }
+    }
+
+    suspend fun getRecheckFileName(): String =
+        context.dataStore.data.first()[recheckFileNameKey] ?: ""
+
+    suspend fun getRecheckCodeCount(): Int =
+        (context.dataStore.data.first()[recheckCodeCountKey] ?: 0L).toInt()
+
+    suspend fun setRecheckFileMetadata(fileName: String, codeCount: Int) {
+        context.dataStore.edit {
+            it[recheckFileNameKey] = fileName
+            it[recheckCodeCountKey] = codeCount.toLong()
+        }
     }
 
     suspend fun getLastExpiryForToday(todayIso: String): String? {
