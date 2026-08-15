@@ -14,6 +14,7 @@ import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.model.ProductInfo
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
+import com.nearexpiry.manager.presentation.components.EditableUnitTypes
 import com.nearexpiry.manager.utils.EmbeddedBarcode
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.SoundManager
@@ -832,7 +833,7 @@ class ScanViewModel @Inject constructor(
                 editProductNameArabic = item.productNameArabic,
                 editExpiryDate = item.expiryDate,
                 editQuantity = item.quantity,
-                editUnit = item.unit.orEmpty()
+                editUnit = EditableUnitTypes.normalizedOrNull(item.unit.orEmpty()) ?: "PCS"
             )
         }
     }
@@ -846,9 +847,9 @@ class ScanViewModel @Inject constructor(
     }
 
     fun updateEditUnit(value: String) {
-        // UOM is a short display label (PCS, CTN, KG, etc.). Keep its user
-        // input separate from the catalog and cap it to a practical length.
-        _uiState.update { it.copy(editUnit = value.take(30)) }
+        EditableUnitTypes.normalizedOrNull(value)?.let { allowedUnit ->
+            _uiState.update { it.copy(editUnit = allowedUnit) }
+        }
     }
 
     fun confirmEdit() {
@@ -858,7 +859,7 @@ class ScanViewModel @Inject constructor(
             val updated = existing.copy(
                 expiryDate = state.editExpiryDate,
                 quantity = state.editQuantity,
-                unit = state.editUnit.trim().takeIf { it.isNotEmpty() },
+                unit = EditableUnitTypes.normalizedOrNull(state.editUnit) ?: "PCS",
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateItem(updated.toEntity())

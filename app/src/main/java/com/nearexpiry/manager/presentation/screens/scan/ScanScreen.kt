@@ -51,6 +51,7 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
+import com.nearexpiry.manager.presentation.components.UnitTypeSelector
 import com.nearexpiry.manager.presentation.screens.scan.components.BarcodeScannerOverlay
 import com.nearexpiry.manager.presentation.screens.scan.components.ScannerInactiveOverlay
 import com.nearexpiry.manager.presentation.screens.scan.components.ScannerView
@@ -806,13 +807,10 @@ private fun EditScanItemDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = onUnitChange,
-                    label = { Text("UOM / Unit Type") },
-                    supportingText = { Text("Examples: PCS, CTN, KG, OFR") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                UnitTypeSelector(
+                    selectedUnit = unit,
+                    onUnitSelected = onUnitChange,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },

@@ -16,6 +16,7 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.Code39Barcode
 import com.nearexpiry.manager.presentation.components.ExpiryDateField
+import com.nearexpiry.manager.presentation.components.UnitTypeSelector
 import com.nearexpiry.manager.presentation.screens.detail.viewmodel.DetailViewModel
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
@@ -182,14 +183,10 @@ fun DetailScreen(
                         )
                     }
                     if (editingUnit) {
-                        OutlinedTextField(
-                            value = uiState.unitText,
-                            onValueChange = viewModel::updateUnit,
-                            label = { Text("UOM / Unit Type") },
-                            supportingText = { Text("Examples: PCS, CTN, KG, OFR") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            enabled = !uiState.isSaving
+                        UnitTypeSelector(
+                            selectedUnit = uiState.unitText,
+                            onUnitSelected = viewModel::updateUnit,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     Button(

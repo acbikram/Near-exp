@@ -7,6 +7,7 @@ import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.presentation.components.EditableUnitTypes
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,7 @@ class DetailViewModel @Inject constructor(
         val projectName: String = "",
         val isStockMode: Boolean = false,
         val expiryDate: String = "",
-        /** Editable UOM / Unit Type for this item; blank clears a previously set unit. */
+        /** Editable UOM / Unit Type; always one of PCS, KG, CTN, or OFR. */
         val unitText: String = "",
         /** Raw text shown in the quantity field, kept separate from the validated value. */
         val quantityText: String = "0",
@@ -73,7 +74,7 @@ class DetailViewModel @Inject constructor(
                         projectName = projectName,
                         isStockMode = isStockMode,
                         expiryDate = item?.expiryDate ?: "",
-                        unitText = item?.unit.orEmpty(),
+                        unitText = EditableUnitTypes.normalizedOrNull(item?.unit.orEmpty()) ?: "PCS",
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },
                         quantityError = null,
                         isLoading = false,
@@ -113,10 +114,10 @@ class DetailViewModel @Inject constructor(
      * during scanning. Saving is blocked while [DetailUiState.quantityError]
      * is non-null.
      */
-    fun updateUnit(rawText: String) {
-        // Units are short labels such as PCS, CTN, KG, or OFR. Preserve the
-        // entered casing while preventing an accidental unbounded value.
-        _uiState.update { it.copy(unitText = rawText.take(30)) }
+    fun updateUnit(value: String) {
+        EditableUnitTypes.normalizedOrNull(value)?.let { allowedUnit ->
+            _uiState.update { it.copy(unitText = allowedUnit) }
+        }
     }
 
     fun updateQuantity(rawText: String) {
@@ -153,7 +154,7 @@ class DetailViewModel @Inject constructor(
                 val updatedItem = current.item?.copy(
                     expiryDate = current.expiryDate,
                     quantity = quantity,
-                    unit = current.unitText.trim().takeIf { it.isNotEmpty() },
+                    unit = EditableUnitTypes.normalizedOrNull(current.unitText) ?: "PCS",
                     updatedAt = System.currentTimeMillis()
                 ) ?: return@launch
                 repository.updateItem(updatedItem.toEntity())
