@@ -443,6 +443,7 @@ fun ScanScreen(
     if (uiState.showExistingItemDialog) {
         ExistingItemDialog(
             productName = pendingDisplayName,
+            itemCode = uiState.pendingItemCode,
             entries = uiState.existingEntries,
             onAddQty = { id -> viewModel.existingChooseQtyAction(id, addMode = true) },
             onReplaceQty = { id -> viewModel.existingChooseQtyAction(id, addMode = false) },

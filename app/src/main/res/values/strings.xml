@@ -68,6 +68,7 @@
     <string name="qty_format">Qty: %1$s</string>
     <string name="qty_unit_format">Qty: %1$s %2$s</string>
     <string name="scanned_format">Scanned: %1$s</string>
+    <string name="last_scanned_format">Last scanned: %1$s</string>
     <string name="unit_label_format">Unit: %1$s</string>
 
     <!-- ── Home screen ────────────────────────────────────────────────── -->
@@ -329,4 +330,6 @@
     <string name="reset_to_scan_order">Reset to Scan Order</string>
     <string name="sort_expiry_date">By Expiry Date</string>
     <string name="sort_quantity">By Quantity</string>
+    <string name="sort_item_code_asc">Item Code: Smallest to Largest</string>
+    <string name="sort_item_code_desc">Item Code: Largest to Smallest</string>
 </resources>

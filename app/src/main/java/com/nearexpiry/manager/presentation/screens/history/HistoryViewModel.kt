@@ -18,7 +18,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 enum class Filter { ALL, EXPIRED, TODAY, ONE_TO_SEVEN, EIGHT_TO_THIRTY, LATER }
-enum class SortOrder { NEWEST, OLDEST, EXPIRY_DATE, QUANTITY }
+enum class SortOrder { NEWEST, OLDEST, EXPIRY_DATE, QUANTITY, ITEM_CODE_ASC, ITEM_CODE_DESC }
 
 /**
  * Unit-type filter for the History screen, AND-combined with the date
@@ -133,10 +133,12 @@ class HistoryViewModel @Inject constructor(
             else -> Filter.ALL
         }
         val sort = when (sortStr) {
-            "EXPIRY_DATE" -> SortOrder.EXPIRY_DATE
-            "QUANTITY"    -> SortOrder.QUANTITY
-            "OLDEST"      -> SortOrder.OLDEST
-            else          -> SortOrder.NEWEST
+            "EXPIRY_DATE"   -> SortOrder.EXPIRY_DATE
+            "QUANTITY"      -> SortOrder.QUANTITY
+            "ITEM_CODE_ASC" -> SortOrder.ITEM_CODE_ASC
+            "ITEM_CODE_DESC" -> SortOrder.ITEM_CODE_DESC
+            "OLDEST"        -> SortOrder.OLDEST
+            else             -> SortOrder.NEWEST
         }
         _uiState.update {
             it.copy(
@@ -244,24 +246,39 @@ class HistoryViewModel @Inject constructor(
         applyFiltersAndSort()
     }
 
+    /** Applies a sort explicitly selected from the History sort menu. */
+    fun setSortOrder(sortOrder: SortOrder) {
+        val resolved = if (_uiState.value.isStockMode && sortOrder == SortOrder.EXPIRY_DATE) {
+            SortOrder.NEWEST
+        } else {
+            sortOrder
+        }
+        _uiState.update { it.copy(sortOrder = resolved) }
+        applyFiltersAndSort()
+    }
+
+    /** Retained for accessibility services that invoke the sort control as a cycle. */
     fun toggleSortOrder() {
         val state = _uiState.value
         val next = if (state.isStockMode) {
             when (state.sortOrder) {
                 SortOrder.NEWEST -> SortOrder.OLDEST
                 SortOrder.OLDEST -> SortOrder.QUANTITY
-                SortOrder.QUANTITY, SortOrder.EXPIRY_DATE -> SortOrder.NEWEST
+                SortOrder.QUANTITY -> SortOrder.ITEM_CODE_ASC
+                SortOrder.ITEM_CODE_ASC -> SortOrder.ITEM_CODE_DESC
+                SortOrder.ITEM_CODE_DESC, SortOrder.EXPIRY_DATE -> SortOrder.NEWEST
             }
         } else {
             when (state.sortOrder) {
                 SortOrder.NEWEST -> SortOrder.OLDEST
                 SortOrder.OLDEST -> SortOrder.EXPIRY_DATE
                 SortOrder.EXPIRY_DATE -> SortOrder.QUANTITY
-                SortOrder.QUANTITY -> SortOrder.NEWEST
+                SortOrder.QUANTITY -> SortOrder.ITEM_CODE_ASC
+                SortOrder.ITEM_CODE_ASC -> SortOrder.ITEM_CODE_DESC
+                SortOrder.ITEM_CODE_DESC -> SortOrder.NEWEST
             }
         }
-        _uiState.update { it.copy(sortOrder = next) }
-        applyFiltersAndSort()
+        setSortOrder(next)
     }
 
     fun cycleUnitFilter() {
@@ -359,6 +376,8 @@ class HistoryViewModel @Inject constructor(
             SortOrder.OLDEST      -> filtered.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
             SortOrder.EXPIRY_DATE -> filtered.sortedBy { it.expiryDate }
             SortOrder.QUANTITY    -> filtered.sortedByDescending { it.quantity }
+            SortOrder.ITEM_CODE_ASC -> filtered.sortedWith(itemCodeComparator(descending = false))
+            SortOrder.ITEM_CODE_DESC -> filtered.sortedWith(itemCodeComparator(descending = true))
         }
 
         // Drop selections that no longer exist (e.g. item deleted elsewhere).
@@ -391,6 +410,27 @@ class HistoryViewModel @Inject constructor(
                 availableMonths = availableMonths
             )
         }
+    }
+
+    /**
+     * Sorts numeric Item Codes by numeric value (for example 9 before 100),
+     * while retaining a stable, case-insensitive text fallback for mixed codes.
+     * Items without an Item Code fall back to their scanned barcode.
+     */
+    private fun itemCodeComparator(descending: Boolean): Comparator<ExpiryItem> {
+        val ascending = Comparator<ExpiryItem> { first, second ->
+            val firstCode = first.itemCode?.trim()?.takeIf { it.isNotEmpty() } ?: first.barcode.trim()
+            val secondCode = second.itemCode?.trim()?.takeIf { it.isNotEmpty() } ?: second.barcode.trim()
+            val firstNumber = firstCode.toBigIntegerOrNull()
+            val secondNumber = secondCode.toBigIntegerOrNull()
+            val numericComparison = when {
+                firstNumber != null && secondNumber != null -> firstNumber.compareTo(secondNumber)
+                else -> 0
+            }
+            if (numericComparison != 0) numericComparison
+            else firstCode.compareTo(secondCode, ignoreCase = true)
+        }.thenBy { it.id }
+        return if (descending) ascending.reversed() else ascending
     }
 
     fun clearError() {

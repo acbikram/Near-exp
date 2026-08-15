@@ -65,6 +65,7 @@ fun HistoryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var showDateMenu by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
@@ -301,25 +302,78 @@ fun HistoryScreen(
                                 }
                             }
                         }
-                        AssistChip(
-                            onClick = { viewModel.toggleSortOrder() },
-                            leadingIcon = {
-                                Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
-                            },
-                            label = {
-                                Text(
-                                    text = stringResource(
-                                        when (uiState.sortOrder) {
-                                            SortOrder.NEWEST -> if (uiState.hasCustomSort) R.string.sort_custom else R.string.sort_newest
-                                            SortOrder.OLDEST -> R.string.sort_oldest
-                                            SortOrder.EXPIRY_DATE -> R.string.sort_expiry_date
-                                            SortOrder.QUANTITY -> R.string.sort_quantity
+                        Box {
+                            AssistChip(
+                                onClick = { showSortMenu = true },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
+                                },
+                                label = {
+                                    Text(
+                                        text = stringResource(
+                                            when (uiState.sortOrder) {
+                                                SortOrder.NEWEST -> if (uiState.hasCustomSort) R.string.sort_custom else R.string.sort_newest
+                                                SortOrder.OLDEST -> R.string.sort_oldest
+                                                SortOrder.EXPIRY_DATE -> R.string.sort_expiry_date
+                                                SortOrder.QUANTITY -> R.string.sort_quantity
+                                                SortOrder.ITEM_CODE_ASC -> R.string.sort_item_code_asc
+                                                SortOrder.ITEM_CODE_DESC -> R.string.sort_item_code_desc
+                                            }
+                                        ),
+                                        color = CyanAccent
+                                    )
+                                }
+                            )
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(if (uiState.hasCustomSort) stringResource(R.string.sort_custom) else stringResource(R.string.sort_newest)) },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.setSortOrder(SortOrder.NEWEST)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_oldest)) },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.setSortOrder(SortOrder.OLDEST)
+                                    }
+                                )
+                                if (!uiState.isStockMode) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sort_expiry_date)) },
+                                        onClick = {
+                                            showSortMenu = false
+                                            viewModel.setSortOrder(SortOrder.EXPIRY_DATE)
                                         }
-                                    ),
-                                    color = CyanAccent
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_quantity)) },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.setSortOrder(SortOrder.QUANTITY)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_item_code_asc)) },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.setSortOrder(SortOrder.ITEM_CODE_ASC)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sort_item_code_desc)) },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.setSortOrder(SortOrder.ITEM_CODE_DESC)
+                                    }
                                 )
                             }
-                        )
+                        }
                         // "Reset to Scan Order" — only relevant once the project
                         // has actually been manually reordered.
                         if (uiState.sortOrder == SortOrder.NEWEST && uiState.hasCustomSort) {

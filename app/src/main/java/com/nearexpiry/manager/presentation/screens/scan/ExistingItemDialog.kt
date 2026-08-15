@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -25,9 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.YellowAccent
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.QuantityFormatter
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Shown when a scanned item already exists in the current project. Lists every
@@ -37,6 +40,7 @@ import com.nearexpiry.manager.utils.QuantityFormatter
 @Composable
 fun ExistingItemDialog(
     productName: String?,
+    itemCode: String?,
     entries: List<ExpiryItem>,
     onAddQty: (entryId: Long) -> Unit,
     onReplaceQty: (entryId: Long) -> Unit,
@@ -50,6 +54,17 @@ fun ExistingItemDialog(
         title = { Text(stringResource(R.string.existing_item_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                val displayedItemCode = itemCode?.takeIf { it.isNotBlank() }
+                    ?: entries.firstOrNull()?.itemCode?.takeIf { it.isNotBlank() }
+                    ?: entries.firstOrNull()?.barcode
+                if (!displayedItemCode.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(R.string.item_code_format, displayedItemCode),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = OrangeAccent
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 if (!productName.isNullOrBlank()) {
                     Text(
                         productName,
@@ -80,6 +95,12 @@ fun ExistingItemDialog(
                                 },
                                 style = MaterialTheme.typography.bodyMedium
                             )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.last_scanned_format, formatTimestamp(entry.updatedAt)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -87,7 +108,7 @@ fun ExistingItemDialog(
                             ) {
                                 Button(
                                     onClick = { onAddQty(entry.id) },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = YellowAccent,
                                         contentColor = Color(0xFF201A00)
@@ -97,7 +118,7 @@ fun ExistingItemDialog(
                                 }
                                 Button(
                                     onClick = { onReplaceQty(entry.id) },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = YellowAccent,
                                         contentColor = Color(0xFF201A00)
@@ -125,3 +146,8 @@ fun ExistingItemDialog(
         }
     )
 }
+
+private fun formatTimestamp(timestampMillis: Long): String =
+    Instant.ofEpochMilli(timestampMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
