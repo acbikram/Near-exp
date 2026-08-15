@@ -11,18 +11,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
+import com.nearexpiry.manager.presentation.theme.YellowAccent
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.QuantityFormatter
 
@@ -78,12 +81,29 @@ fun ExistingItemDialog(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { onAddQty(entry.id) }) {
-                                    Text(stringResource(R.string.add_qty))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { onAddQty(entry.id) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = YellowAccent,
+                                        contentColor = Color(0xFF201A00)
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.add_qty), fontWeight = FontWeight.Bold)
                                 }
-                                OutlinedButton(onClick = { onReplaceQty(entry.id) }) {
-                                    Text(stringResource(R.string.replace_qty))
+                                Button(
+                                    onClick = { onReplaceQty(entry.id) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = YellowAccent,
+                                        contentColor = Color(0xFF201A00)
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.replace_qty), fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

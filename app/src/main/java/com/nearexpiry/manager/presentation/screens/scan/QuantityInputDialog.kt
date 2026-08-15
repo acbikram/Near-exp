@@ -10,16 +10,19 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.theme.OrangeAccent
 
 @Composable
 fun QuantityInputDialog(
     onQuantityConfirmed: (Double) -> Unit,
     onDismiss: () -> Unit,
     productName: String? = null,
+    itemCode: String? = null,
     unit: String? = null
 ) {
     // Start empty so the field shows just a blinking cursor, matching the
@@ -51,6 +54,16 @@ fun QuantityInputDialog(
         title = { Text(stringResource(R.string.enter_quantity)) },
         text = {
             Column {
+                itemCode?.takeIf { it.isNotBlank() }?.let { code ->
+                    Text(
+                        text = "Item Code: $code",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = OrangeAccent,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
                 if (!productName.isNullOrBlank()) {
                     Text(
                         text = if (!unit.isNullOrBlank()) "$productName ($unit)" else productName,

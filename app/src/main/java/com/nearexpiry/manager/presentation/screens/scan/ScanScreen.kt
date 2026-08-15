@@ -425,6 +425,7 @@ fun ScanScreen(
             onQuantityConfirmed = { quantity -> viewModel.onQuantityConfirmed(quantity) },
             onDismiss = { viewModel.dismissQuantityDialog() },
             productName = pendingDisplayName,
+            itemCode = uiState.pendingItemCode,
             unit = uiState.pendingUnit
         )
     }
@@ -456,6 +457,7 @@ fun ScanScreen(
             onQuantityConfirmed = { quantity -> viewModel.onExistingQtyConfirmed(quantity) },
             onDismiss = { viewModel.dismissExistingQtyDialog() },
             productName = pendingDisplayName,
+            itemCode = uiState.pendingItemCode,
             unit = uiState.pendingUnit
         )
     }
