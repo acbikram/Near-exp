@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -29,6 +30,7 @@ object EditableUnitTypes {
  * Fixed Unit Type picker used by item editing surfaces. Free-text UOM entry is
  * intentionally unavailable so saved edits are limited to [EditableUnitTypes].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UnitTypeSelector(
     selectedUnit: String,
