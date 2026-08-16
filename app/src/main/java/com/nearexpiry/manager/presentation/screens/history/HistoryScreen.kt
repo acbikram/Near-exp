@@ -734,7 +734,7 @@ private fun HistoryFilterChip(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryItemCard(
     item: ExpiryItem,
