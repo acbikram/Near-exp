@@ -26,9 +26,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -728,7 +725,7 @@ private fun HistoryFilterChip(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryItemCard(
     item: ExpiryItem,
@@ -749,33 +746,6 @@ fun HistoryItemCard(
         expiryDate != null && !expiryDate.isAfter(today.plusDays(7)) -> "1-7 DAYS" to OrangeAccent
         else -> "SAFE" to GreenAccent
     }
-    val swipeState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled) {
-                onLongClick()
-                false
-            } else {
-                true
-            }
-        }
-    )
-    SwipeToDismissBox(
-        state = swipeState,
-        backgroundContent = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = CyanAccent.copy(alpha = 0.12f),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text(
-                    text = "Select item",
-                    color = CyanAccent,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 30.dp)
-                )
-            }
-        }
-    ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -877,7 +847,6 @@ fun HistoryItemCard(
                 )
             }
         }
-    }
     }
 }
 
