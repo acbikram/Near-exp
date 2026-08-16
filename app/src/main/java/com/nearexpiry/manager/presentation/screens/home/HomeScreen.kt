@@ -63,6 +63,20 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val expiryListState = rememberLazyListState()
+    var hasPositionedToday by remember(uiState.activeProjectName) { mutableStateOf(false) }
+    val todayExpiryIndex = uiState.expiringSoonItems.indexOfFirst { item ->
+        ExpiryDateUtils.parseOrNull(item.expiryDate) == LocalDate.now()
+    }
+
+    // The Home expiry queue opens at today's first item when present. Expired
+    // entries remain directly above it, and the upcoming 1-7 day entries stay
+    // below it for a natural two-direction work flow.
+    LaunchedEffect(todayExpiryIndex, uiState.expiringSoonItems.size, uiState.isStockMode) {
+        if (!uiState.isStockMode && !hasPositionedToday && todayExpiryIndex >= 0) {
+            expiryListState.scrollToItem(todayExpiryIndex)
+            hasPositionedToday = true
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
