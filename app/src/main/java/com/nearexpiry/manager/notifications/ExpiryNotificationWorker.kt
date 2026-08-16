@@ -6,20 +6,14 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.flow.first
 
 /**
  * Result of one diagnostic/production notification-check run, for the
@@ -82,56 +76,17 @@ class ExpiryNotificationWorker @AssistedInject constructor(
         private val DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Schedules the daily run, first occurrence at the next 8:00 AM.
-         * KEEP policy: safe to call on every app launch — only the very
-         * first call actually creates the schedule; later calls are no-ops
-         * if a job under this name already exists (running or pending).
-         *
-         * One-time migration: earlier app versions used a one-time,
-         * self-rescheduling job under this same unique name (which, on some
-         * phones, never actually fired). If that stale entry is still
-         * sitting there, KEEP would preserve it forever instead of the new
-         * periodic job. So the very first call after updating force-clears
-         * whatever's there, then switches to KEEP for all calls after that.
+         * Installs the next daily local 8:00 AM alarm. The previous
+         * WorkManager periodic request is deliberately replaced because Android
+         * may batch periodic work by several hours.
          */
         fun schedule(context: Context) {
-            val prefs = context.getSharedPreferences("perm_flags", Context.MODE_PRIVATE)
-            val migrated = prefs.getBoolean("notif_worker_migrated_v2", false)
-            val policy = if (migrated) {
-                ExistingPeriodicWorkPolicy.KEEP
-            } else {
-                prefs.edit().putBoolean("notif_worker_migrated_v2", true).apply()
-                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
-            }
-
-            val initialDelayMs = millisUntilNextEightAm()
-            val request = PeriodicWorkRequestBuilder<ExpiryNotificationWorker>(24, TimeUnit.HOURS)
-                .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
-                .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, policy, request)
+            DailyExpiryAlarmScheduler.schedule(context)
         }
 
-        /** Milliseconds until the next 8:00 AM in the device's local time zone. */
-        private fun millisUntilNextEightAm(): Long {
-            val now = LocalDateTime.now()
-            val eightAmToday = now.toLocalDate().atTime(8, 0)
-            val target = if (now.isBefore(eightAmToday)) eightAmToday else eightAmToday.plusDays(1)
-            return ChronoUnit.MILLIS.between(now, target).coerceAtLeast(0L)
-        }
-
-        /**
-         * Watchdog: re-arms the daily chain only if it's not currently
-         * scheduled at all (e.g. some phones purge all background work under
-         * aggressive battery saving). Safe no-op otherwise — schedule() with
-         * KEEP won't disturb a job that's already alive. Called from
-         * [AutoBackupWorker]'s periodic run as a safety net.
-         */
+        /** Watchdog used by automatic backup; rebuilding the alarm is safe. */
         suspend fun ensureScheduled(context: Context) {
-            val infos = WorkManager.getInstance(context)
-                .getWorkInfosForUniqueWorkFlow(WORK_NAME)
-                .first()
-            val alive = infos.any { !it.state.isFinished }
-            if (!alive) schedule(context)
+            DailyExpiryAlarmScheduler.schedule(context)
         }
 
         /**
@@ -165,23 +120,31 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                 val items = dao.getAllItemsOnce(projectId)
 
                 var unparsable = 0
-                val tiers = linkedMapOf(0 to mutableListOf<Long>(), 3 to mutableListOf(), 7 to mutableListOf(), 15 to mutableListOf())
+                val tiers = linkedMapOf(
+                    0 to mutableListOf<com.nearexpiry.manager.data.local.entity.ExpiryItemEntity>(),
+                    3 to mutableListOf(),
+                    7 to mutableListOf(),
+                    15 to mutableListOf()
+                )
                 for (item in items) {
                     val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }.getOrNull()
                     if (expiryDate == null) { unparsable++; continue }
                     val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
-                    tiers[daysLeft]?.add(item.id)
+                    tiers[daysLeft]?.add(item)
                 }
 
+                // The daily alarm itself fires at local 8:00 AM. Post every
+                // eligible tier from this same delivery path rather than
+                // handing it to another best-effort worker that Android can
+                // defer beyond the requested time.
                 val order = listOf(0, 3, 7, 15)
-                var slot = 0
                 var posted = 0
                 for (days in order) {
-                    val ids = tiers[days]?.takeIf { it.isNotEmpty() } ?: continue
-                    val delayMin = slot * 15L
-                    slot++
-                    TierNotificationWorker.enqueue(context, days, ids, delayMin)
-                    posted += ids.size
+                    val tierItems = tiers[days].orEmpty()
+                    tierItems.forEach { item ->
+                        NotificationHelper.postItemNotification(context, days, item, projectName)
+                    }
+                    posted += tierItems.size
                 }
 
                 return NotificationDiagnosticResult(

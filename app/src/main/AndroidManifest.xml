@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Lets WorkManager reschedule the daily check after a reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Android 12+: permits an exact local 8:00 AM expiry alarm instead of
+         a periodic background job that the system may defer by hours. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Lets the app prompt to be exempted from battery optimization, so the
          daily 8 AM expiry notification isn't delayed by aggressive OEM
          background restrictions (Honor/Huawei, Samsung, Xiaomi, etc.) -->
@@ -48,6 +51,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Exact local-time delivery for the daily 8:00 AM expiry check. -->
+        <receiver
+            android:name=".notifications.DailyExpiryAlarmReceiver"
+            android:exported="false" />
+
+        <!-- Re-arms the exact local 8:00 AM schedule after reboot, timezone,
+             date, or manually adjusted device-clock changes. -->
+        <receiver
+            android:name=".notifications.DailyExpiryScheduleRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Handles the "Remind me tomorrow" action on expiry notifications -->
         <receiver

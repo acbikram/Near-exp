@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.presentation.components.BatteryOptimizationDialog
 import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
 import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
@@ -108,6 +109,9 @@ class MainActivity : AppCompatActivity() {
         permissionRequestedThisResume = false
         ensureNotificationPermission()
         ensureBatteryOptimizationExempt()
+        // If the user has just enabled Android's exact-alarm access, replace
+        // the fallback alarm immediately with the precise next local 8:00 AM.
+        runCatching { DailyExpiryAlarmScheduler.schedule(this) }
     }
 
     /**

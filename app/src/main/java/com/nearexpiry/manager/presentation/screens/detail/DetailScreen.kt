@@ -24,6 +24,7 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.LanguageManager
+import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,6 +125,47 @@ fun DetailScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = CyanAccent
                             )
+                        }
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.item_quantity),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = CyanAccent
+                                )
+                                Text(
+                                    text = if (!item.unit.isNullOrBlank()) {
+                                        "${QuantityFormatter.format(item.quantity)} ${item.unit}"
+                                    } else {
+                                        QuantityFormatter.format(item.quantity)
+                                    },
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = OrangeAccent
+                                )
+                                if (!uiState.isStockMode) {
+                                    HorizontalDivider(color = CyanAccent.copy(alpha = 0.35f))
+                                    Text(
+                                        text = stringResource(R.string.item_expiry_date),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = CyanAccent
+                                    )
+                                    Text(
+                                        text = item.expiryDate,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = expiryColor
+                                    )
+                                }
+                            }
                         }
                         if (!uiState.isStockMode) {
                             Surface(

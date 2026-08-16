@@ -375,8 +375,7 @@ fun ScanScreen(
                     RecentScanCard(
                         item = item,
                         showExpiry = !uiState.isStockMode,
-                        onEdit = { viewModel.requestEdit(item) },
-                        onDelete = { viewModel.requestDelete(item) }
+                        onEdit = { viewModel.requestEdit(item) }
                     )
                 }
                 if (uiState.recentScans.isEmpty()) {
@@ -684,8 +683,7 @@ private fun ScanErrorBanner(
 private fun RecentScanCard(
     item: ExpiryItem,
     showExpiry: Boolean = true,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -699,6 +697,14 @@ private fun RecentScanCard(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = onEdit) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.edit),
+                    tint = CyanAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 // Line 1: Barcode  •  ItemCode (if available)
                 Text(
@@ -747,12 +753,6 @@ private fun RecentScanCard(
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
                 }
-            }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit), tint = CyanAccent, modifier = Modifier.size(20.dp))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = ErrorRed, modifier = Modifier.size(20.dp))
             }
         }
     }

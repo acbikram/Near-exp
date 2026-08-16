@@ -1,8 +1,11 @@
 package com.nearexpiry.manager.presentation.screens.settings
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -27,6 +30,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
@@ -174,6 +178,33 @@ fun SettingsScreen(
                             Button(onClick = { navController.navigate(Screen.RecycleBin.route) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.recycle_bin)) }
                             Spacer(Modifier.height(8.dp))
                             Button(onClick = { viewModel.testExpiryNotificationNow() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.test_notification_now)) }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !DailyExpiryAlarmScheduler.canScheduleExact(context)) {
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = stringResource(R.string.exact_alarm_access_title),
+                                    style = MaterialTheme.typography.titleSmall.copy(color = OrangeAccent, fontWeight = FontWeight.Bold)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(R.string.exact_alarm_access_description),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        val intent = Intent(
+                                            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                        runCatching { context.startActivity(intent) }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(stringResource(R.string.exact_alarm_access_button))
+                                }
+                            }
                             Spacer(Modifier.height(8.dp))
                             Button(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ErrorRed.copy(alpha = 0.15f), contentColor = ErrorRed), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.clear_all_records)) }
                         }

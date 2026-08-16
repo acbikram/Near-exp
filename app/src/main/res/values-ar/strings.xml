@@ -67,6 +67,8 @@
     <string name="expiry_format">تاريخ الانتهاء: %1$s</string>
     <string name="qty_format">الكمية: %1$s</string>
     <string name="qty_unit_format">الكمية: %1$s %2$s</string>
+    <string name="item_quantity">كمية الصنف</string>
+    <string name="item_expiry_date">تاريخ الصلاحية</string>
     <string name="scanned_format">تم المسح: %1$s</string>
     <string name="last_scanned_format">آخر مسح: %1$s</string>
     <string name="unit_label_format">الوحدة: %1$s</string>
@@ -309,6 +311,9 @@
     <string name="flash_on">تشغيل الفلاش</string>
     <string name="flash_off">إطفاء الفلاش</string>
     <string name="test_notification_now">اختبار إشعار انتهاء الصلاحية الآن</string>
+    <string name="exact_alarm_access_title">تنبيهات يومية الساعة 8:00 صباحاً</string>
+    <string name="exact_alarm_access_description">اسمح بالمنبهات الدقيقة لتصل إشعارات قرب الانتهاء في الساعة 8:00 صباحاً حسب التوقيت المحلي.</string>
+    <string name="exact_alarm_access_button">السماح بتنبيهات دقيقة الساعة 8:00</string>
     <string name="notification_test_result_title">نتيجة اختبار الإشعار</string>
     <string name="notification_test_no_permission">إذن الإشعارات غير ممنوح. اذهب إلى إعدادات الهاتف ← التطبيقات ← Near Expiry Manager ← الإشعارات وقم بتفعيله، ثم حاول مرة أخرى.</string>
     <string name="notification_test_error_format">فشل الفحص بخطأ:\n%1$s</string>

@@ -67,6 +67,8 @@
     <string name="expiry_format">Expiry: %1$s</string>
     <string name="qty_format">Qty: %1$s</string>
     <string name="qty_unit_format">Qty: %1$s %2$s</string>
+    <string name="item_quantity">Item Quantity</string>
+    <string name="item_expiry_date">Expiry Date</string>
     <string name="scanned_format">Scanned: %1$s</string>
     <string name="last_scanned_format">Last scanned: %1$s</string>
     <string name="unit_label_format">Unit: %1$s</string>
@@ -309,6 +311,9 @@
     <string name="flash_on">Turn flashlight on</string>
     <string name="flash_off">Turn flashlight off</string>
     <string name="test_notification_now">Test Expiry Notification Now</string>
+    <string name="exact_alarm_access_title">Daily alerts at 8:00 AM</string>
+    <string name="exact_alarm_access_description">Allow exact alarms so Near Expiry notifications are delivered at 8:00 AM local time.</string>
+    <string name="exact_alarm_access_button">Allow Exact 8:00 AM Alerts</string>
     <string name="notification_test_result_title">Notification Test Result</string>
     <string name="notification_test_no_permission">Notification permission is NOT granted. Go to your phone Settings → Apps → Near Expiry Manager → Notifications and turn it on, then try again.</string>
     <string name="notification_test_error_format">The check failed with an error:\n%1$s</string>
