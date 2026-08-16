@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,7 +25,6 @@ import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
-import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import java.time.LocalDate
 
@@ -31,10 +32,11 @@ import java.time.LocalDate
 fun ExpiryRiskTimeline(items: List<ExpiryItem>) {
     val today = LocalDate.now()
     val counts = items.groupingBy { item ->
+        val date = ExpiryDateUtils.parseOrNull(item.expiryDate)
         when {
-            ExpiryDateUtils.parseOrNull(item.expiryDate)?.isBefore(today) == true -> "Expired"
-            ExpiryDateUtils.parseOrNull(item.expiryDate) == today -> "Today"
-            ExpiryDateUtils.parseOrNull(item.expiryDate)?.isBefore(today.plusDays(8)) == true -> "1-7 days"
+            date?.isBefore(today) == true -> "Expired"
+            date == today -> "Today"
+            date?.isBefore(today.plusDays(8)) == true -> "1-7 days"
             else -> "Safe"
         }
     }.eachCount()
@@ -45,48 +47,52 @@ fun ExpiryRiskTimeline(items: List<ExpiryItem>) {
         "Safe" to GreenAccent
     )
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = AppDimens.ScreenPadding, vertical = 8.dp)
-            .background(SurfaceVariant, RoundedCornerShape(AppDimens.ControlRadius)),
+            .padding(horizontal = AppDimens.ScreenPadding, vertical = 3.dp),
+        color = com.nearexpiry.manager.presentation.theme.SurfaceVariant,
+        shape = MaterialTheme.shapes.small
     ) {
-        Text(
-            text = "Expiry risk overview",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            color = SubtleGray,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Text(
+                text = "Expiry",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = SubtleGray
+            )
             segments.forEach { (label, color) ->
-                val count = counts[label] ?: 0
-                Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
+                            .width(5.dp)
+                            .height(18.dp)
                             .background(color, RoundedCornerShape(50))
                     )
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        text = "$count",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = color
-                    )
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SubtleGray,
-                        maxLines = 1
-                    )
+                    Column {
+                        Text(
+                            text = "${counts[label] ?: 0}",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = color
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SubtleGray,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
     }
 }

@@ -177,72 +177,20 @@ fun HistoryScreen(
                         }
                     }
                 )
-            } else {
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(R.string.history),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    actions = {
-                        Box {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CyanAccent)
-                            }
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.select_items)) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        viewModel.enterSelectionMode()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(
-                                                R.string.delete_items_in_filter_format,
-                                                uiState.itemsInFilter.size
-                                            ),
-                                            color = ErrorRed
-                                        )
-                                    },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        viewModel.requestDeleteFilter()
-                                    },
-                                    enabled = uiState.itemsInFilter.isNotEmpty()
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(8.dp))
-                    }
-                )
             }
         },
         bottomBar = { BottomNavigationBar(navController) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            ActiveProjectHeader(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
             if (!uiState.isStockMode) {
                 Text(
                     text = "Expiry status",
                     style = MaterialTheme.typography.labelLarge.copy(color = CyanAccent, fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 1.dp)
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     HistoryFilterChip("All", Filter.ALL, uiState, viewModel)
@@ -311,6 +259,7 @@ fun HistoryScreen(
                         Box {
                             AssistChip(
                                 onClick = { showSortMenu = true },
+                                modifier = Modifier.height(32.dp),
                                 leadingIcon = {
                                     Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.sort), tint = CyanAccent)
                                 },
@@ -385,6 +334,7 @@ fun HistoryScreen(
                         if (uiState.sortOrder == SortOrder.NEWEST && uiState.hasCustomSort) {
                             AssistChip(
                                 onClick = { viewModel.resetToScanOrder() },
+                                modifier = Modifier.height(32.dp),
                                 leadingIcon = {
                                     Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.reset_to_scan_order), tint = CyanAccent)
                                 },
@@ -392,6 +342,7 @@ fun HistoryScreen(
                             )
                         }
                         FilterChip(
+                            modifier = Modifier.height(32.dp),
                             selected = uiState.unitFilter != UnitFilter.ALL,
                             onClick = { viewModel.cycleUnitFilter() },
                             label = {
@@ -410,21 +361,63 @@ fun HistoryScreen(
                         )
             }
 
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = viewModel::updateSearchQuery,
-                label = { Text(stringResource(R.string.search_by_name_or_barcode)) },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.small,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = SurfaceDark,
-                    unfocusedContainerColor = SurfaceDark
+                    .padding(horizontal = AppDimens.ScreenPadding, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = viewModel::updateSearchQuery,
+                    placeholder = { Text(stringResource(R.string.search_by_name_or_barcode)) },
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = SurfaceDark,
+                        unfocusedContainerColor = SurfaceDark
+                    )
                 )
-            )
+                Box {
+                    Surface(
+                        modifier = Modifier.size(42.dp),
+                        shape = RoundedCornerShape(50),
+                        color = SurfaceVariant
+                    ) {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CyanAccent)
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.select_items)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                viewModel.enterSelectionMode()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(R.string.delete_items_in_filter_format, uiState.itemsInFilter.size),
+                                    color = ErrorRed
+                                )
+                            },
+                            onClick = {
+                                showOverflowMenu = false
+                                viewModel.requestDeleteFilter()
+                            },
+                            enabled = uiState.itemsInFilter.isNotEmpty()
+                        )
+                    }
+                }
+            }
             // Sort indicator
             Text(
                 text = stringResource(
@@ -724,6 +717,7 @@ private fun HistoryFilterChip(
     viewModel: HistoryViewModel
 ) {
     FilterChip(
+        modifier = Modifier.height(32.dp),
         selected = state.filter == filter && state.specificDate == null && state.specificMonth == null,
         onClick = { viewModel.setFilter(filter) },
         label = { Text(label, style = MaterialTheme.typography.labelSmall) },
