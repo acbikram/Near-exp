@@ -52,6 +52,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
@@ -146,6 +147,43 @@ fun SettingsScreen(
                             LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
                             LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
                             LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
+                        }
+                    }
+                }
+            }
+
+            // ── Appearance ─────────────────────────────────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.appearance),
+                            style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                "dark" to R.string.theme_dark,
+                                "light" to R.string.theme_light,
+                                "system" to R.string.theme_system
+                            ).forEach { (mode, labelRes) ->
+                                FilterChip(
+                                    selected = themeMode == mode,
+                                    onClick = { viewModel.setThemeMode(mode) },
+                                    label = { Text(stringResource(labelRes), maxLines = 1) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CyanAccent.copy(alpha = 0.18f),
+                                        selectedLabelColor = CyanAccent
+                                    )
+                                )
+                            }
                         }
                     }
                 }

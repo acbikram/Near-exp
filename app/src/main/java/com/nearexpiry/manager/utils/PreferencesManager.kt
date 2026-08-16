@@ -47,6 +47,16 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val scanModeDefaultKey = stringPreferencesKey("scan_mode_default")   // "camera" | "manual"
     private val scanModeLastKey = stringPreferencesKey("scan_mode_last")
     private val scanModeStreakKey = longPreferencesKey("scan_mode_streak")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
+
+    /** "dark" (default), "light", or "system" — app appearance mode. */
+    val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[themeModeKey] ?: "dark"
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { it[themeModeKey] = mode }
+    }
 
     /** "camera" (default) or "manual" — how the Scan screen should open. */
     suspend fun getScanModeDefault(): String =

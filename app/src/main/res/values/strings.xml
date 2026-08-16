@@ -223,6 +223,10 @@
     <string name="beep_on_scan_subtitle">Single = new  •  Double = duplicate</string>
     <string name="vibrate_on_scan">Vibrate on scan</string>
     <string name="vibrate_on_scan_subtitle">Single pulse = new  •  Double = duplicate</string>
+    <string name="appearance">Appearance</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_system">System default</string>
     <string name="data_management">Data Management</string>
     <string name="clear_all_records">Clear All Records</string>
     <string name="clear_all_records_confirm">This action cannot be undone. Are you sure?</string>

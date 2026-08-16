@@ -223,6 +223,10 @@
     <string name="beep_on_scan_subtitle">صوت واحد = جديد  •  صوتان = مكرر</string>
     <string name="vibrate_on_scan">الاهتزاز عند المسح</string>
     <string name="vibrate_on_scan_subtitle">اهتزاز واحد = جديد  •  اهتزازان = مكرر</string>
+    <string name="appearance">المظهر</string>
+    <string name="theme_dark">داكن</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_system">إعدادات النظام</string>
     <string name="data_management">إدارة البيانات</string>
     <string name="clear_all_records">مسح جميع السجلات</string>
     <string name="clear_all_records_confirm">لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟</string>

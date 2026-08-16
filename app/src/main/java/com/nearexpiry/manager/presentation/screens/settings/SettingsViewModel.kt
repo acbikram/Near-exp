@@ -20,7 +20,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -73,11 +75,21 @@ class SettingsViewModel @Inject constructor(
         val updateProgress: Float = 0f,
         /** 0..100 for the progress label. */
         val updateProgressPercent: Int = 0,
-        val updateError: String = ""
+        val updateError: String = "",
+        val themeMode: String = "dark"
     )
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    val themeMode: StateFlow<String> = preferencesManager.themeModeFlow.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "dark"
+    )
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch { preferencesManager.setThemeMode(mode) }
+    }
 
     init {
         observeProjects()

@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,6 +25,7 @@ import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
 import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
 import com.nearexpiry.manager.presentation.navigation.NearExpiryNavHost
 import com.nearexpiry.manager.presentation.theme.NearExpiryManagerTheme
+import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -34,6 +36,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private val firstLaunchViewModel: FirstLaunchViewModel by viewModels()
+
+    @javax.inject.Inject
+    lateinit var preferencesManager: PreferencesManager
 
     // True when we should show the "enable notifications in Settings" dialog
     // (i.e. the user has hard-denied, so the system won't show the prompt again).
@@ -65,7 +70,13 @@ class MainActivity : AppCompatActivity() {
         val openUpdates = intent?.getBooleanExtra("open_updates", false) == true
         val autoUpdate = intent?.getBooleanExtra("auto_update", false) == true
         setContent {
-            NearExpiryManagerTheme {
+            val themeMode by preferencesManager.themeModeFlow.collectAsState(initial = "dark")
+            val darkTheme = when (themeMode) {
+                "light" -> false
+                "system" -> isSystemInDarkTheme()
+                else -> true
+            }
+            NearExpiryManagerTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
