@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.theme.CyanAccent
+import com.nearexpiry.manager.presentation.theme.OnSurfaceWhite
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import kotlinx.coroutines.launch
@@ -158,7 +159,7 @@ fun ExpiryDatePickerDialog(
                     Text(
                         text = productName,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.White,
+                            color = OnSurfaceWhite,
                             fontWeight = FontWeight.SemiBold
                         ),
                         textAlign = TextAlign.Center,
@@ -183,7 +184,7 @@ fun ExpiryDatePickerDialog(
                 Text(
                     text  = "${previewDay.toString().padStart(2, '0')}, $previewMonthStr ($previewMonthNum), $selectedYear",
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        color      = Color.White,
+                        color      = OnSurfaceWhite,
                         fontWeight = FontWeight.SemiBold
                     ),
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -242,7 +243,7 @@ fun ExpiryDatePickerDialog(
                                 text       = selectedYear.toString(),
                                 style      = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color      = Color.White
+                                    color      = OnSurfaceWhite
                                 ),
                                 textAlign  = TextAlign.Center
                             )
@@ -280,7 +281,7 @@ fun ExpiryDatePickerDialog(
                 }
 
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = Color(0xFF30363D))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(8.dp))
 
                 // ── Action buttons ─────────────────────────────────────────
@@ -412,7 +413,7 @@ private fun WheelPicker(
                     text       = items[idx],
                     fontSize   = 18.sp,
                     fontWeight = if (distance == 0) FontWeight.Bold else FontWeight.Normal,
-                    color      = if (distance == 0) Color.White else SubtleGray,
+                    color      = if (distance == 0) OnSurfaceWhite else SubtleGray,
                     textAlign  = TextAlign.Center,
                     maxLines   = 1
                 )
@@ -479,7 +480,7 @@ private fun OnlineLookupSection(
                     Text(
                         text = onlineProductName,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.White,
+                            color = OnSurfaceWhite,
                             fontWeight = FontWeight.SemiBold
                         ),
                         textAlign = TextAlign.Center
@@ -488,7 +489,7 @@ private fun OnlineLookupSection(
                 if (!onlineProductNameArabic.isNullOrBlank()) {
                     Text(
                         text = onlineProductNameArabic,
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = OnSurfaceWhite),
                         textAlign = TextAlign.Center
                     )
                 }

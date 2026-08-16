@@ -62,6 +62,7 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.YellowAccent
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
+import com.nearexpiry.manager.presentation.theme.OnSurfaceWhite
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.utils.LanguageManager
@@ -211,6 +212,7 @@ fun ScanScreen(
         floatingActionButton = {
             if (showManualButton) {
                 Column(
+                    modifier = Modifier.imePadding(),
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -219,7 +221,7 @@ fun ScanScreen(
                         SmallFloatingActionButton(
                             onClick = { viewModel.toggleTorch() },
                             containerColor = if (uiState.torchEnabled) YellowAccent else SurfaceVariant,
-                            contentColor = if (uiState.torchEnabled) Color.Black else Color.White
+                            contentColor = if (uiState.torchEnabled) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
                         ) {
                             Icon(
                                 imageVector = if (uiState.torchEnabled) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
@@ -231,17 +233,27 @@ fun ScanScreen(
                         }
                     }
 
-                    // ── Manual entry shortcut (above camera button) ──────────
+                    // ── Mode switch: it follows the IME above and shows the
+                    // appropriate destination icon (keyboard to enter Manual
+                    // Mode, camera to return to scanning).
                     SmallFloatingActionButton(
                         onClick = {
                             if (uiState.showManualMode) viewModel.exitManualMode()
                             else viewModel.enterManualMode()
                         },
                         containerColor = if (uiState.showManualMode) OrangeAccent else CyanAccent,
-                        contentColor = Color.Black
+                        contentColor = if (uiState.showManualMode) {
+                            MaterialTheme.colorScheme.onTertiary
+                        } else {
+                            MaterialTheme.colorScheme.onPrimary
+                        }
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Keyboard,
+                            imageVector = if (uiState.showManualMode) {
+                                Icons.Filled.PhotoCamera
+                            } else {
+                                Icons.Filled.Keyboard
+                            },
                             contentDescription = if (uiState.showManualMode)
                                 stringResource(R.string.manual_mode_exit)
                             else
@@ -254,7 +266,7 @@ fun ScanScreen(
                         FloatingActionButton(
                             onClick = { viewModel.restartScanner() },
                             containerColor = GreenAccent,
-                            contentColor = Color(0xFF002200)
+                            contentColor = MaterialTheme.colorScheme.onSecondary
                         ) {
                             Icon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.scan))
                         }
@@ -727,7 +739,7 @@ private fun RecentScanCard(
                 if (!productDisplayName.isNullOrBlank()) {
                     Text(
                         text = productDisplayName,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                        style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceWhite),
                         maxLines = 1
                     )
                 }
@@ -862,7 +874,7 @@ private fun CatalogSearchDialog(
                         ) {
                             Text(
                                 product.name ?: product.nameArabic ?: product.barcode,
-                                style = MaterialTheme.typography.titleSmall.copy(color = Color.White)
+                                style = MaterialTheme.typography.titleSmall.copy(color = OnSurfaceWhite)
                             )
                             val sub = listOfNotNull(
                                 product.itemCode?.takeIf { it.isNotBlank() }?.let { "POS $it" },
@@ -900,12 +912,12 @@ private fun ScanConfirmationCard(
             Text(
                 text = "SAVED SUCCESSFULLY",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
-                color = Color(0xFF003300)
+                color = MaterialTheme.colorScheme.onSecondary
             )
             Text(
                 text = item.displayName,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF003300),
+                color = MaterialTheme.colorScheme.onSecondary,
                 maxLines = 1
             )
             Spacer(Modifier.height(3.dp))
@@ -915,13 +927,13 @@ private fun ScanConfirmationCard(
                     if (showExpiry) append("  •  Expiry ${item.expiryDate}")
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF003300)
+                color = MaterialTheme.colorScheme.onSecondary
             )
             if (projectName.isNotBlank()) {
                 Text(
                     text = projectName,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF003300)
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
             }
         }

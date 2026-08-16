@@ -477,7 +477,10 @@ fun HistoryScreen(
                             Button(
                                 onClick = { navController.navigate(Screen.Scan.route) },
                                 shape = MaterialTheme.shapes.small,
-                                colors = ButtonDefaults.buttonColors(containerColor = CyanAccent, contentColor = Color(0xFF003344))
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CyanAccent,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             ) {
                                 Text(stringResource(R.string.scan))
                             }

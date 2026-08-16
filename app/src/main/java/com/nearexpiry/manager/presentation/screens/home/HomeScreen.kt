@@ -69,7 +69,7 @@ fun HomeScreen(
                 icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
                 text = { Text(stringResource(R.string.scan)) },
                 containerColor = GreenAccent,
-                contentColor = Color(0xFF003300),
+                contentColor = MaterialTheme.colorScheme.onSecondary,
                 shape = MaterialTheme.shapes.large
             )
         },
@@ -173,7 +173,10 @@ fun HomeScreen(
                                 Button(
                                     onClick = { navController.navigate(Screen.Scan.route) },
                                     shape = MaterialTheme.shapes.small,
-                                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent, contentColor = Color(0xFF003300))
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = GreenAccent,
+                                        contentColor = MaterialTheme.colorScheme.onSecondary
+                                    )
                                 ) { Text(stringResource(R.string.scan)) }
                             }
                         }
@@ -233,7 +236,10 @@ fun HomeScreen(
                                 Button(
                                     onClick = { navController.navigate(Screen.Scan.route) },
                                     shape = MaterialTheme.shapes.small,
-                                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent, contentColor = Color(0xFF003344))
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CyanAccent,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
                                 ) { Text(stringResource(R.string.scan)) }
                             }
                         }

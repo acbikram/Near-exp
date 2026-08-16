@@ -93,9 +93,10 @@ fun ActiveProjectHeader(
     val state by viewModel.uiState.collectAsState()
     val active = state.projects.firstOrNull { it.id == state.activeId }
     var expanded by remember { mutableStateOf(false) }
-    val color = remember(active?.colorHex) {
+    val fallbackProjectColor = CyanAccent
+    val color = remember(active?.colorHex, fallbackProjectColor) {
         runCatching { Color(android.graphics.Color.parseColor(active?.colorHex ?: "#26C6DA")) }
-            .getOrDefault(CyanAccent)
+            .getOrDefault(fallbackProjectColor)
     }
 
     Box(modifier = modifier) {

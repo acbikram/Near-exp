@@ -297,7 +297,7 @@ fun SettingsScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = GreenAccent,
-                                            contentColor = SurfaceDark
+                                            contentColor = MaterialTheme.colorScheme.onSecondary
                                         ),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
