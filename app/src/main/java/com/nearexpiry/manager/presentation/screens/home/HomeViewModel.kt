@@ -37,7 +37,7 @@ class HomeViewModel @Inject constructor(
         val expiring1to7Days: Int = 0,
         /** Eight through thirty days from today, inclusive. */
         val expiring8to30Days: Int = 0,
-        /** All items expiring within 3 days from today (incl. already expired), soonest first. */
+        /** All items expiring within 7 days from today (including expired), soonest first. */
         val expiringSoonItems: List<ExpiryItem> = emptyList(),
         /** Most recently scanned items, used by permanent Stock projects. */
         val recentScanItems: List<ExpiryItem> = emptyList(),
@@ -125,10 +125,13 @@ class HomeViewModel @Inject constructor(
                             date != null && !date.isBefore(dayEight) && !date.isAfter(dayThirty)
                         }
 
-                        // Items requiring attention in the next three days, including
-                        // already-expired records, shown soonest first.
+                        // Items requiring attention through the next seven days,
+                        // including already-expired records, shown soonest first.
                         val expiringSoonItems = allItems
-                            .filter { dates[it]?.isAfter(today.plusDays(3)) == false }
+                            .filter { date ->
+                                val expiry = dates[date]
+                                expiry != null && !expiry.isAfter(daySeven)
+                            }
                             .sortedBy { dates[it] }
                         val recentScanItems = allItems.sortedByDescending { it.createdAt }.take(20)
 

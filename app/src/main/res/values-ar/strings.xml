@@ -86,7 +86,9 @@
     <string name="recent_scans">آخر المسحات</string>
     <string name="no_recent_items">لا توجد عناصر حديثة</string>
     <string name="expiring_in_3_days">تنتهي خلال ٣ أيام</string>
-    <string name="no_items_expiring_soon">لا توجد عناصر تنتهي خلال الأيام الثلاثة القادمة</string>
+    <string name="expire_today">تنتهي اليوم</string>
+    <string name="expiring_in_7_days">تنتهي خلال ٧ أيام</string>
+    <string name="no_items_expiring_soon">لا توجد عناصر تنتهي خلال الأيام السبعة القادمة</string>
 
     <!-- ── شاشة السجل ─────────────────────────────────────────────────── -->
     <string name="sort">ترتيب</string>

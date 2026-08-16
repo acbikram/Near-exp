@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -35,8 +36,10 @@ import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.utils.QuantityFormatter
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.presentation.theme.SubtleGray
+import com.nearexpiry.manager.utils.ExpiryDateUtils
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -59,6 +62,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val expiryListState = rememberLazyListState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -209,10 +213,31 @@ fun HomeScreen(
                     ClickableStatCard(label = "8-30 Days", value = uiState.expiring8to30Days, accentColor = Color(0xFF42A5F5), modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE") })
                     ClickableStatCard(label = "Total Quantity", value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
                 }
+                val today = LocalDate.now()
+                val firstVisibleExpiryItem = uiState.expiringSoonItems
+                    .getOrNull(expiryListState.firstVisibleItemIndex)
+                val firstVisibleExpiryDate = firstVisibleExpiryItem?.let {
+                    ExpiryDateUtils.parseOrNull(it.expiryDate)
+                }
+                val expirySectionLabel = when {
+                    firstVisibleExpiryDate == null -> stringResource(R.string.expiring_in_7_days)
+                    firstVisibleExpiryDate.isBefore(today) -> stringResource(R.string.expired)
+                    firstVisibleExpiryDate == today -> stringResource(R.string.expire_today)
+                    !firstVisibleExpiryDate.isAfter(today.plusDays(3)) -> stringResource(R.string.expiring_in_3_days)
+                    else -> stringResource(R.string.expiring_in_7_days)
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = stringResource(R.string.expiring_in_3_days), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
+                Text(
+                    text = expirySectionLabel,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = CyanAccent,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
+                    state = expiryListState,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)

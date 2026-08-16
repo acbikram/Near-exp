@@ -86,7 +86,9 @@
     <string name="recent_scans">Recent Scans</string>
     <string name="no_recent_items">No recent items</string>
     <string name="expiring_in_3_days">Expiring in 3 Days</string>
-    <string name="no_items_expiring_soon">No items expiring in the next 3 days</string>
+    <string name="expire_today">Expire Today</string>
+    <string name="expiring_in_7_days">Expiring in 7 Days</string>
+    <string name="no_items_expiring_soon">No items expiring in the next 7 days</string>
 
     <!-- ── History screen ─────────────────────────────────────────────── -->
     <string name="sort">Sort</string>
