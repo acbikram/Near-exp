@@ -26,6 +26,7 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
+import com.nearexpiry.manager.presentation.theme.AppDimens
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
@@ -61,7 +62,16 @@ fun HomeScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = { BottomNavigationBar(navController) },
-
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate(Screen.Scan.route) },
+                icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
+                text = { Text(stringResource(R.string.scan)) },
+                containerColor = GreenAccent,
+                contentColor = Color(0xFF003300),
+                shape = MaterialTheme.shapes.large
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         // ── Fixed (non-scrolling) header + dashboard, then a scrollable
@@ -70,7 +80,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = AppDimens.ScreenPadding)
         ) {
             // ── App header ──────────────────────────────────────────────────
             Column(
@@ -159,6 +169,11 @@ fun HomeScreen(
                                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(34.dp))
                                 Text("No stock scans yet", style = MaterialTheme.typography.titleSmall, color = GreenAccent)
                                 Text("Scan catalog products to build this stock check.", style = MaterialTheme.typography.bodySmall, color = SubtleGray)
+                                Button(
+                                    onClick = { navController.navigate(Screen.Scan.route) },
+                                    shape = MaterialTheme.shapes.small,
+                                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent, contentColor = Color(0xFF003300))
+                                ) { Text(stringResource(R.string.scan)) }
                             }
                         }
                     }
@@ -214,6 +229,11 @@ fun HomeScreen(
                                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(34.dp))
                                 Text("Nothing needs attention right now", style = MaterialTheme.typography.titleSmall, color = GreenAccent)
                                 Text("Scan products to begin tracking expiry dates.", style = MaterialTheme.typography.bodySmall, color = SubtleGray)
+                                Button(
+                                    onClick = { navController.navigate(Screen.Scan.route) },
+                                    shape = MaterialTheme.shapes.small,
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent, contentColor = Color(0xFF003344))
+                                ) { Text(stringResource(R.string.scan)) }
                             }
                         }
                     }
@@ -244,30 +264,39 @@ fun ClickableStatCard(
         modifier = modifier
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier.padding(AppDimens.CardPadding),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val displayValue = when (value) {
-                is Double -> QuantityFormatter.format(value)
-                is Float -> QuantityFormatter.format(value.toDouble())
-                else -> value.toString()
-            }
-            Text(
-                text = displayValue,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    color = accentColor,
-                    fontWeight = FontWeight.ExtraBold
+            Box(
+                modifier = Modifier
+                    .width(5.dp)
+                    .height(42.dp)
+                    .background(accentColor, RoundedCornerShape(50))
+            )
+            Column {
+                val displayValue = when (value) {
+                    is Double -> QuantityFormatter.format(value)
+                    is Float -> QuantityFormatter.format(value.toDouble())
+                    else -> value.toString()
+                }
+                Text(
+                    text = displayValue,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = accentColor,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 )
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray),
-                maxLines = 2
-            )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(color = SubtleGray),
+                    maxLines = 2
+                )
+            }
         }
     }
 }
@@ -282,10 +311,10 @@ fun RecentItemCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(AppDimens.CardPadding)) {
             Text(
                 text = item.displayName,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -311,25 +340,37 @@ fun RecentItemCard(
             Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (showExpiry) {
+                    Surface(
+                        color = GreenAccent.copy(alpha = 0.12f),
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = stringResource(R.string.expiry_format, item.expiryDate),
+                            style = MaterialTheme.typography.labelMedium.copy(color = GreenAccent),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Surface(
+                    color = OrangeAccent.copy(alpha = 0.14f),
+                    shape = MaterialTheme.shapes.extraSmall
+                ) {
                     Text(
-                        text = stringResource(R.string.expiry_format, item.expiryDate),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = GreenAccent)
+                        text = if (item.unit != null)
+                            stringResource(
+                                R.string.qty_unit_format,
+                                QuantityFormatter.format(item.quantity),
+                                item.unit
+                            )
+                        else
+                            stringResource(
+                                R.string.qty_format,
+                                QuantityFormatter.format(item.quantity)
+                            ),
+                        style = MaterialTheme.typography.labelMedium.copy(color = OrangeAccent),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-                Text(
-                    text = if (item.unit != null)
-                        stringResource(
-                            R.string.qty_unit_format,
-                            QuantityFormatter.format(item.quantity),
-                            item.unit
-                        )
-                    else
-                        stringResource(
-                            R.string.qty_format,
-                            QuantityFormatter.format(item.quantity)
-                        ),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
-                )
             }
         }
     }

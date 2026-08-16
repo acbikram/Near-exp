@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,12 +40,14 @@ import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.ActiveProjectHeader
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.navigation.Screen
+import com.nearexpiry.manager.presentation.theme.AppDimens
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
+import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.utils.QuantityFormatter
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import kotlinx.coroutines.launch
@@ -413,7 +416,11 @@ fun HistoryScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray) },
                 singleLine = true,
-                shape = RoundedCornerShape(10.dp)
+                shape = MaterialTheme.shapes.small,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = SurfaceDark,
+                    unfocusedContainerColor = SurfaceDark
+                )
             )
             // Sort indicator
             Text(
@@ -425,9 +432,12 @@ fun HistoryScreen(
                 style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
+            if (!uiState.isStockMode && uiState.filteredItems.isNotEmpty()) {
+                ExpiryRiskTimeline(items = uiState.filteredItems)
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = AppDimens.ScreenPadding, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.filteredItems, key = { it.id }) { item ->
@@ -470,6 +480,14 @@ fun HistoryScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SubtleGray
                             )
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = { navController.navigate(Screen.Scan.route) },
+                                shape = MaterialTheme.shapes.small,
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanAccent, contentColor = Color(0xFF003344))
+                            ) {
+                                Text(stringResource(R.string.scan))
+                            }
                         }
                     }
                 }
@@ -741,11 +759,11 @@ fun HistoryItemCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) CyanAccent.copy(alpha = 0.12f) else SurfaceDark
         ),
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(AppDimens.CardPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showExpiryStatus) {

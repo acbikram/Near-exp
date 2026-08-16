@@ -53,6 +53,7 @@ fun NearExpiryManagerTheme(
 ) {
     MaterialTheme(
         colorScheme = DarkColorScheme,
+        shapes = AppShapes,
         content = content
     )
 }

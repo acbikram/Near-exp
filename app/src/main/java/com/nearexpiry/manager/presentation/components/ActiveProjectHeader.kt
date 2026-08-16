@@ -39,8 +39,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.presentation.theme.AppDimens
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
+import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,13 +102,14 @@ fun ActiveProjectHeader(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .clickable(enabled = state.projects.size > 1) { expanded = true },
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceVariant)
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
+            elevation = CardDefaults.cardElevation(3.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = AppDimens.CardPadding, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -116,7 +119,7 @@ fun ActiveProjectHeader(
                     }
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text("ACTIVE PROJECT", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text("ACTIVE PROJECT", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold), color = SubtleGray)
                         Text(active?.name ?: "Project", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = color)
                     }
                 }

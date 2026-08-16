@@ -16,11 +16,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
+import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 
 private data class NavItem(
@@ -43,7 +45,10 @@ fun BottomNavigationBar(navController: NavController) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
 
-    NavigationBar(containerColor = Color(0xFF0D1117)) {
+    NavigationBar(
+        containerColor = SurfaceDark,
+        tonalElevation = 8.dp
+    ) {
         items.forEach { (screen, labelRes, icon) ->
             // Strip query-param template so History with ?filter=... is still matched
             val baseRoute  = screen.route.substringBefore('?')

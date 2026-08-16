@@ -1,9 +1,12 @@
 package com.nearexpiry.manager.presentation.screens.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,13 +44,23 @@ fun DetailScreen(
     var editingQuantity by remember { mutableStateOf(false) }
     var editingExpiry by remember { mutableStateOf(false) }
     var editingUnit by remember { mutableStateOf(false) }
+    var showQuickActions by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.item_details)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.item_details)) },
+                actions = {
+                    IconButton(onClick = { showQuickActions = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options))
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -278,6 +291,55 @@ fun DetailScreen(
                         enabled = !uiState.isSaving
                     ) { Text(stringResource(R.string.delete)) }
                 }
+            }
+        }
+    }
+
+    if (showQuickActions) {
+        ModalBottomSheet(onDismissRequest = { showQuickActions = false }) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Quick actions",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                ListItem(
+                    headlineContent = { Text("Edit Quantity") },
+                    supportingContent = { Text("Update the current item quantity") },
+                    modifier = Modifier.clickable {
+                        editingQuantity = true
+                        showQuickActions = false
+                    }
+                )
+                if (!uiState.isStockMode) {
+                    ListItem(
+                        headlineContent = { Text("Change Expiry") },
+                        supportingContent = { Text("Update the expiry date") },
+                        modifier = Modifier.clickable {
+                            editingExpiry = true
+                            showQuickActions = false
+                        }
+                    )
+                }
+                ListItem(
+                    headlineContent = { Text("Edit UOM / Unit Type") },
+                    supportingContent = { Text("Choose PCS, KG, CTN, or OFR") },
+                    modifier = Modifier.clickable {
+                        editingUnit = true
+                        showQuickActions = false
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Move to Project") },
+                    supportingContent = { Text("Move this item to another project") },
+                    modifier = Modifier.clickable {
+                        viewModel.requestMove()
+                        showQuickActions = false
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
