@@ -751,7 +751,7 @@ fun HistoryItemCard(
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) CyanAccent.copy(alpha = 0.12f) else SurfaceDark
+            containerColor = SurfaceDark
         ),
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(4.dp)
