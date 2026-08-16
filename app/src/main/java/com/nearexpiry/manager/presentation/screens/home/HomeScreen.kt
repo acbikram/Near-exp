@@ -226,12 +226,18 @@ fun HomeScreen(
                     !firstVisibleExpiryDate.isAfter(today.plusDays(3)) -> stringResource(R.string.expiring_in_3_days)
                     else -> stringResource(R.string.expiring_in_7_days)
                 }
+                val expirySectionColor = when {
+                    firstVisibleExpiryDate == null -> Color(0xFFFFC107)
+                    firstVisibleExpiryDate.isBefore(today) -> Color(0xFFE53935)
+                    firstVisibleExpiryDate == today -> Color(0xFFFF7043)
+                    else -> Color(0xFFFFC107)
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = expirySectionLabel,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = CyanAccent,
+                        color = expirySectionColor,
                         fontWeight = FontWeight.Bold
                     )
                 )

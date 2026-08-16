@@ -29,7 +29,9 @@ import com.nearexpiry.manager.utils.LanguageManager
  * immediately (recreating the activity, same as the Settings toggle).
  */
 @Composable
-fun FirstLaunchLanguageDialog(onDismiss: () -> Unit) {
+fun FirstLaunchLanguageDialog(
+    onLanguageSelected: (LanguageManager.AppLanguage) -> Unit
+) {
     var selected by remember { mutableStateOf(LanguageManager.getCurrentLanguage()) }
 
     AlertDialog(
@@ -88,10 +90,7 @@ fun FirstLaunchLanguageDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                LanguageManager.setLanguage(selected)
-                onDismiss()
-            }) {
+            TextButton(onClick = { onLanguageSelected(selected) }) {
                 Text(stringResource(R.string.ok), color = CyanAccent)
             }
         }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import androidx.core.view.WindowCompat
 import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.presentation.components.BatteryOptimizationDialog
 import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
+import com.nearexpiry.manager.presentation.components.FirstLaunchThemeDialog
 import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
 import com.nearexpiry.manager.presentation.navigation.NearExpiryNavHost
 import com.nearexpiry.manager.presentation.theme.NearExpiryManagerTheme
@@ -84,13 +86,28 @@ class MainActivity : AppCompatActivity() {
                     NearExpiryNavHost(openUpdates = openUpdates, autoUpdate = autoUpdate)
 
                     val showLanguagePrompt by firstLaunchViewModel.showLanguagePrompt.collectAsState()
+                    val showThemePrompt by firstLaunchViewModel.showThemePrompt.collectAsState()
+                    val startupSetupPending by firstLaunchViewModel.startupSetupPending.collectAsState()
+
+                    LaunchedEffect(startupSetupPending) {
+                        if (!startupSetupPending) {
+                            ensureNotificationPermission()
+                            ensureBatteryOptimizationExempt()
+                        }
+                    }
+
                     if (showLanguagePrompt) {
                         FirstLaunchLanguageDialog(
-                            onDismiss = { firstLaunchViewModel.onLanguagePromptDismissed() }
+                            onLanguageSelected = firstLaunchViewModel::onLanguageSelected
+                        )
+                    } else if (showThemePrompt) {
+                        FirstLaunchThemeDialog(
+                            initialMode = themeMode,
+                            onConfirm = firstLaunchViewModel::onThemeSelected
                         )
                     }
 
-                    if (showNotifSettingsDialog.value) {
+                    if (!showLanguagePrompt && !showThemePrompt && showNotifSettingsDialog.value) {
                         NotificationPermissionDialog(
                             onOpenSettings = { openAppNotificationSettings() },
                             onDismiss = { showNotifSettingsDialog.value = false }
@@ -101,7 +118,7 @@ class MainActivity : AppCompatActivity() {
                     // of the same composition as the mandatory language picker.
                     // Some EMUI builds are unstable when two modal surfaces are
                     // requested during their initial activity resume.
-                    if (!showLanguagePrompt && showBatteryOptDialog.value) {
+                    if (!showLanguagePrompt && !showThemePrompt && showBatteryOptDialog.value) {
                         BatteryOptimizationDialog(
                             onAllow = { requestIgnoreBatteryOptimizations() },
                             onDismiss = {
@@ -118,8 +135,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         permissionRequestedThisResume = false
-        ensureNotificationPermission()
-        ensureBatteryOptimizationExempt()
+        // Required first-startup language and appearance selection comes before
+        // optional notification and battery prompts.
+        if (!firstLaunchViewModel.startupSetupPending.value) {
+            ensureNotificationPermission()
+            ensureBatteryOptimizationExempt()
+        }
         // If the user has just enabled Android's exact-alarm access, replace
         // the fallback alarm immediately with the precise next local 8:00 AM.
         runCatching { DailyExpiryAlarmScheduler.schedule(this) }

@@ -226,6 +226,9 @@
     <string name="vibrate_on_scan">الاهتزاز عند المسح</string>
     <string name="vibrate_on_scan_subtitle">اهتزاز واحد = جديد  •  اهتزازان = مكرر</string>
     <string name="appearance">المظهر</string>
+    <string name="appearance_description">اختر مظهر التطبيق</string>
+    <string name="appearance_current_theme_format">المظهر: %1$s</string>
+    <string name="theme_selection_description">اختر شكل التطبيق. يمكنك تغييره لاحقاً من الإعدادات.</string>
     <string name="theme_dark">داكن</string>
     <string name="theme_light">فاتح</string>
     <string name="theme_system">إعدادات النظام</string>

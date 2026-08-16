@@ -55,6 +55,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
+    var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Arrived from the notification's "Update Now": check + auto-start download.
@@ -143,30 +144,73 @@ fun SettingsScreen(
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(R.string.appearance),
-                            style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold)
-                        )
-                        Spacer(Modifier.height(10.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { appearanceExpanded = !appearanceExpanded }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            listOf(
-                                "dark" to R.string.theme_dark,
-                                "light" to R.string.theme_light,
-                                "system" to R.string.theme_system
-                            ).forEach { (mode, labelRes) ->
-                                FilterChip(
-                                    selected = themeMode == mode,
-                                    onClick = { viewModel.setThemeMode(mode) },
-                                    label = { Text(stringResource(labelRes), maxLines = 1) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = CyanAccent.copy(alpha = 0.18f),
-                                        selectedLabelColor = CyanAccent
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    stringResource(R.string.appearance),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = CyanAccent,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 )
+                                Text(
+                                    if (appearanceExpanded) {
+                                        stringResource(R.string.appearance_description)
+                                    } else {
+                                        stringResource(
+                                            R.string.appearance_current_theme_format,
+                                            when (themeMode) {
+                                                "light" -> stringResource(R.string.theme_light)
+                                                "system" -> stringResource(R.string.theme_system)
+                                                else -> stringResource(R.string.theme_dark)
+                                            }
+                                        )
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                                )
+                            }
+                            Icon(
+                                imageVector = if (appearanceExpanded) {
+                                    Icons.Default.KeyboardArrowUp
+                                } else {
+                                    Icons.Default.KeyboardArrowDown
+                                },
+                                contentDescription = if (appearanceExpanded) {
+                                    "Collapse appearance"
+                                } else {
+                                    "Expand appearance"
+                                },
+                                tint = CyanAccent
+                            )
+                        }
+                        if (appearanceExpanded) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    "dark" to R.string.theme_dark,
+                                    "light" to R.string.theme_light,
+                                    "system" to R.string.theme_system
+                                ).forEach { (mode, labelRes) ->
+                                    FilterChip(
+                                        selected = themeMode == mode,
+                                        onClick = { viewModel.setThemeMode(mode) },
+                                        label = { Text(stringResource(labelRes), maxLines = 1) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = CyanAccent.copy(alpha = 0.18f),
+                                            selectedLabelColor = CyanAccent
+                                        )
+                                    )
+                                }
                             }
                         }
                     }

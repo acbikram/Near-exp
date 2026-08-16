@@ -45,6 +45,7 @@ fun DetailScreen(
     var editingExpiry by remember { mutableStateOf(false) }
     var editingUnit by remember { mutableStateOf(false) }
     var showQuickActions by remember { mutableStateOf(false) }
+    var showItemBarcode by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -76,9 +77,9 @@ fun DetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Column {
                         val item = uiState.item!!
@@ -91,21 +92,26 @@ fun DetailScreen(
                             expiry != null && !expiry.isAfter(today.plusDays(7)) -> "EXPIRES IN 1-7 DAYS" to OrangeAccent
                             else -> "SAFE EXPIRY" to GreenAccent
                         }
-                        // Sr No. — scan-order rank within the project.
-                        uiState.srNo?.let { srNo ->
-                            Text(
-                                text = stringResource(R.string.sr_no_format, srNo),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Compact identity block: preserve all information while
+                        // limiting the always-visible screen height.
+                        val identityMeta = buildList {
+                            uiState.srNo?.let { add(stringResource(R.string.sr_no_format, it)) }
+                            item.itemCode?.takeIf { it.isNotBlank() }?.let {
+                                add(stringResource(R.string.item_code_format, it))
+                            }
+                            add(
+                                if (!item.unit.isNullOrBlank()) {
+                                    stringResource(R.string.barcode_unit_format, item.barcode, item.unit)
+                                } else {
+                                    stringResource(R.string.barcode_format, item.barcode)
+                                }
                             )
-                        }
-                        // Title: name in the app's current language (falls back to
-                        // the other language, then item code, then barcode).
+                            uiState.projectName.takeIf { it.isNotBlank() }?.let { add("Project: $it") }
+                        }.joinToString("  •  ")
                         Text(
                             text = item.displayName,
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleMedium
                         )
-                        // Secondary line: name in the *other* language, if available
                         val secondaryName = if (isArabic) {
                             item.productName?.takeIf { it.isNotBlank() }
                         } else {
@@ -114,31 +120,16 @@ fun DetailScreen(
                         if (!secondaryName.isNullOrBlank()) {
                             Text(
                                 secondaryName,
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Item Code
-                        if (!item.itemCode.isNullOrBlank()) {
-                            Text(
-                                stringResource(R.string.item_code_format, item.itemCode),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        // Barcode + Unit
                         Text(
-                            text = if (!item.unit.isNullOrBlank())
-                                stringResource(R.string.barcode_unit_format, item.barcode, item.unit)
-                            else
-                                stringResource(R.string.barcode_format, item.barcode),
-                            style = MaterialTheme.typography.bodyMedium
+                            text = identityMeta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CyanAccent,
+                            maxLines = 2
                         )
-                        if (uiState.projectName.isNotBlank()) {
-                            Text(
-                                text = "Project: ${uiState.projectName}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = CyanAccent
-                            )
-                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -195,27 +186,26 @@ fun DetailScreen(
                             }
                         }
                     }
-                    // Scannable barcode (white card, Code39) — encodes the item/POS
-                    // code exactly (falls back to the scanned barcode if no item
-                    // code is on file), for reading with a USB/wireless hand
-                    // scanner into the computer as an exact Item Code.
-                    run {
-                        val item = uiState.item!!
-                        val scanValue = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode
-                        Column {
-                            Text(
-                                text = stringResource(R.string.item_code_barcode_label),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Code39Barcode(
-                                value = scanValue,
-                                modifier = Modifier.fillMaxWidth(),
-                                onSwipeLeft = { viewModel.goToNext() },
-                                onSwipeRight = { viewModel.goToPrevious() }
-                            )
-                        }
+                    // The print/scanner barcode remains available on demand
+                    // instead of occupying the compact details view by default.
+                    TextButton(
+                        onClick = { showItemBarcode = !showItemBarcode },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (showItemBarcode) "Hide Item Code Barcode"
+                            else "Show Item Code Barcode"
+                        )
+                    }
+                    if (showItemBarcode) {
+                        val loadedItem = uiState.item!!
+                        val scanValue = loadedItem.itemCode?.takeIf { it.isNotBlank() } ?: loadedItem.barcode
+                        Code39Barcode(
+                            value = scanValue,
+                            modifier = Modifier.fillMaxWidth(),
+                            onSwipeLeft = { viewModel.goToNext() },
+                            onSwipeRight = { viewModel.goToPrevious() }
+                        )
                     }
                     if (editingExpiry && !uiState.isStockMode) {
                         ExpiryDateField(
@@ -244,52 +234,20 @@ fun DetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Button(
-                        onClick = { viewModel.saveChanges() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isSaving && uiState.quantityError == null && uiState.expiryDate.isNotBlank()
-                    ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text(stringResource(R.string.save_changes))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { editingQuantity = !editingQuantity },
-                            modifier = Modifier.weight(1f),
-                            enabled = !uiState.isSaving
-                        ) { Text("Edit Quantity") }
-                        if (!uiState.isStockMode) {
-                            OutlinedButton(
-                                onClick = { editingExpiry = !editingExpiry },
-                                modifier = Modifier.weight(1f),
-                                enabled = !uiState.isSaving
-                            ) { Text("Change Expiry") }
+                    val hasOpenEditor = editingQuantity || editingExpiry || editingUnit
+                    if (hasOpenEditor) {
+                        Button(
+                            onClick = { viewModel.saveChanges() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isSaving && uiState.quantityError == null && uiState.expiryDate.isNotBlank()
+                        ) {
+                            if (uiState.isSaving) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text(stringResource(R.string.save_changes))
                         }
                     }
-                    OutlinedButton(
-                        onClick = { editingUnit = !editingUnit },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isSaving
-                    ) { Text("Edit UOM / Unit Type") }
-                    Button(
-                        onClick = viewModel::requestMove,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                        enabled = !uiState.isSaving
-                    ) { Text("Move to Project") }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        enabled = !uiState.isSaving
-                    ) { Text(stringResource(R.string.delete)) }
                 }
             }
         }
@@ -336,6 +294,14 @@ fun DetailScreen(
                     supportingContent = { Text("Move this item to another project") },
                     modifier = Modifier.clickable {
                         viewModel.requestMove()
+                        showQuickActions = false
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.delete), color = ErrorRed) },
+                    supportingContent = { Text("Remove this item permanently") },
+                    modifier = Modifier.clickable {
+                        showDeleteDialog = true
                         showQuickActions = false
                     }
                 )

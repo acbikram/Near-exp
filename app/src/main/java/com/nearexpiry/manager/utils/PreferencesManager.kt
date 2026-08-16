@@ -48,6 +48,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val scanModeLastKey = stringPreferencesKey("scan_mode_last")
     private val scanModeStreakKey = longPreferencesKey("scan_mode_streak")
     private val themeModeKey = stringPreferencesKey("theme_mode")
+    private val themePromptShownKey = booleanPreferencesKey("theme_prompt_shown")
 
     /** "dark" (default), "light", or "system" — app appearance mode. */
     val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -225,6 +226,17 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     suspend fun setLanguagePromptShown() {
         context.dataStore.edit { prefs ->
             prefs[languagePromptShownKey] = true
+        }
+    }
+
+    /** True once the user has selected an appearance during first startup. */
+    val themePromptShownFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[themePromptShownKey] ?: false
+    }
+
+    suspend fun setThemePromptShown() {
+        context.dataStore.edit { prefs ->
+            prefs[themePromptShownKey] = true
         }
     }
 
