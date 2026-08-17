@@ -18,7 +18,9 @@ import com.nearexpiry.manager.presentation.MainActivity
 object NotificationHelper {
 
     // ── Channel IDs ──────────────────────────────────────────────────────────
-    const val CHANNEL_SOFT = "near_expiry_soft"
+    // A versioned soft channel ensures existing installations receive the new
+    // quiet seven-day behavior; Android preserves prior channel settings.
+    const val CHANNEL_SOFT = "near_expiry_soft_v2"
     const val CHANNEL_HARD = "near_expiry_hard"
 
     // ── Notification ID helpers ───────────────────────────────────────────────
@@ -30,10 +32,9 @@ object NotificationHelper {
 
     /**
      * Posts ONE notification for a single [item] at the given [daysLeft] tier
-     * (0 today, 3, 7, or 15). Most-urgent tiers (0 and 3 days) use the
-     * hard/high-priority channel; 7 and 15 days use the soft channel. A
-     * "Remind me tomorrow" action is added for the 3/7/15-day tiers (not for
-     * the already-expiring "today" tier).
+     * (0 today, 3, or 7). Today and 3-day items use the hard/high-priority
+     * channel; 7-day items use the quiet soft channel. A "Remind me tomorrow"
+     * action is available for the 3-day and 7-day tiers.
      */
     fun postItemNotification(
         context: Context,
@@ -41,7 +42,7 @@ object NotificationHelper {
         item: ExpiryItemEntity,
         projectName: String
     ) {
-        val isHard = daysLeft <= 3
+        val isHard = daysLeft == 0 || daysLeft == 3
         val channel = if (isHard) CHANNEL_HARD else CHANNEL_SOFT
 
         val name = displayName(item)
@@ -54,15 +55,15 @@ object NotificationHelper {
         val body = context.getString(R.string.notif_item_body_format, qty, item.expiryDate)
 
         val builder = baseBuilder(context, channel, title, body)
-            .setPriority(if (isHard) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(if (isHard) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_LOW)
 
         if (isHard) {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVibrate(longArrayOf(0, 300, 150, 300))
         }
 
-        // "Remind me tomorrow" for 3/7/15-day items (not the already-expiring today tier).
-        if (daysLeft >= 3) {
+        // "Remind me tomorrow" for 3-day and 7-day items (not today).
+        if (daysLeft == 3 || daysLeft == 7) {
             builder.addAction(snoozeItemAction(context, item.id, daysLeft))
         }
 
@@ -192,22 +193,21 @@ object NotificationHelper {
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Soft channel — importance DEFAULT: shows in shade, no heads-up, gentle sound
+        // Soft channel — importance LOW: quiet shade-only reminder for 7-day items.
         if (nm.getNotificationChannel(CHANNEL_SOFT) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_SOFT,
                     context.getString(R.string.notif_channel_soft_name),
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     description = context.getString(R.string.notif_channel_soft_desc)
-                    vibrationPattern = longArrayOf(0, 200)
-                    enableVibration(true)
+                    enableVibration(false)
                 }
             )
         }
 
-        // Hard channel — importance HIGH: heads-up display, loud double vibration
+        // Hard channel — importance HIGH: critical Today and 3-day alerts.
         if (nm.getNotificationChannel(CHANNEL_HARD) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(

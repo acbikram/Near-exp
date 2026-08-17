@@ -398,8 +398,8 @@ fun ScanScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(30.dp))
-                            Text("Ready for your first scan", style = MaterialTheme.typography.titleSmall, color = GreenAccent)
-                            Text("Use the camera or keyboard button to add a product.", style = MaterialTheme.typography.bodySmall, color = SubtleGray)
+                            Text(stringResource(R.string.first_scan_title), style = MaterialTheme.typography.titleSmall, color = GreenAccent)
+                            Text(stringResource(R.string.first_scan_description), style = MaterialTheme.typography.bodySmall, color = SubtleGray)
                         }
                     }
                 }

@@ -464,12 +464,12 @@ fun HistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(Icons.Default.Search, contentDescription = null, tint = SubtleGray, modifier = Modifier.size(34.dp))
-                            Text("No matching products", style = MaterialTheme.typography.titleSmall, color = CyanAccent)
+                            Text(stringResource(R.string.no_matching_products), style = MaterialTheme.typography.titleSmall, color = CyanAccent)
                             Text(
                                 if (uiState.searchQuery.isBlank()) {
-                                    if (uiState.isStockMode) "Scan catalog products to build this stock check."
-                                    else "Try another expiry status or add products from Scan."
-                                } else "Try a product name, item code, or barcode.",
+                                    if (uiState.isStockMode) stringResource(R.string.stock_scan_empty_description)
+                                    else stringResource(R.string.history_empty_filter_description)
+                                } else stringResource(R.string.history_empty_search_description),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SubtleGray
                             )

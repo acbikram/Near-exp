@@ -8,6 +8,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
+import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -15,45 +16,21 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-/**
- * Result of one diagnostic/production notification-check run, for the
- * "Test Expiry Notification Now" button in Settings. Top-level (not nested
- * in a companion object) so it can be referenced unambiguously from other
- * files as a plain type.
- */
+/** Result of a manual notification diagnostic from Settings. */
 data class NotificationDiagnosticResult(
     val permissionGranted: Boolean,
     val projectName: String,
     val totalItemsInProject: Int,
     val itemsWithUnparsableDates: Int,
-    val tierCounts: Map<Int, Int>,   // 0/3/7/15 -> count
+    val tierCounts: Map<Int, Int>,
     val notificationsPosted: Int,
     val error: String? = null
 )
 
 /**
- * Runs once per day at ~8 AM local time.
- *
- * Scans items in the **currently selected project only** and posts:
- *  • Soft notification  — items expiring exactly 15 days from today
- *  • Soft notification  — items expiring exactly 7 days from today
- *  • Hard notification  — items expiring exactly 3 days from today
- *
- * Each notification is labelled with the active project's name. Items in
- * other (non-active) projects are not notified — switching projects changes
- * which inventory gets alerts. Deleted items are never notified; quantity
- * shown is always the current/latest value from the database.
- *
- * SCHEDULING: genuinely periodic (24h), matching [AutoBackupWorker]'s proven
- * pattern — Android re-fires it regardless of what happened in a previous
- * run, so a single bad run can never permanently break the chain. Uses
- * ExistingPeriodicWorkPolicy.KEEP, not REPLACE: [schedule] is called on every
- * app launch, and KEEP means those repeated calls leave an already-scheduled
- * job untouched rather than tearing it down and re-creating it. An earlier
- * version used a self-rescheduling one-time chain with REPLACE, which turned
- * out to never fire in practice — likely because constantly cancelling and
- * re-enqueueing on every app open (this app is opened very frequently for
- * scanning) never gave the OS a stable, durable job to actually run.
+ * Contains the database and channel-routing logic shared by staged exact alarms
+ * and the Settings diagnostic action. Exact scheduling is owned by
+ * [DailyExpiryAlarmScheduler], not this worker.
  */
 @HiltWorker
 class ExpiryNotificationWorker @AssistedInject constructor(
@@ -64,46 +41,70 @@ class ExpiryNotificationWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        runDiagnostic(appContext, database, preferencesManager)
-        // Never fail: periodic work re-fires in 24h regardless, and a
-        // reported "failure" here doesn't help — issues are already
-        // swallowed and reported via NotificationDiagnosticResult.error.
+        // Defensive handling for any stale legacy WorkManager request. Normal
+        // production delivery is performed by the exact staged alarms.
+        runTier(appContext, database, preferencesManager, DailyExpiryAlarmScheduler.TODAY_TIER)
         return Result.success()
     }
 
     companion object {
         const val WORK_NAME = "expiry_notification_daily"
         private val DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE
+        private val TRACKED_TIERS = listOf(
+            DailyExpiryAlarmScheduler.TODAY_TIER,
+            DailyExpiryAlarmScheduler.THREE_DAY_TIER,
+            DailyExpiryAlarmScheduler.SEVEN_DAY_TIER
+        )
 
-        /**
-         * Installs the next daily local 8:00 AM alarm. The previous
-         * WorkManager periodic request is deliberately replaced because Android
-         * may batch periodic work by several hours.
-         */
+        /** Installs the next staged local-time notification sequence. */
         fun schedule(context: Context) {
             DailyExpiryAlarmScheduler.schedule(context)
         }
 
-        /** Watchdog used by automatic backup; rebuilding the alarm is safe. */
+        /** Watchdog used by automatic backup; rebuilding the alarms is safe. */
         suspend fun ensureScheduled(context: Context) {
             DailyExpiryAlarmScheduler.schedule(context)
         }
 
+        /** Posts only one risk tier for its corresponding exact alarm. */
+        suspend fun runTier(
+            context: Context,
+            database: ExpiryDatabase,
+            preferencesManager: PreferencesManager,
+            daysLeft: Int
+        ): NotificationDiagnosticResult = runNotifications(
+            context = context,
+            database = database,
+            preferencesManager = preferencesManager,
+            tiersToPost = setOf(daysLeft)
+        )
+
         /**
-         * The actual check-and-notify logic, shared by the daily worker and
-         * the "Test Expiry Notification Now" button in Settings so the test
-         * exercises the exact same code path as production — same permission
-         * check, same active project, same tier matching, same posting calls.
+         * Manual Settings diagnostic. It intentionally previews all currently
+         * supported stages; scheduled daily delivery never calls this method.
          */
         suspend fun runDiagnostic(
             context: Context,
             database: ExpiryDatabase,
             preferencesManager: PreferencesManager
+        ): NotificationDiagnosticResult = runNotifications(
+            context = context,
+            database = database,
+            preferencesManager = preferencesManager,
+            tiersToPost = TRACKED_TIERS.toSet()
+        )
+
+        private suspend fun runNotifications(
+            context: Context,
+            database: ExpiryDatabase,
+            preferencesManager: PreferencesManager,
+            tiersToPost: Set<Int>
         ): NotificationDiagnosticResult {
             try {
                 val permissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     ContextCompat.checkSelfPermission(
-                        context, android.Manifest.permission.POST_NOTIFICATIONS
+                        context,
+                        android.Manifest.permission.POST_NOTIFICATIONS
                     ) == PackageManager.PERMISSION_GRANTED
                 } else true
 
@@ -120,29 +121,23 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                 val items = dao.getAllItemsOnce(projectId)
 
                 var unparsable = 0
-                val tiers = linkedMapOf(
-                    0 to mutableListOf<com.nearexpiry.manager.data.local.entity.ExpiryItemEntity>(),
-                    3 to mutableListOf(),
-                    7 to mutableListOf(),
-                    15 to mutableListOf()
-                )
+                val tiers = TRACKED_TIERS.associateWith { mutableListOf<ExpiryItemEntity>() }
                 for (item in items) {
                     val expiryDate = runCatching { LocalDate.parse(item.expiryDate, DATE_FMT) }.getOrNull()
-                    if (expiryDate == null) { unparsable++; continue }
+                    if (expiryDate == null) {
+                        unparsable++
+                        continue
+                    }
                     val daysLeft = ChronoUnit.DAYS.between(today, expiryDate).toInt()
                     tiers[daysLeft]?.add(item)
                 }
 
-                // The daily alarm itself fires at local 8:00 AM. Post every
-                // eligible tier from this same delivery path rather than
-                // handing it to another best-effort worker that Android can
-                // defer beyond the requested time.
-                val order = listOf(0, 3, 7, 15)
                 var posted = 0
-                for (days in order) {
-                    val tierItems = tiers[days].orEmpty()
+                TRACKED_TIERS.forEach { daysLeft ->
+                    if (daysLeft !in tiersToPost) return@forEach
+                    val tierItems = tiers[daysLeft].orEmpty()
                     tierItems.forEach { item ->
-                        NotificationHelper.postItemNotification(context, days, item, projectName)
+                        NotificationHelper.postItemNotification(context, daysLeft, item, projectName)
                     }
                     posted += tierItems.size
                 }
@@ -156,7 +151,15 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                     notificationsPosted = posted
                 )
             } catch (e: Exception) {
-                return NotificationDiagnosticResult(false, "", 0, 0, emptyMap(), 0, error = e.message ?: e.toString())
+                return NotificationDiagnosticResult(
+                    false,
+                    "",
+                    0,
+                    0,
+                    emptyMap(),
+                    0,
+                    error = e.message ?: e.toString()
+                )
             }
         }
     }

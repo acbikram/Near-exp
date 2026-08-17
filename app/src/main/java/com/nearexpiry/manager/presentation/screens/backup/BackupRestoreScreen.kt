@@ -203,13 +203,17 @@ fun BackupRestoreScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
-                    Text("Stock Recheck File (Excel)")
+                    Text(stringResource(R.string.stock_recheck_file_excel))
                 }
                 Text(
                     text = if (uiState.recheckCodeCount > 0) {
-                        "Selected: ${uiState.recheckFileName.ifBlank { "Recheck Excel" }} · ${uiState.recheckCodeCount} codes"
+                        stringResource(
+                            R.string.recheck_file_selected_format,
+                            uiState.recheckFileName.ifBlank { stringResource(R.string.recheck_excel_default_name) },
+                            uiState.recheckCodeCount
+                        )
                     } else {
-                        "Select the Excel file used to decide which Stock items need quantity recheck."
+                        stringResource(R.string.recheck_file_select_description)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

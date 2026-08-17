@@ -87,10 +87,10 @@ fun DetailScreen(
                         val today = java.time.LocalDate.now()
                         val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate)
                         val (expiryLabel, expiryColor) = when {
-                            expiry?.isBefore(today) == true -> "EXPIRED" to ErrorRed
-                            expiry == today -> "EXPIRES TODAY" to OrangeAccent
-                            expiry != null && !expiry.isAfter(today.plusDays(7)) -> "EXPIRES IN 1-7 DAYS" to OrangeAccent
-                            else -> "SAFE EXPIRY" to GreenAccent
+                            expiry?.isBefore(today) == true -> stringResource(R.string.expired) to ErrorRed
+                            expiry == today -> stringResource(R.string.expire_today) to OrangeAccent
+                            expiry != null && !expiry.isAfter(today.plusDays(7)) -> stringResource(R.string.expiring_in_7_days) to OrangeAccent
+                            else -> stringResource(R.string.safe_expiry) to GreenAccent
                         }
                         // Compact identity block: preserve all information while
                         // limiting the always-visible screen height.
@@ -105,7 +105,9 @@ fun DetailScreen(
                                     stringResource(R.string.barcode_format, item.barcode)
                                 }
                             )
-                            uiState.projectName.takeIf { it.isNotBlank() }?.let { add("Project: $it") }
+                            uiState.projectName.takeIf { it.isNotBlank() }?.let {
+                                add(stringResource(R.string.active_project_format, it))
+                            }
                         }.joinToString("  •  ")
                         uiState.srNo?.let { srNo ->
                             Text(
@@ -263,12 +265,12 @@ fun DetailScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "Quick actions",
+                    text = stringResource(R.string.quick_actions),
                     style = MaterialTheme.typography.titleLarge
                 )
                 ListItem(
-                    headlineContent = { Text("Edit Quantity") },
-                    supportingContent = { Text("Update the current item quantity") },
+                    headlineContent = { Text(stringResource(R.string.edit_quantity)) },
+                    supportingContent = { Text(stringResource(R.string.update_current_item_quantity)) },
                     modifier = Modifier.clickable {
                         editingQuantity = true
                         showQuickActions = false
@@ -276,8 +278,8 @@ fun DetailScreen(
                 )
                 if (!uiState.isStockMode) {
                     ListItem(
-                        headlineContent = { Text("Change Expiry") },
-                        supportingContent = { Text("Update the expiry date") },
+                        headlineContent = { Text(stringResource(R.string.change_expiry)) },
+                        supportingContent = { Text(stringResource(R.string.update_expiry_date)) },
                         modifier = Modifier.clickable {
                             editingExpiry = true
                             showQuickActions = false
@@ -285,16 +287,16 @@ fun DetailScreen(
                     )
                 }
                 ListItem(
-                    headlineContent = { Text("Edit UOM / Unit Type") },
-                    supportingContent = { Text("Choose PCS, KG, CTN, or OFR") },
+                    headlineContent = { Text(stringResource(R.string.edit_uom_unit_type)) },
+                    supportingContent = { Text(stringResource(R.string.choose_supported_uom)) },
                     modifier = Modifier.clickable {
                         editingUnit = true
                         showQuickActions = false
                     }
                 )
                 ListItem(
-                    headlineContent = { Text("Move to Project") },
-                    supportingContent = { Text("Move this item to another project") },
+                    headlineContent = { Text(stringResource(R.string.move_to_project)) },
+                    supportingContent = { Text(stringResource(R.string.move_to_project_description)) },
                     modifier = Modifier.clickable {
                         viewModel.requestMove()
                         showQuickActions = false
@@ -302,7 +304,7 @@ fun DetailScreen(
                 )
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.delete), color = ErrorRed) },
-                    supportingContent = { Text("Remove this item permanently") },
+                    supportingContent = { Text(stringResource(R.string.remove_item_permanently)) },
                     modifier = Modifier.clickable {
                         showDeleteDialog = true
                         showQuickActions = false
@@ -316,13 +318,13 @@ fun DetailScreen(
     if (uiState.showMoveDialog) {
         AlertDialog(
             onDismissRequest = viewModel::dismissMoveDialog,
-            title = { Text("Move to project") },
+            title = { Text(stringResource(R.string.move_to_project_title)) },
             text = {
                 if (uiState.otherProjects.isEmpty()) {
-                    Text("Create another project in Settings before moving this item.")
+                    Text(stringResource(R.string.move_project_create_first))
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Choose the destination project.")
+                        Text(stringResource(R.string.move_project_choose_destination))
                         uiState.otherProjects.forEach { project ->
                             TextButton(onClick = { viewModel.moveItem(project.id) }, modifier = Modifier.fillMaxWidth()) {
                                 Text(project.name, modifier = Modifier.fillMaxWidth())

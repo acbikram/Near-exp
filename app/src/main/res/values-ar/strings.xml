@@ -211,12 +211,12 @@
 
     <!-- ── شاشة الإعدادات ─────────────────────────────────────────────── -->
     <string name="expiry_notifications">إشعارات قرب الانتهاء</string>
-    <string name="notifications_description">يومياً في الساعة 8:00 صباحاً — يتم إرسال إشعارات للعناصر التي تنتهي صلاحيتها بعد 15 أو 7 أو 3 أيام بالضبط.</string>
-    <string name="days_away_15">قبل 15 يوماً</string>
-    <string name="days_away_7">قبل 7 أيام</string>
-    <string name="days_away_3">قبل 3 أيام</string>
-    <string name="soft_reminder">تذكير لطيف</string>
-    <string name="urgent_alert_desc">تنبيه عاجل (إشعار فوري + رنة مزدوجة)</string>
+    <string name="notifications_description">تنبيهات يومية: العناصر المنتهية اليوم الساعة ٨:٠٠ صباحاً، وخلال ٣ أيام الساعة ٨:١٥، وخلال ٧ أيام الساعة ٨:٣٠.</string>
+    <string name="days_away_today">تنتهي اليوم</string>
+    <string name="days_away_7">خلال ٧ أيام</string>
+    <string name="days_away_3">خلال ٣ أيام</string>
+    <string name="soft_reminder">تذكير هادئ قبل ٧ أيام</string>
+    <string name="urgent_alert_desc">تنبيه حرج لليوم وخلال ٣ أيام (إشعار فوري + اهتزاز مزدوج)</string>
     <string name="notif_permission_required">إذن الإشعارات مطلوب لاستقبال تنبيهات الانتهاء.</string>
     <string name="grant_notification_permission">منح إذن الإشعارات</string>
     <string name="notifications_enabled">✓ الإشعارات مفعّلة</string>
@@ -243,9 +243,9 @@
 
     <!-- ── مساعد الإشعارات ────────────────────────────────────────────── -->
     <string name="notif_channel_soft_name">تحذير الانتهاء</string>
-    <string name="notif_channel_soft_desc">تذكيرات لطيفة للعناصر التي تنتهي خلال 15 أو 7 أيام</string>
+    <string name="notif_channel_soft_desc">تذكيرات هادئة للعناصر التي تنتهي خلال ٧ أيام</string>
     <string name="notif_channel_hard_name">تنبيه الانتهاء</string>
-    <string name="notif_channel_hard_desc">تنبيهات عاجلة للعناصر التي تنتهي خلال 3 أيام</string>
+    <string name="notif_channel_hard_desc">تنبيهات حرجة للعناصر المنتهية اليوم أو خلال ٣ أيام</string>
     <string name="notif_soft_title_format">⚠️ ينتهي بعد %1$d أيام</string>
     <string name="notif_hard_title">🚨 ينتهي بعد 3 أيام!</string>
     <string name="notif_body_format">%1$s — %2$s · ينتهي في %3$s</string>
@@ -329,9 +329,9 @@
     <string name="notification_test_project_format">المشروع النشط: %1$s</string>
     <string name="notification_test_total_items_format">إجمالي العناصر في هذا المشروع: %1$d</string>
     <string name="notification_test_bad_dates_format">عناصر بتاريخ صلاحية غير قابل للقراءة: %1$d</string>
-    <string name="notification_test_tier_format">فئة %1$s يوم: %2$d عنصر</string>
+    <string name="notification_test_tier_format">%1$s: %2$d عنصر</string>
     <string name="notification_test_posted_format">إشعارات تم إرسالها الآن: %1$d</string>
-    <string name="notification_test_check_shade">افتح شريط الإشعارات الآن — يجب أن تظهر خلال دقيقة (بفارق بسيط حسب الفئة).</string>
+    <string name="notification_test_check_shade">الاختبار اليدوي يعرض جميع مراحل التنبيه الآن. أما التنبيهات اليومية فتصل حسب ترتيب ٨:٠٠ و٨:١٥ و٨:٣٠.</string>
     <string name="sr_no_format">الرقم التسلسلي %1$d</string>
     <string name="item_code_barcode_label">الباركود (لماسح اليد)</string>
     <string name="move_up">تحريك لأعلى</string>
@@ -346,4 +346,49 @@
     <string name="sort_quantity">حسب الكمية</string>
     <string name="sort_item_code_asc">رمز الصنف: من الأصغر إلى الأكبر</string>
     <string name="sort_item_code_desc">رمز الصنف: من الأكبر إلى الأصغر</string>
+
+    <!-- ── توافق واجهة اللغة العربية ─────────────────────────────────── -->
+    <string name="active_project_label">المشروع النشط</string>
+    <string name="switch_project">تبديل المشروع</string>
+    <string name="stock_recheck_file_excel">ملف إعادة فحص المخزون (Excel)</string>
+    <string name="edit_quantity">تعديل الكمية</string>
+    <string name="update_current_item_quantity">تحديث كمية الصنف الحالية</string>
+    <string name="change_expiry">تغيير تاريخ الصلاحية</string>
+    <string name="update_expiry_date">تحديث تاريخ الصلاحية</string>
+    <string name="edit_uom_unit_type">تعديل وحدة القياس</string>
+    <string name="choose_supported_uom">اختر PCS أو KG أو CTN أو OFR</string>
+    <string name="move_to_project_description">نقل هذا الصنف إلى مشروع آخر</string>
+    <string name="remove_item_permanently">حذف هذا الصنف نهائياً</string>
+    <string name="move_to_project_title">نقل إلى مشروع</string>
+    <string name="move_project_create_first">أنشئ مشروعاً آخر في الإعدادات قبل نقل هذا الصنف.</string>
+    <string name="move_project_choose_destination">اختر المشروع الوجهة.</string>
+    <string name="export_stock_check_excel">تصدير Excel لفحص المخزون</string>
+    <string name="no_matching_products">لا توجد منتجات مطابقة</string>
+    <string name="no_stock_scans_yet">لا توجد عمليات مسح للمخزون بعد</string>
+    <string name="stock_scan_empty_description">امسح منتجات الكتالوج لبدء فحص المخزون.</string>
+    <string name="nothing_needs_attention">لا توجد عناصر تحتاج إلى متابعة الآن</string>
+    <string name="scan_products_tracking_description">امسح المنتجات لبدء تتبع تواريخ الصلاحية.</string>
+    <string name="first_scan_title">جاهز لأول عملية مسح</string>
+    <string name="first_scan_description">استخدم الكاميرا أو زر لوحة المفاتيح لإضافة منتج.</string>
+    <string name="install_now">تثبيت الآن</string>
+    <string name="data_management_expanded_description">النسخ الاحتياطي والاستعادة وسلة المحذوفات وأدوات الإشعارات</string>
+    <string name="data_management_collapsed_description">اضغط لإدارة النسخ الاحتياطية وبيانات التطبيق</string>
+    <string name="update_install_automatic">سيفتح المثبّت تلقائياً عند اكتمال التنزيل.</string>
+    <string name="update_install_manual">اكتمل التنزيل. إذا لم يبقَ مثبّت Android مفتوحاً، فاضغط «تثبيت الآن».</string>
+    <string name="update_preparing_download">جارٍ تحضير تنزيل التحديث…</string>
+    <string name="quick_actions">إجراءات سريعة</string>
+    <string name="safe_expiry">صلاحية آمنة</string>
+    <string name="expiry_action_dashboard">لوحة إجراءات الصلاحية</string>
+    <string name="today">اليوم</string>
+    <string name="total_items">إجمالي العناصر</string>
+    <string name="one_to_seven_days">١–٧ أيام</string>
+    <string name="eight_to_thirty_days">٨–٣٠ يوماً</string>
+    <string name="history_empty_filter_description">جرّب حالة صلاحية أخرى أو أضف منتجات من شاشة المسح.</string>
+    <string name="history_empty_search_description">جرّب اسم المنتج أو رمز الصنف أو الباركود.</string>
+    <string name="stock_check_excel_title">Excel لفحص المخزون</string>
+    <string name="stock_check_excel_description_format">يتم تصدير %1$s بتخطيط إعادة الفحص: ترتيب المسح، ورمز POS، والوصف، ووحدة القياس، والكمية.</string>
+    <string name="recheck_file_selected_format">المحدد: %1$s · %2$d رمزاً</string>
+    <string name="recheck_excel_default_name">Excel لإعادة الفحص</string>
+    <string name="recheck_file_select_description">اختر ملف Excel المستخدم لتحديد أصناف المخزون التي تحتاج إلى إعادة فحص الكمية.</string>
+    <string name="default_project_name">مشروع</string>
 </resources>

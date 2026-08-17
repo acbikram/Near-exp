@@ -228,7 +228,11 @@ fun SettingsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.data_management), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
                                 Text(
-                                    if (dataManagementExpanded) "Backup, restore, recycle bin, and notification tools" else "Tap to manage backups and app data",
+                                    if (dataManagementExpanded) {
+                                        stringResource(R.string.data_management_expanded_description)
+                                    } else {
+                                        stringResource(R.string.data_management_collapsed_description)
+                                    },
                                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                                 )
                             }
@@ -323,10 +327,10 @@ fun SettingsScreen(
                                 Text(
                                     text = when (uiState.updateState) {
                                         SettingsViewModel.UpdateState.DOWNLOADING ->
-                                            "The installer will open automatically when the download finishes."
+                                            stringResource(R.string.update_install_automatic)
                                         SettingsViewModel.UpdateState.DOWNLOADED ->
-                                            "Download complete. If the Android installer did not stay open, tap Install Now."
-                                        else -> "Preparing the update download…"
+                                            stringResource(R.string.update_install_manual)
+                                        else -> stringResource(R.string.update_preparing_download)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SubtleGray
@@ -342,7 +346,7 @@ fun SettingsScreen(
                                         ),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text("Install Now", fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.install_now), fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -423,10 +427,27 @@ fun SettingsScreen(
                             Text(stringResource(R.string.notification_test_bad_dates_format, r.itemsWithUnparsableDates))
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.notification_test_tier_format, "0", r.tierCounts[0] ?: 0))
-                        Text(stringResource(R.string.notification_test_tier_format, "3", r.tierCounts[3] ?: 0))
-                        Text(stringResource(R.string.notification_test_tier_format, "7", r.tierCounts[7] ?: 0))
-                        Text(stringResource(R.string.notification_test_tier_format, "15", r.tierCounts[15] ?: 0))
+                        Text(
+                            stringResource(
+                                R.string.notification_test_tier_format,
+                                stringResource(R.string.days_away_today),
+                                r.tierCounts[0] ?: 0
+                            )
+                        )
+                        Text(
+                            stringResource(
+                                R.string.notification_test_tier_format,
+                                stringResource(R.string.days_away_3),
+                                r.tierCounts[3] ?: 0
+                            )
+                        )
+                        Text(
+                            stringResource(
+                                R.string.notification_test_tier_format,
+                                stringResource(R.string.days_away_7),
+                                r.tierCounts[7] ?: 0
+                            )
+                        )
                         Spacer(Modifier.height(8.dp))
                         Text(
                             stringResource(R.string.notification_test_posted_format, r.notificationsPosted),

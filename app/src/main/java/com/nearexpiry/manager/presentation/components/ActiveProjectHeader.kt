@@ -32,11 +32,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.presentation.theme.AppDimens
@@ -120,11 +122,11 @@ fun ActiveProjectHeader(
                     }
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text("ACTIVE PROJECT", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold), color = SubtleGray)
-                        Text(active?.name ?: "Project", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = color)
+                        Text(stringResource(R.string.active_project_label), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold), color = SubtleGray)
+                        Text(active?.name ?: stringResource(R.string.default_project_name), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = color)
                     }
                 }
-                if (state.projects.size > 1) Icon(Icons.Default.ExpandMore, contentDescription = "Switch project", tint = CyanAccent)
+                if (state.projects.size > 1) Icon(Icons.Default.ExpandMore, contentDescription = stringResource(R.string.switch_project), tint = CyanAccent)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

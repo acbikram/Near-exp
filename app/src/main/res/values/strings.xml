@@ -211,12 +211,12 @@
 
     <!-- ── Settings screen ─────────────────────────────────────────────── -->
     <string name="expiry_notifications">Expiry Notifications</string>
-    <string name="notifications_description">Daily at 8:00 AM — notifications are sent for items expiring in exactly 15, 7, or 3 days.</string>
-    <string name="days_away_15">15 days away</string>
+    <string name="notifications_description">Daily alerts: items expiring today at 8:00 AM, in 3 days at 8:15 AM, and in 7 days at 8:30 AM.</string>
+    <string name="days_away_today">Expires today</string>
     <string name="days_away_7">7 days away</string>
     <string name="days_away_3">3 days away</string>
-    <string name="soft_reminder">Soft reminder</string>
-    <string name="urgent_alert_desc">Urgent alert (heads-up + double vibration)</string>
+    <string name="soft_reminder">Quiet 7-day reminder</string>
+    <string name="urgent_alert_desc">Critical Today and 3-day alert (heads-up + double vibration)</string>
     <string name="notif_permission_required">Notification permission is required to receive expiry alerts.</string>
     <string name="grant_notification_permission">Grant Notification Permission</string>
     <string name="notifications_enabled">✓ Notifications enabled</string>
@@ -243,9 +243,9 @@
 
     <!-- ── Notification helper ─────────────────────────────────────────── -->
     <string name="notif_channel_soft_name">Expiry Warning</string>
-    <string name="notif_channel_soft_desc">Soft reminders for items expiring in 15 or 7 days</string>
+    <string name="notif_channel_soft_desc">Quiet reminders for items expiring in 7 days</string>
     <string name="notif_channel_hard_name">Expiry Alert</string>
-    <string name="notif_channel_hard_desc">Urgent alerts for items expiring in 3 days</string>
+    <string name="notif_channel_hard_desc">Critical alerts for items expiring today or in 3 days</string>
     <string name="notif_soft_title_format">⚠️ Expiring in %1$d days</string>
     <string name="notif_hard_title">🚨 Expires in 3 Days!</string>
     <string name="notif_body_format">%1$s — %2$s · Expires %3$s</string>
@@ -329,9 +329,9 @@
     <string name="notification_test_project_format">Active project: %1$s</string>
     <string name="notification_test_total_items_format">Total items in this project: %1$d</string>
     <string name="notification_test_bad_dates_format">Items with an unreadable expiry date: %1$d</string>
-    <string name="notification_test_tier_format">%1$s-day tier: %2$d item(s)</string>
+    <string name="notification_test_tier_format">%1$s: %2$d item(s)</string>
     <string name="notification_test_posted_format">Notifications posted just now: %1$d</string>
-    <string name="notification_test_check_shade">Pull down your notification shade now — they should be there within a minute (staggered slightly per tier).</string>
+    <string name="notification_test_check_shade">Manual testing previews all supported alert stages now. Daily delivery follows the scheduled 8:00, 8:15, and 8:30 sequence.</string>
     <string name="sr_no_format">Sr No. %1$d</string>
     <string name="item_code_barcode_label">Barcode (for hand scanner)</string>
     <string name="move_up">Move Up</string>
@@ -346,4 +346,49 @@
     <string name="sort_quantity">By Quantity</string>
     <string name="sort_item_code_asc">Item Code: Smallest to Largest</string>
     <string name="sort_item_code_desc">Item Code: Largest to Smallest</string>
+
+    <!-- ── Arabic compatibility pass ─────────────────────────────────── -->
+    <string name="active_project_label">ACTIVE PROJECT</string>
+    <string name="switch_project">Switch project</string>
+    <string name="stock_recheck_file_excel">Stock Recheck File (Excel)</string>
+    <string name="edit_quantity">Edit Quantity</string>
+    <string name="update_current_item_quantity">Update the current item quantity</string>
+    <string name="change_expiry">Change Expiry</string>
+    <string name="update_expiry_date">Update the expiry date</string>
+    <string name="edit_uom_unit_type">Edit UOM / Unit Type</string>
+    <string name="choose_supported_uom">Choose PCS, KG, CTN, or OFR</string>
+    <string name="move_to_project_description">Move this item to another project</string>
+    <string name="remove_item_permanently">Remove this item permanently</string>
+    <string name="move_to_project_title">Move to project</string>
+    <string name="move_project_create_first">Create another project in Settings before moving this item.</string>
+    <string name="move_project_choose_destination">Choose the destination project.</string>
+    <string name="export_stock_check_excel">Export Stock Check Excel</string>
+    <string name="no_matching_products">No matching products</string>
+    <string name="no_stock_scans_yet">No stock scans yet</string>
+    <string name="stock_scan_empty_description">Scan catalog products to build this stock check.</string>
+    <string name="nothing_needs_attention">Nothing needs attention right now</string>
+    <string name="scan_products_tracking_description">Scan products to begin tracking expiry dates.</string>
+    <string name="first_scan_title">Ready for your first scan</string>
+    <string name="first_scan_description">Use the camera or keyboard button to add a product.</string>
+    <string name="install_now">Install Now</string>
+    <string name="data_management_expanded_description">Backup, restore, recycle bin, and notification tools</string>
+    <string name="data_management_collapsed_description">Tap to manage backups and app data</string>
+    <string name="update_install_automatic">The installer will open automatically when the download finishes.</string>
+    <string name="update_install_manual">Download complete. If the Android installer did not stay open, tap Install Now.</string>
+    <string name="update_preparing_download">Preparing the update download…</string>
+    <string name="quick_actions">Quick actions</string>
+    <string name="safe_expiry">Safe expiry</string>
+    <string name="expiry_action_dashboard">Expiry Action Dashboard</string>
+    <string name="today">Today</string>
+    <string name="total_items">Total Items</string>
+    <string name="one_to_seven_days">1–7 Days</string>
+    <string name="eight_to_thirty_days">8–30 Days</string>
+    <string name="history_empty_filter_description">Try another expiry status or add products from Scan.</string>
+    <string name="history_empty_search_description">Try a product name, item code, or barcode.</string>
+    <string name="stock_check_excel_title">Stock Check Excel</string>
+    <string name="stock_check_excel_description_format">Exports %1$s in the Recheck layout: scan order, POS code, description, UOM, and quantity.</string>
+    <string name="recheck_file_selected_format">Selected: %1$s · %2$d codes</string>
+    <string name="recheck_excel_default_name">Recheck Excel</string>
+    <string name="recheck_file_select_description">Select the Excel file used to decide which Stock items need quantity recheck.</string>
+    <string name="default_project_name">Project</string>
 </resources>

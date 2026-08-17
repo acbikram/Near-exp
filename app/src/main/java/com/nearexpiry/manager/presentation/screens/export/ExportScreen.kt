@@ -231,11 +231,11 @@ fun ExportScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     if (uiState.isStockMode) {
                         Text(
-                            text = "Stock Check Excel",
+                            text = stringResource(R.string.stock_check_excel_title),
                             style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "Exports ${uiState.projectName} in the Recheck layout: scan order, POS code, description, UOM, and quantity.",
+                            text = stringResource(R.string.stock_check_excel_description_format, uiState.projectName),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 6.dp)
@@ -247,7 +247,7 @@ fun ExportScreen(
                         ) {
                             Icon(Icons.Default.Description, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Export Stock Check Excel")
+                            Text(stringResource(R.string.export_stock_check_excel))
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(

@@ -12,7 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Executes the expiry check when the local 8:00 AM alarm fires. */
+/** Delivers one scheduled expiry-notification risk tier. */
 @AndroidEntryPoint
 class DailyExpiryAlarmReceiver : BroadcastReceiver() {
 
@@ -23,19 +23,39 @@ class DailyExpiryAlarmReceiver : BroadcastReceiver() {
     lateinit var preferencesManager: PreferencesManager
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != DailyExpiryAlarmScheduler.ACTION_DAILY_EXPIRY_ALARM) return
+        val tier = when (intent.action) {
+            // A defensive migration path for a legacy alarm that was already
+            // armed before the staged schedule was installed.
+            DailyExpiryAlarmScheduler.ACTION_DAILY_EXPIRY_ALARM -> DailyExpiryAlarmScheduler.TODAY_TIER
+            DailyExpiryAlarmScheduler.ACTION_EXPIRY_TIER_ALARM -> intent.getIntExtra(
+                DailyExpiryAlarmScheduler.EXTRA_DAYS_LEFT,
+                -1
+            )
+            else -> return
+        }
+        if (tier !in setOf(
+                DailyExpiryAlarmScheduler.TODAY_TIER,
+                DailyExpiryAlarmScheduler.THREE_DAY_TIER,
+                DailyExpiryAlarmScheduler.SEVEN_DAY_TIER
+            )
+        ) return
 
-        // Always re-arm first so a notification/database failure cannot prevent
-        // the following day's check.
-        DailyExpiryAlarmScheduler.schedule(context)
+        // The 8:30 AM stage is the final delivery in today's sequence. Re-arm
+        // only then so today's 8:15/8:30 alarms are not accidentally cancelled.
+        if (tier == DailyExpiryAlarmScheduler.SEVEN_DAY_TIER ||
+            intent.action == DailyExpiryAlarmScheduler.ACTION_DAILY_EXPIRY_ALARM
+        ) {
+            DailyExpiryAlarmScheduler.schedule(context)
+        }
 
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                ExpiryNotificationWorker.runDiagnostic(
-                    context.applicationContext,
-                    database,
-                    preferencesManager
+                ExpiryNotificationWorker.runTier(
+                    context = context.applicationContext,
+                    database = database,
+                    preferencesManager = preferencesManager,
+                    daysLeft = tier
                 )
             } finally {
                 pendingResult.finish()
@@ -44,7 +64,7 @@ class DailyExpiryAlarmReceiver : BroadcastReceiver() {
     }
 }
 
-/** Restores the local 8:00 AM schedule after reboot or device clock changes. */
+/** Restores the local-time sequence after reboot or device clock changes. */
 class DailyExpiryScheduleRestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DailyExpiryAlarmScheduler.schedule(context)
