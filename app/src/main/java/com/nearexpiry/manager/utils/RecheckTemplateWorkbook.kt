@@ -18,7 +18,12 @@ object RecheckTemplateWorkbook {
 
     private val rowRegex = Regex("""<row([^>]*)>(.*?)</row>""", RegexOption.DOT_MATCHES_ALL)
     private val rowNumberRegex = Regex("""\br="(\d+)"""")
-    private val cellRegex = Regex("""<c\b([^>]*)\br="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>|<c\b([^>]*)\br="([A-Z]+)(\d+)"([^>]*)/>""", RegexOption.DOT_MATCHES_ALL)
+    // Keep regular and self-closing cells separate. A blank styled F cell
+    // must never consume the next G/H cell while parsing a template row.
+    private val cellRegex = Regex(
+        """<c\b([^>]*)\br="([A-Z]+)(\d+)"([^>]*?)(?<!/)>(.*?)</c>|<c\b([^>]*)\br="([A-Z]+)(\d+)"([^>]*)/>""",
+        RegexOption.DOT_MATCHES_ALL
+    )
     private val valueRegex = Regex("""<v>(.*?)</v>""", RegexOption.DOT_MATCHES_ALL)
     private val inlineRegex = Regex("""<is>.*?<t[^>]*>(.*?)</t>.*?</is>""", RegexOption.DOT_MATCHES_ALL)
     private val sharedItemRegex = Regex("""<si>(.*?)</si>""", RegexOption.DOT_MATCHES_ALL)

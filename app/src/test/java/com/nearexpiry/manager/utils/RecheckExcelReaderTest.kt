@@ -100,9 +100,11 @@ class RecheckExcelReaderTest {
               <row r="1">
                 <c r="A1" t="inlineStr"><is><t>Sr. No.</t></is></c>
                 <c r="B1" t="inlineStr"><is><t>POS_CODE</t></is></c>
+                <c r="F1" t="inlineStr"><is><t>PHY_QTY</t></is></c>
                 <c r="G1" t="inlineStr"><is><t>Damage Expiry Stock</t></is></c>
+                <c r="H1" t="inlineStr"><is><t>TOTAL_STOCK</t></is></c>
               </row>
-              <row r="2"><c r="A2"><v>10</v></c><c r="B2"><v>8897605</v></c><c r="G2"><v>5</v></c></row>
+              <row r="2"><c r="A2"><v>10</v></c><c r="B2"><v>8897605</v></c><c r="F2" s="4"/><c r="G2" s="4"><v>5</v></c><c r="H2" s="5"/></row>
             </sheetData></worksheet>
             """.trimIndent()
         )

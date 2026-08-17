@@ -43,7 +43,12 @@ object RecheckExcelReader {
     private enum class HeaderRole { CODE, DESCRIPTION, UOM, DAMAGE, SERIAL }
 
     private val rowRegex = Regex("""<row[^>]*\br="(\d+)"[^>]*>(.*?)</row>""", RegexOption.DOT_MATCHES_ALL)
-    private val cellRegex = Regex("""<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>|<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)/>""", RegexOption.DOT_MATCHES_ALL)
+    // A blank styled cell such as <c r="F12" s="4"/> must not capture
+    // the following column's closing tag. This protects Damage/Expiry parsing.
+    private val cellRegex = Regex(
+        """<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*?)(?<!/)>(.*?)</c>|<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)/>""",
+        RegexOption.DOT_MATCHES_ALL
+    )
     private val inlineRegex = Regex("""<is>.*?<t[^>]*>(.*?)</t>.*?</is>""", RegexOption.DOT_MATCHES_ALL)
     private val valueRegex = Regex("""<v>(.*?)</v>""", RegexOption.DOT_MATCHES_ALL)
     private val sharedItemRegex = Regex("""<si>(.*?)</si>""", RegexOption.DOT_MATCHES_ALL)
