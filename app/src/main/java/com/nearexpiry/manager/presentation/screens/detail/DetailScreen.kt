@@ -25,6 +25,7 @@ import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
+import com.nearexpiry.manager.presentation.theme.YellowAccent
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.QuantityFormatter
@@ -45,7 +46,6 @@ fun DetailScreen(
     var editingExpiry by remember { mutableStateOf(false) }
     var editingUnit by remember { mutableStateOf(false) }
     var showQuickActions by remember { mutableStateOf(false) }
-    var showItemBarcode by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -95,7 +95,6 @@ fun DetailScreen(
                         // Compact identity block: preserve all information while
                         // limiting the always-visible screen height.
                         val identityMeta = buildList {
-                            uiState.srNo?.let { add(stringResource(R.string.sr_no_format, it)) }
                             item.itemCode?.takeIf { it.isNotBlank() }?.let {
                                 add(stringResource(R.string.item_code_format, it))
                             }
@@ -108,6 +107,13 @@ fun DetailScreen(
                             )
                             uiState.projectName.takeIf { it.isNotBlank() }?.let { add("Project: $it") }
                         }.joinToString("  •  ")
+                        uiState.srNo?.let { srNo ->
+                            Text(
+                                text = stringResource(R.string.sr_no_format, srNo),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = YellowAccent
+                            )
+                        }
                         Text(
                             text = item.displayName,
                             style = MaterialTheme.typography.titleMedium
@@ -186,20 +192,17 @@ fun DetailScreen(
                             }
                         }
                     }
-                    // The print/scanner barcode remains available on demand
-                    // instead of occupying the compact details view by default.
-                    TextButton(
-                        onClick = { showItemBarcode = !showItemBarcode },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    // Keep the item-code barcode immediately available for
+                    // scanner-to-PC workflows, as requested.
+                    val loadedItem = uiState.item!!
+                    val scanValue = loadedItem.itemCode?.takeIf { it.isNotBlank() } ?: loadedItem.barcode
+                    Column {
                         Text(
-                            if (showItemBarcode) "Hide Item Code Barcode"
-                            else "Show Item Code Barcode"
+                            text = stringResource(R.string.item_code_barcode_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    if (showItemBarcode) {
-                        val loadedItem = uiState.item!!
-                        val scanValue = loadedItem.itemCode?.takeIf { it.isNotBlank() } ?: loadedItem.barcode
+                        Spacer(Modifier.height(6.dp))
                         Code39Barcode(
                             value = scanValue,
                             modifier = Modifier.fillMaxWidth(),
