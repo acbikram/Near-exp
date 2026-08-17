@@ -210,7 +210,8 @@ fun BackupRestoreScreen(
                         stringResource(
                             R.string.recheck_file_selected_format,
                             uiState.recheckFileName.ifBlank { stringResource(R.string.recheck_excel_default_name) },
-                            uiState.recheckCodeCount
+                            uiState.recheckCodeCount,
+                            uiState.recheckSourceCodeRowCount
                         )
                     } else {
                         stringResource(R.string.recheck_file_select_description)

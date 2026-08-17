@@ -78,7 +78,10 @@ class BackupRestoreViewModel @Inject constructor(
         val catalogCount: Int = 0,
         /** Global Stock Recheck workbook metadata; its codes live in Room. */
         val recheckFileName: String = "",
+        /** Distinct POS codes used for Stock scan matching. */
         val recheckCodeCount: Int = 0,
+        /** Non-empty POS-code rows found in the selected master template. */
+        val recheckSourceCodeRowCount: Int = 0,
         /** One-shot confirmation after the Recheck workbook replaces the old list. */
         val recheckImportResult: String? = null
     )
@@ -95,10 +98,17 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             val storedCount = runCatching { recheckCodeStore.importedCodeCount() }.getOrDefault(0)
             val storedName = runCatching { preferencesManager.getRecheckFileName() }.getOrDefault("")
+            val sourceRowCount = runCatching {
+                val template = recheckTemplateStore.read()
+                if (template != null) withContext(Dispatchers.Default) {
+                    RecheckExcelReader.readImport(template).sourceCodeRowCount
+                } else storedCount
+            }.getOrDefault(storedCount)
             _uiState.update {
                 it.copy(
                     recheckFileName = storedName,
-                    recheckCodeCount = storedCount
+                    recheckCodeCount = storedCount,
+                    recheckSourceCodeRowCount = sourceRowCount
                 )
             }
         }
@@ -373,22 +383,32 @@ class BackupRestoreViewModel @Inject constructor(
                 if (bytes.size < 2 || bytes[0] != 'P'.code.toByte() || bytes[1] != 'K'.code.toByte()) {
                     error("Please select an .xlsx Stock Recheck Excel file.")
                 }
-                val rows = withContext(Dispatchers.Default) { RecheckExcelReader.readRows(bytes) }
-                if (rows.isEmpty()) {
+                val import = withContext(Dispatchers.Default) { RecheckExcelReader.readImport(bytes) }
+                if (import.rows.isEmpty()) {
                     error("No POS Code, Item Code, or Barcode header with usable codes was found in this Excel file.")
                 }
                 // Preserve the user-selected workbook before updating Room so a
                 // failed file write cannot replace the currently working index.
                 recheckTemplateStore.replace(bytes)
-                val count = recheckCodeStore.replaceRows(rows)
+                val count = recheckCodeStore.replaceRows(import.rows)
                 val fileName = resolveDisplayName(context, uri)
                 preferencesManager.setRecheckFileMetadata(fileName, count)
+                val importSummary = buildString {
+                    append("$count unique Recheck codes loaded from ${import.sourceCodeRowCount} POS Code rows in $fileName.")
+                    if (import.duplicateCodeRowCount > 0) {
+                        append(" ${import.duplicateCodeRowCount} duplicate POS Code row(s) remain preserved in the Excel template.")
+                    }
+                    if (import.blankCodeRowCount > 0) {
+                        append(" ${import.blankCodeRowCount} non-empty row(s) had no POS Code and were skipped for scan matching.")
+                    }
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         recheckFileName = fileName,
                         recheckCodeCount = count,
-                        recheckImportResult = "$count Recheck codes loaded from $fileName."
+                        recheckSourceCodeRowCount = import.sourceCodeRowCount,
+                        recheckImportResult = importSummary
                     )
                 }
             } catch (e: Exception) {

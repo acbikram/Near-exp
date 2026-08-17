@@ -33,6 +33,45 @@ class RecheckExcelReaderTest {
     }
 
     @Test
+    fun `reports source rows duplicates and blank POS rows while preserving unique scan codes`() {
+        val bytes = workbook(
+            """
+            <worksheet><sheetData>
+              <row r="1">
+                <c r="A1" t="inlineStr"><is><t>Barcode</t></is></c>
+                <c r="B1" t="inlineStr"><is><t>POS Code</t></is></c>
+                <c r="C1" t="inlineStr"><is><t>Damage Expiry Stock</t></is></c>
+                <c r="D1" t="inlineStr"><is><t>Description</t></is></c>
+              </row>
+              <row r="2">
+                <c r="A2" t="inlineStr"><is><t>barcode-a</t></is></c>
+                <c r="B2" t="inlineStr"><is><t>pos-001</t></is></c>
+                <c r="C2"><v>2.5</v></c>
+              </row>
+              <row r="3">
+                <c r="A3" t="inlineStr"><is><t>barcode-b</t></is></c>
+                <c r="B3" t="inlineStr"><is><t>pos-002</t></is></c>
+              </row>
+              <row r="4">
+                <c r="A4" t="inlineStr"><is><t>barcode-c</t></is></c>
+                <c r="B4" t="inlineStr"><is><t>pos-001</t></is></c>
+              </row>
+              <row r="5"><c r="D5" t="inlineStr"><is><t>Missing POS code</t></is></c></row>
+            </sheetData></worksheet>
+            """.trimIndent()
+        )
+
+        val result = RecheckExcelReader.readImport(bytes)
+
+        assertEquals(3, result.sourceCodeRowCount)
+        assertEquals(2, result.uniqueCodeCount)
+        assertEquals(1, result.duplicateCodeRowCount)
+        assertEquals(1, result.blankCodeRowCount)
+        assertEquals(listOf("POS-001", "POS-002"), result.rows.map { it.code })
+        assertEquals(2.5, result.rows.first().damageExpiryQuantity, 0.0)
+    }
+
+    @Test
     fun `ignores workbooks without a supported code header`() {
         val bytes = workbook(
             """

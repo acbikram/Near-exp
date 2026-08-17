@@ -5,9 +5,9 @@ import java.util.zip.ZipInputStream
 
 /**
  * Reads the selected Stock Recheck workbook without assuming fixed column
- * letters. A POS Code / Item Code / Barcode header is required; description and
- * UOM headers are optional and are retained when present. Source-row order is
- * preserved exactly for Stock History and template-driven export.
+ * letters. The POS Code column is preferred whenever it exists; Item Code and
+ * Barcode are only fallbacks. Description, UOM, and Damage/Expiry headers are
+ * optional and may appear in any position.
  */
 object RecheckExcelReader {
     data class Row(
@@ -16,6 +16,27 @@ object RecheckExcelReader {
         val description: String,
         val uom: String,
         val damageExpiryQuantity: Double
+    )
+
+    /**
+     * Import diagnostics distinguish physical POS-code rows in the workbook
+     * from the unique logical codes used for scan matching. The workbook itself
+     * remains the export master, so duplicate template rows are never removed
+     * from the exported Excel file.
+     */
+    data class ImportResult(
+        val rows: List<Row>,
+        val sourceCodeRowCount: Int,
+        val duplicateCodeRowCount: Int,
+        val blankCodeRowCount: Int
+    ) {
+        val uniqueCodeCount: Int get() = rows.size
+    }
+
+    private data class SheetRows(
+        val rows: List<Row>,
+        val sourceCodeRowCount: Int,
+        val blankCodeRowCount: Int
     )
 
     private enum class HeaderRole { CODE, DESCRIPTION, UOM, DAMAGE }
@@ -27,30 +48,46 @@ object RecheckExcelReader {
     private val sharedItemRegex = Regex("""<si>(.*?)</si>""", RegexOption.DOT_MATCHES_ALL)
     private val tagRegex = Regex("""<[^>]+>""")
 
+    /** Returns only the distinct logical codes used by Stock scan matching. */
+    fun readRows(bytes: ByteArray): List<Row> = readImport(bytes).rows
+
     /**
-     * Returns all distinct data rows from the first workbook worksheet that
-     * contains a supported code header. Duplicate codes retain their first
-     * source row because Stock scans and History identify an item by code.
+     * Reads the master Recheck sheet and reports exactly how its source rows
+     * became scan-matchable codes. A duplicate POS code counts once for scanning
+     * and History, but remains in the untouched export template.
      */
-    fun readRows(bytes: ByteArray): List<Row> {
+    fun readImport(bytes: ByteArray): ImportResult {
         val entries = workbookEntries(bytes)
         val sharedStrings = sharedStrings(entries["xl/sharedStrings.xml"])
-        val uniqueRows = linkedMapOf<String, Row>()
+        var firstHeaderSheet: SheetRows? = null
 
         entries
             .filterKeys { it.startsWith("xl/worksheets/") && it.endsWith(".xml") }
             .toSortedMap()
             .values
             .forEach { sheetBytes ->
-                val rows = rowsFromSheet(parseRows(sheetBytes.toString(Charsets.UTF_8), sharedStrings))
-                if (rows.isNotEmpty()) {
-                    rows.forEach { row -> uniqueRows.putIfAbsent(row.code, row) }
-                    // The selected workbook is the master template. Use the
-                    // first matching sheet rather than combining unrelated tabs.
-                    return uniqueRows.values.mapIndexed { index, row -> row.copy(sortOrder = index) }
+                val sheetRows = rowsFromSheet(parseRows(sheetBytes.toString(Charsets.UTF_8), sharedStrings))
+                    ?: return@forEach
+                if (firstHeaderSheet == null) firstHeaderSheet = sheetRows
+                if (sheetRows.sourceCodeRowCount > 0) {
+                    return toImportResult(sheetRows)
                 }
             }
-        return emptyList()
+
+        return firstHeaderSheet?.let(::toImportResult)
+            ?: ImportResult(emptyList(), 0, 0, 0)
+    }
+
+    private fun toImportResult(sheetRows: SheetRows): ImportResult {
+        val uniqueRows = linkedMapOf<String, Row>()
+        sheetRows.rows.forEach { row -> uniqueRows.putIfAbsent(row.code, row) }
+        val orderedRows = uniqueRows.values.mapIndexed { index, row -> row.copy(sortOrder = index) }
+        return ImportResult(
+            rows = orderedRows,
+            sourceCodeRowCount = sheetRows.sourceCodeRowCount,
+            duplicateCodeRowCount = sheetRows.rows.size - orderedRows.size,
+            blankCodeRowCount = sheetRows.blankCodeRowCount
+        )
     }
 
     /**
@@ -107,13 +144,12 @@ object RecheckExcelReader {
         }
         ?: emptyList()
 
-    private fun rowsFromSheet(rows: Map<Int, Map<String, String>>): List<Row> {
+    private fun rowsFromSheet(rows: Map<Int, Map<String, String>>): SheetRows? {
         val header = rows.entries.firstNotNullOfOrNull { (rowNumber, cells) ->
-            val roles = cells.mapNotNull { (column, value) ->
-                headerRole(value)?.let { role -> role to column }
-            }.toMap()
-            roles[HeaderRole.CODE]?.let { rowNumber to roles }
-        } ?: return emptyList()
+            primaryCodeColumn(cells)?.let { codeColumn ->
+                rowNumber to headerColumns(cells, codeColumn)
+            }
+        } ?: return null
 
         val headerRow = header.first
         val columns = header.second
@@ -121,30 +157,71 @@ object RecheckExcelReader {
         val descriptionColumn = columns[HeaderRole.DESCRIPTION]
         val uomColumn = columns[HeaderRole.UOM]
         val damageColumn = columns[HeaderRole.DAMAGE]
+        val sourceRows = mutableListOf<Row>()
+        var blankCodeRows = 0
 
-        return rows
-            .asSequence()
+        rows.asSequence()
             .filter { (rowNumber, _) -> rowNumber > headerRow }
-            .mapNotNull { (_, cells) ->
-                normalizeCode(cells[codeColumn])?.let { code ->
-                    Row(
-                        code = code,
-                        sortOrder = 0,
-                        description = cells[descriptionColumn].orEmpty().trim(),
-                        uom = cells[uomColumn].orEmpty().trim(),
-                        damageExpiryQuantity = cells[damageColumn]
-                            ?.trim()
-                            ?.replace(",", "")
-                            ?.toDoubleOrNull()
-                            ?: 0.0
-                    )
+            .forEach { (_, cells) ->
+                val code = normalizeCode(cells[codeColumn])
+                if (code == null) {
+                    if (cells.values.any { it.isNotBlank() }) blankCodeRows++
+                    return@forEach
                 }
+                sourceRows += Row(
+                    code = code,
+                    sortOrder = 0,
+                    description = cells[descriptionColumn].orEmpty().trim(),
+                    uom = cells[uomColumn].orEmpty().trim(),
+                    damageExpiryQuantity = cells[damageColumn]
+                        ?.trim()
+                        ?.replace(",", "")
+                        ?.toDoubleOrNull()
+                        ?: 0.0
+                )
             }
-            .toList()
+
+        return SheetRows(
+            rows = sourceRows,
+            sourceCodeRowCount = sourceRows.size,
+            blankCodeRowCount = blankCodeRows
+        )
+    }
+
+    /** Ensures POS Code wins over Item Code and Barcode when multiple headers exist. */
+    private fun primaryCodeColumn(cells: Map<String, String>): String? = cells
+        .asSequence()
+        .filter { (_, value) -> headerRole(value) == HeaderRole.CODE }
+        .minWithOrNull(
+            compareBy<Map.Entry<String, String>> { codeHeaderPriority(it.value) }
+                .thenBy { it.key }
+        )
+        ?.key
+
+    private fun headerColumns(cells: Map<String, String>, codeColumn: String): Map<HeaderRole, String> {
+        val columns = linkedMapOf<HeaderRole, String>()
+        columns[HeaderRole.CODE] = codeColumn
+        cells.forEach { (column, value) ->
+            when (val role = headerRole(value)) {
+                HeaderRole.DESCRIPTION, HeaderRole.UOM, HeaderRole.DAMAGE -> columns.putIfAbsent(role, column)
+                else -> Unit
+            }
+        }
+        return columns
+    }
+
+    private fun codeHeaderPriority(value: String): Int {
+        val compact = compactHeader(value)
+        return when {
+            compact.contains("poscode") -> 0
+            compact.contains("itemcode") -> 1
+            compact.contains("barcode") -> 2
+            else -> 3
+        }
     }
 
     private fun headerRole(value: String): HeaderRole? {
-        val compact = value.lowercase().replace(Regex("""[^a-z0-9]+"""), "")
+        val compact = compactHeader(value)
         return when {
             compact.contains("poscode") || compact.contains("itemcode") || compact.contains("barcode") -> HeaderRole.CODE
             compact.contains("itemdescription") || compact == "description" ||
@@ -154,6 +231,9 @@ object RecheckExcelReader {
             else -> null
         }
     }
+
+    private fun compactHeader(value: String): String =
+        value.lowercase().replace(Regex("""[^a-z0-9]+"""), "")
 
     private fun parseRows(sheetXml: String, sharedStrings: List<String>): Map<Int, Map<String, String>> {
         val rows = linkedMapOf<Int, Map<String, String>>()

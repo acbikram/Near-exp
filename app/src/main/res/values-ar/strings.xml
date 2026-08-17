@@ -394,7 +394,7 @@
     <string name="save_stock_check_excel">حفظ Excel لفحص المخزون</string>
     <string name="share_stock_check_excel">مشاركة Excel لفحص المخزون</string>
     <string name="send_stock_check_excel_to_pc">إرسال Excel المخزون إلى الكمبيوتر (Wi-Fi)</string>
-    <string name="recheck_file_selected_format">المحدد: %1$s · %2$d رمزاً</string>
+    <string name="recheck_file_selected_format">المحدد: %1$s · %2$d رمزاً فريداً من %3$d صفاً لرمز POS</string>
     <string name="recheck_excel_default_name">Excel لإعادة الفحص</string>
     <string name="recheck_file_select_description">اختر ملف Excel المستخدم لتحديد أصناف المخزون التي تحتاج إلى إعادة فحص الكمية.</string>
     <string name="default_project_name">مشروع</string>
