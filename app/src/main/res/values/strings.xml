@@ -344,6 +344,8 @@
     <string name="move_blocked_message">Can\'t move selected items together, try one by one</string>
     <string name="sort_newest">Scan Order</string>
     <string name="sort_oldest">Oldest First</string>
+    <string name="sort_recheck_sr_desc">Sr. No.: High to Low</string>
+    <string name="sort_recheck_sr_asc">Sr. No.: Low to High</string>
     <string name="sort_custom">Custom Sort</string>
     <string name="reset_to_scan_order">Reset to Scan Order</string>
     <string name="sort_expiry_date">By Expiry Date</string>

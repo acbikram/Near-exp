@@ -264,8 +264,12 @@ fun HistoryScreen(
                                     Text(
                                         text = stringResource(
                                             when (uiState.sortOrder) {
-                                                SortOrder.NEWEST -> if (uiState.hasCustomSort) R.string.sort_custom else R.string.sort_newest
-                                                SortOrder.OLDEST -> R.string.sort_oldest
+                                                SortOrder.NEWEST -> when {
+                                                    uiState.isStockMode -> R.string.sort_recheck_sr_desc
+                                                    uiState.hasCustomSort -> R.string.sort_custom
+                                                    else -> R.string.sort_newest
+                                                }
+                                                SortOrder.OLDEST -> if (uiState.isStockMode) R.string.sort_recheck_sr_asc else R.string.sort_oldest
                                                 SortOrder.EXPIRY_DATE -> R.string.sort_expiry_date
                                                 SortOrder.QUANTITY -> R.string.sort_quantity
                                                 SortOrder.ITEM_CODE_ASC -> R.string.sort_item_code_asc
@@ -281,14 +285,22 @@ fun HistoryScreen(
                                 onDismissRequest = { showSortMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(if (uiState.hasCustomSort) stringResource(R.string.sort_custom) else stringResource(R.string.sort_newest)) },
+                                    text = {
+                                        Text(
+                                            when {
+                                                uiState.isStockMode -> stringResource(R.string.sort_recheck_sr_desc)
+                                                uiState.hasCustomSort -> stringResource(R.string.sort_custom)
+                                                else -> stringResource(R.string.sort_newest)
+                                            }
+                                        )
+                                    },
                                     onClick = {
                                         showSortMenu = false
                                         viewModel.setSortOrder(SortOrder.NEWEST)
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sort_oldest)) },
+                                    text = { Text(stringResource(if (uiState.isStockMode) R.string.sort_recheck_sr_asc else R.string.sort_oldest)) },
                                     onClick = {
                                         showSortMenu = false
                                         viewModel.setSortOrder(SortOrder.OLDEST)
@@ -328,7 +340,7 @@ fun HistoryScreen(
                         }
                         // "Reset to Scan Order" — only relevant once the project
                         // has actually been manually reordered.
-                        if (uiState.sortOrder == SortOrder.NEWEST && uiState.hasCustomSort) {
+                        if (!uiState.isStockMode && uiState.sortOrder == SortOrder.NEWEST && uiState.hasCustomSort) {
                             AssistChip(
                                 onClick = { viewModel.resetToScanOrder() },
                                 modifier = Modifier.height(32.dp),

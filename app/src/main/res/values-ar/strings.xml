@@ -344,6 +344,8 @@
     <string name="move_blocked_message">لا يمكن تحريك العناصر المحددة معاً، حاول واحداً تلو الآخر</string>
     <string name="sort_newest">ترتيب المسح</string>
     <string name="sort_oldest">الأقدم أولاً</string>
+    <string name="sort_recheck_sr_desc">الرقم التسلسلي: من الأكبر إلى الأصغر</string>
+    <string name="sort_recheck_sr_asc">الرقم التسلسلي: من الأصغر إلى الأكبر</string>
     <string name="sort_custom">ترتيب مخصص</string>
     <string name="reset_to_scan_order">إعادة الضبط إلى ترتيب المسح</string>
     <string name="sort_expiry_date">حسب تاريخ الصلاحية</string>

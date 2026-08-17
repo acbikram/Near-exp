@@ -224,12 +224,16 @@ class HistoryViewModel @Inject constructor(
                 projects.firstOrNull { it.id == activeId }
             }.collect { project ->
                 val isStockProject = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    val enteringStockMode = isStockProject && !state.isStockMode
+                    state.copy(
                         hasCustomSort = project?.hasCustomSort == true,
                         isStockMode = isStockProject,
-                        filter = if (isStockProject) Filter.ALL else it.filter,
-                        sortOrder = if (isStockProject) SortOrder.NEWEST else it.sortOrder
+                        filter = if (isStockProject) Filter.ALL else state.filter,
+                        // Opening a Stock project starts at Recheck Sr. No.
+                        // descending (the NEWEST slot); later menu selections
+                        // remain active until the user changes project.
+                        sortOrder = if (enteringStockMode) SortOrder.NEWEST else state.sortOrder
                     )
                 }
                 applyFiltersAndSort()
@@ -280,12 +284,9 @@ class HistoryViewModel @Inject constructor(
 
     /** Applies a sort explicitly selected from the History sort menu. */
     fun setSortOrder(sortOrder: SortOrder) {
-        // Stock History always follows the selected Recheck workbook order.
-        // Normal projects retain all user-selected sorting behavior.
-        if (_uiState.value.isStockMode) {
-            applyFiltersAndSort()
-            return
-        }
+        // Stock and normal History both honor menu selections. In Stock Mode,
+        // NEWEST and OLDEST are mapped to Recheck Sr. No. high-to-low and
+        // low-to-high respectively.
         _uiState.update { it.copy(sortOrder = sortOrder) }
         applyFiltersAndSort()
     }
@@ -419,15 +420,28 @@ class HistoryViewModel @Inject constructor(
             }
         }
 
-        // Stock History lists the highest source Sr. No. first. The visible
-        // order therefore mirrors a descending Recheck-file sort (e.g. 17,
-        // then 8) while normal projects retain their existing sort options.
+        // Stock opens by Recheck Sr. No. high-to-low (e.g. 17, then 8), but
+        // every exposed sort menu option remains responsive for Stock projects.
         filtered = if (state.isStockMode) {
-            filtered.sortedWith(
-                compareByDescending<ExpiryItem> { stockSrNo(it) }
-                    .thenByDescending { it.effectiveOrder }
-                    .thenByDescending { it.id }
-            )
+            when (state.sortOrder) {
+                SortOrder.NEWEST, SortOrder.EXPIRY_DATE -> filtered.sortedWith(
+                    compareByDescending<ExpiryItem> { stockSrNo(it) }
+                        .thenByDescending { it.effectiveOrder }
+                        .thenByDescending { it.id }
+                )
+                SortOrder.OLDEST -> filtered.sortedWith(
+                    compareBy<ExpiryItem> { stockSrNo(it) }
+                        .thenBy { it.effectiveOrder }
+                        .thenBy { it.id }
+                )
+                SortOrder.QUANTITY -> filtered.sortedWith(
+                    compareByDescending<ExpiryItem> {
+                        it.quantity + (recheckRowFor(it)?.damageExpiryQuantity ?: 0.0)
+                    }.thenByDescending { stockSrNo(it) }
+                )
+                SortOrder.ITEM_CODE_ASC -> filtered.sortedWith(itemCodeComparator(descending = false))
+                SortOrder.ITEM_CODE_DESC -> filtered.sortedWith(itemCodeComparator(descending = true))
+            }
         } else {
             when (state.sortOrder) {
                 SortOrder.NEWEST -> filtered.sortedWith(compareByDescending<ExpiryItem> { it.effectiveOrder }.thenByDescending { it.id })
