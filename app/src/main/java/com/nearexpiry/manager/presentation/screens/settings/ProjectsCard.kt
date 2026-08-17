@@ -42,6 +42,8 @@ import com.nearexpiry.manager.utils.StockProjectClassifier
 fun ProjectsSection(
     projects: List<SettingsViewModel.ProjectSummary>,
     activeProjectId: Long,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onSwitch: (Long) -> Unit,
     onCreate: (String, String) -> Unit,
     onRename: (Long, String) -> Unit,
@@ -54,7 +56,6 @@ fun ProjectsSection(
     var cloneTarget by remember { mutableStateOf<Long?>(null) }
     var deleteTarget by remember { mutableStateOf<Long?>(null) }
     var colorTarget by remember { mutableStateOf<Long?>(null) }
-    var expanded by rememberSaveable { mutableStateOf(false) }
     val headerInteraction = remember { MutableInteractionSource() }
 
     GlassSectionCard {
@@ -65,7 +66,7 @@ fun ProjectsSection(
                     .clickable(
                         interactionSource = headerInteraction,
                         indication = null
-                    ) { expanded = !expanded }
+                    ) { onExpandedChange(!expanded) }
                     .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -93,7 +94,10 @@ fun ProjectsSection(
 
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { showCreate = true }) {
+                TextButton(onClick = {
+                    showCreate = true
+                    onExpandedChange(false)
+                }) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.project_create), color = CyanAccent)
@@ -103,10 +107,22 @@ fun ProjectsSection(
                         summary = summary,
                         isActive = summary.project.id == activeProjectId,
                         onSwitch = { onSwitch(summary.project.id) },
-                        onRename = { renameTarget = summary.project.id },
-                        onClone = { cloneTarget = summary.project.id },
-                        onRecolor = { colorTarget = summary.project.id },
-                        onDelete = { deleteTarget = summary.project.id }
+                        onRename = {
+                            renameTarget = summary.project.id
+                            onExpandedChange(false)
+                        },
+                        onClone = {
+                            cloneTarget = summary.project.id
+                            onExpandedChange(false)
+                        },
+                        onRecolor = {
+                            colorTarget = summary.project.id
+                            onExpandedChange(false)
+                        },
+                        onDelete = {
+                            deleteTarget = summary.project.id
+                            onExpandedChange(false)
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                 }

@@ -20,7 +20,10 @@ import kotlin.math.min
  * user's preferred Dark/Light/System appearance.
  */
 @Composable
-fun NearExpiryDisplayScaleGuard(content: @Composable () -> Unit) {
+fun NearExpiryDisplayScaleGuard(
+    isArabic: Boolean = false,
+    content: @Composable () -> Unit
+) {
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val shortSide = min(configuration.screenWidthDp, configuration.screenHeightDp).dp
@@ -28,9 +31,18 @@ fun NearExpiryDisplayScaleGuard(content: @Composable () -> Unit) {
     // A 360dp virtual short side preserves compact controls on small Android
     // phones. The 0.80 floor avoids over-correcting unusually narrow devices.
     val layoutFactor = (shortSide / 360.dp).coerceIn(0.80f, 1f)
+    val baseFontScale = min(density.fontScale, 1f)
+    // Arabic glyphs need slightly more visual presence than the Latin baseline
+    // at the same nominal sp size. This single theme-level adjustment scales
+    // every Compose text style while preserving all existing English layouts.
+    val guardedFontScale = if (isArabic) {
+        (baseFontScale * 1.12f).coerceAtMost(1.14f)
+    } else {
+        baseFontScale
+    }
     val guardedDensity = Density(
         density = density.density * layoutFactor,
-        fontScale = min(density.fontScale, 1f)
+        fontScale = guardedFontScale
     )
 
     CompositionLocalProvider(LocalDensity provides guardedDensity) {

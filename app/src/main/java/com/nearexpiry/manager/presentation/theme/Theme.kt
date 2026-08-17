@@ -5,6 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.nearexpiry.manager.utils.LanguageManager
 
 // ── Dark-mode brand palette ────────────────────────────────────────────────
 // These values are used only to construct the dark Material color scheme.
@@ -123,6 +124,9 @@ fun NearExpiryManagerTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         shapes = AppShapes
     ) {
-        NearExpiryDisplayScaleGuard(content)
+        NearExpiryDisplayScaleGuard(
+            isArabic = LanguageManager.isArabic(),
+            content = content
+        )
     }
 }

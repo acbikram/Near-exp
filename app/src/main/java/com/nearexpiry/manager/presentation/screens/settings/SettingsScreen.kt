@@ -62,6 +62,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
+    var projectsExpanded by rememberSaveable { mutableStateOf(false) }
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
     var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
@@ -104,12 +105,39 @@ fun SettingsScreen(
                 ProjectsSection(
                     projects = uiState.projects,
                     activeProjectId = uiState.activeProjectId,
-                    onSwitch = { viewModel.switchProject(it) },
-                    onCreate = { name, color -> viewModel.createProject(name, color) },
-                    onRename = { id, name -> viewModel.renameProject(id, name) },
-                    onRecolor = { id, color -> viewModel.updateProjectColor(id, color) },
-                    onClone = { id, name, color -> viewModel.cloneProject(id, name, color) },
-                    onDelete = { viewModel.deleteProject(it) }
+                    expanded = projectsExpanded,
+                    onExpandedChange = { expanded ->
+                        projectsExpanded = expanded
+                        if (expanded) {
+                            languageExpanded = false
+                            appearanceExpanded = false
+                            dataManagementExpanded = false
+                        }
+                    },
+                    onSwitch = {
+                        viewModel.switchProject(it)
+                        projectsExpanded = false
+                    },
+                    onCreate = { name, color ->
+                        viewModel.createProject(name, color)
+                        projectsExpanded = false
+                    },
+                    onRename = { id, name ->
+                        viewModel.renameProject(id, name)
+                        projectsExpanded = false
+                    },
+                    onRecolor = { id, color ->
+                        viewModel.updateProjectColor(id, color)
+                        projectsExpanded = false
+                    },
+                    onClone = { id, name, color ->
+                        viewModel.cloneProject(id, name, color)
+                        projectsExpanded = false
+                    },
+                    onDelete = {
+                        viewModel.deleteProject(it)
+                        projectsExpanded = false
+                    }
                 )
             }
 
@@ -123,7 +151,14 @@ fun SettingsScreen(
                                 .clickable(
                                     interactionSource = languageHeaderInteraction,
                                     indication = null
-                                ) { languageExpanded = !languageExpanded }
+                                ) {
+                                    languageExpanded = !languageExpanded
+                                    if (languageExpanded) {
+                                        projectsExpanded = false
+                                        appearanceExpanded = false
+                                        dataManagementExpanded = false
+                                    }
+                                }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -139,9 +174,9 @@ fun SettingsScreen(
                         if (languageExpanded) {
                             Spacer(Modifier.height(12.dp))
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
-                                LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
-                                LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
+                                LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT); languageExpanded = false })
+                                LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH); languageExpanded = false })
+                                LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC); languageExpanded = false })
                             }
                         }
                     }
@@ -158,7 +193,14 @@ fun SettingsScreen(
                                 .clickable(
                                     interactionSource = appearanceHeaderInteraction,
                                     indication = null
-                                ) { appearanceExpanded = !appearanceExpanded }
+                                ) {
+                                    appearanceExpanded = !appearanceExpanded
+                                    if (appearanceExpanded) {
+                                        projectsExpanded = false
+                                        languageExpanded = false
+                                        dataManagementExpanded = false
+                                    }
+                                }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -211,7 +253,10 @@ fun SettingsScreen(
                                     GlassSelectableOption(
                                         label = stringResource(labelRes),
                                         selected = themeMode == mode,
-                                        onClick = { viewModel.setThemeMode(mode) },
+                                        onClick = {
+                                            viewModel.setThemeMode(mode)
+                                            appearanceExpanded = false
+                                        },
                                         detail = stringResource(
                                             when (mode) {
                                                 "dark" -> R.string.theme_dark_description
@@ -238,7 +283,14 @@ fun SettingsScreen(
                                 .clickable(
                                     interactionSource = dataManagementHeaderInteraction,
                                     indication = null
-                                ) { dataManagementExpanded = !dataManagementExpanded }
+                                ) {
+                                    dataManagementExpanded = !dataManagementExpanded
+                                    if (dataManagementExpanded) {
+                                        projectsExpanded = false
+                                        languageExpanded = false
+                                        appearanceExpanded = false
+                                    }
+                                }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -260,20 +312,29 @@ fun SettingsScreen(
                             GlassActionButton(
                                 label = stringResource(R.string.backup_restore),
                                 supportingText = stringResource(R.string.glass_backup_restore_detail),
-                                onClick = { navController.navigate(Screen.BackupRestore.route) }
+                                onClick = {
+                                    dataManagementExpanded = false
+                                    navController.navigate(Screen.BackupRestore.route)
+                                }
                             )
                             Spacer(Modifier.height(8.dp))
                             GlassActionButton(
                                 label = stringResource(R.string.recycle_bin),
                                 supportingText = stringResource(R.string.glass_recycle_bin_detail),
-                                onClick = { navController.navigate(Screen.RecycleBin.route) },
+                                onClick = {
+                                    dataManagementExpanded = false
+                                    navController.navigate(Screen.RecycleBin.route)
+                                },
                                 tone = GlassActionTone.Neutral
                             )
                             Spacer(Modifier.height(8.dp))
                             GlassActionButton(
                                 label = stringResource(R.string.test_notification_now),
                                 supportingText = stringResource(R.string.glass_test_notification_detail),
-                                onClick = { viewModel.testExpiryNotificationNow() },
+                                onClick = {
+                                    viewModel.testExpiryNotificationNow()
+                                    dataManagementExpanded = false
+                                },
                                 tone = GlassActionTone.Warning
                             )
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !DailyExpiryAlarmScheduler.canScheduleExact(context)) {
@@ -291,6 +352,7 @@ fun SettingsScreen(
                                 GlassActionButton(
                                     label = stringResource(R.string.exact_alarm_access_button),
                                     onClick = {
+                                        dataManagementExpanded = false
                                         val intent = Intent(
                                             Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                                             Uri.parse("package:${context.packageName}")
@@ -303,7 +365,10 @@ fun SettingsScreen(
                             Spacer(Modifier.height(8.dp))
                             GlassActionButton(
                                 label = stringResource(R.string.clear_all_records),
-                                onClick = { showClearDialog = true },
+                                onClick = {
+                                    showClearDialog = true
+                                    dataManagementExpanded = false
+                                },
                                 tone = GlassActionTone.Destructive
                             )
                         }
