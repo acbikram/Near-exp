@@ -52,6 +52,35 @@ object RecheckExcelReader {
         return emptyList()
     }
 
+    /**
+     * Compatibility helper for existing callers that need every code under any
+     * POS Code, Item Code, or Barcode header. Template-driven flows use
+     * [readRows], which intentionally selects one primary source-code column.
+     */
+    fun readCodes(bytes: ByteArray): Set<String> {
+        val entries = workbookEntries(bytes)
+        val sharedStrings = sharedStrings(entries["xl/sharedStrings.xml"])
+        entries
+            .filterKeys { it.startsWith("xl/worksheets/") && it.endsWith(".xml") }
+            .toSortedMap()
+            .values
+            .forEach { sheetBytes ->
+                val rows = parseRows(sheetBytes.toString(Charsets.UTF_8), sharedStrings)
+                val header = rows.entries.firstOrNull { (_, cells) ->
+                    cells.values.any { headerRole(it) == HeaderRole.CODE }
+                } ?: return@forEach
+                val codeColumns = header.value
+                    .filterValues { headerRole(it) == HeaderRole.CODE }
+                    .keys
+                return rows
+                    .asSequence()
+                    .filter { (rowNumber, _) -> rowNumber > header.key }
+                    .flatMap { (_, cells) -> codeColumns.asSequence().mapNotNull { column -> normalizeCode(cells[column]) } }
+                    .toCollection(linkedSetOf())
+            }
+        return emptySet()
+    }
+
     private fun workbookEntries(bytes: ByteArray): Map<String, ByteArray> {
         val entries = linkedMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
