@@ -387,6 +387,7 @@
     <string name="first_scan_title">Ready for your first scan</string>
     <string name="first_scan_description">Use the camera or keyboard button to add a product.</string>
     <string name="install_now">Install Now</string>
+    <string name="install_later">Install Later</string>
     <string name="data_management_expanded_description">Backup, restore, recycle bin, and notification tools</string>
     <string name="data_management_collapsed_description">Tap to manage backups and app data</string>
     <string name="update_install_automatic">The installer will open automatically when the download finishes.</string>

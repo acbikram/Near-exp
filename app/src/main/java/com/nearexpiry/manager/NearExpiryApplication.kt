@@ -1,12 +1,15 @@
 package com.nearexpiry.manager
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.notifications.NotificationHelper
 import com.nearexpiry.manager.notifications.AutoBackupWorker
 import com.nearexpiry.manager.notifications.UpdateCheckWorker
+import com.nearexpiry.manager.notifications.UpdateDownloadWorker
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.AppUpdater
@@ -32,6 +35,8 @@ class NearExpiryApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var expiryRepository: ExpiryRepository
 
+    private var startedActivityCount = 0
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -39,6 +44,30 @@ class NearExpiryApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+            override fun onActivityStarted(activity: Activity) {
+                startedActivityCount += 1
+                UpdateDownloadWorker.setAppInForeground(true)
+            }
+
+            override fun onActivityResumed(activity: Activity) = Unit
+
+            override fun onActivityPaused(activity: Activity) = Unit
+
+            override fun onActivityStopped(activity: Activity) {
+                startedActivityCount = (startedActivityCount - 1).coerceAtLeast(0)
+                if (startedActivityCount == 0) {
+                    UpdateDownloadWorker.setAppInForeground(false)
+                }
+            }
+
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
+
         // These launch conveniences must never block the app UI on OEM Android
         // builds that reject a notification or WorkManager request at startup.
         runCatching { NotificationHelper.createChannels(this) }

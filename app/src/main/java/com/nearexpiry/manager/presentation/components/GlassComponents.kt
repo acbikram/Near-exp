@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.presentation.theme.AppDimens
+import com.nearexpiry.manager.presentation.theme.BlueAccent
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.GreenAccent
@@ -230,7 +231,7 @@ fun GlassActionButton(
         GlassActionTone.Success -> GreenAccent
         GlassActionTone.Warning -> OrangeAccent
         GlassActionTone.Destructive -> ErrorRed
-        GlassActionTone.Neutral -> SubtleGray
+        GlassActionTone.Neutral -> BlueAccent
     }
     val shape = GlassControlShape
     val interactionSource = remember { MutableInteractionSource() }

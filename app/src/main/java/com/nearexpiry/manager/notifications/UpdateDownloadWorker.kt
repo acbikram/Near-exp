@@ -20,7 +20,9 @@ import com.nearexpiry.manager.utils.AppUpdater
  * Downloads an app-update APK in the background, with a visible progress
  * notification, so it keeps going even if the user leaves the Settings
  * screen or backgrounds the app entirely. When a user requested an update,
- * success immediately opens Android's package installer for the downloaded APK.
+ * success opens Android's package installer only while Settings remains visible
+ * in a foreground app. If the user navigates away or backgrounds the app, an
+ * update-ready notification provides Install Now and Install Later actions.
  * Android remains responsible for its mandatory installation confirmation and
  * any first-time "allow from this source" permission step.
  *
@@ -61,7 +63,7 @@ class UpdateDownloadWorker(
                 .cancel(PROGRESS_NOTIF_ID)
             val file = AppUpdater.downloadedApk(applicationContext, versionName)
                 ?: throw IllegalStateException("Downloaded update APK was not found")
-            if (inputData.getBoolean(KEY_AUTO_INSTALL, true)) {
+            if (shouldLaunchInstallerAutomatically()) {
                 AppUpdater.install(applicationContext, file)
             } else {
                 postCompleteNotification(versionName)
@@ -104,17 +106,30 @@ class UpdateDownloadWorker(
             applicationContext, 802_001, installIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val dismissIntent = Intent(applicationContext, UpdateInstallReceiver::class.java).apply {
+            action = UpdateInstallReceiver.ACTION_DISMISS
+            putExtra(UpdateInstallReceiver.EXTRA_VERSION_NAME, versionName)
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            applicationContext, 802_002, dismissIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val notification = NotificationCompat.Builder(applicationContext, NotificationHelper.CHANNEL_SOFT)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(applicationContext.getString(R.string.notif_update_downloaded_title))
             .setContentText(applicationContext.getString(R.string.notif_update_downloaded_body_format, versionName))
             .setContentIntent(installPi)
             .setAutoCancel(true)
-            .addAction(R.drawable.ic_launcher_foreground, applicationContext.getString(R.string.install_update), installPi)
+            .setDeleteIntent(dismissPi)
+            .addAction(R.drawable.ic_launcher_foreground, applicationContext.getString(R.string.install_now), installPi)
+            .addAction(R.drawable.ic_launcher_foreground, applicationContext.getString(R.string.install_later), dismissPi)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         NotificationHelper.notifyIfPermitted(applicationContext, COMPLETE_NOTIF_ID, notification)
     }
+
+    private fun shouldLaunchInstallerAutomatically(): Boolean =
+        inputData.getBoolean(KEY_AUTO_INSTALL, true) && appInForeground && settingsScreenVisible
 
     private fun postErrorNotification(message: String) {
         val notification = NotificationCompat.Builder(applicationContext, NotificationHelper.CHANNEL_SOFT)
@@ -136,6 +151,16 @@ class UpdateDownloadWorker(
         const val KEY_AUTO_INSTALL = "auto_install"
         private const val PROGRESS_NOTIF_ID = 802_100
         private const val COMPLETE_NOTIF_ID = 802_200
+
+        @Volatile
+        private var appInForeground = false
+
+        @Volatile
+        private var settingsScreenVisible = false
+
+        internal fun setAppInForeground(inForeground: Boolean) { appInForeground = inForeground }
+
+        internal fun setSettingsScreenVisible(visible: Boolean) { settingsScreenVisible = visible }
 
         /** Enqueues the background download. Replaces any prior attempt for a
          *  different version; a same-version retry just re-attaches. */

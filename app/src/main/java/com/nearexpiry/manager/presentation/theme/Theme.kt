@@ -15,6 +15,7 @@ private val DarkCyanAccent = Color(0xFF16D9F5)
 private val DarkGreenAccent = Color(0xFF3CE5A5)
 private val DarkOrangeAccent = Color(0xFFFFB35C)
 private val DarkYellowAccent = Color(0xFFFFE36E)
+private val DarkBlueAccent = Color(0xFF78AEFF)
 private val DarkBackgroundColor = Color(0xFF09131B)
 private val DarkSurfaceColor = Color(0xFF101E29)
 private val DarkSurfaceVariantColor = Color(0xFF162A37)
@@ -87,6 +88,12 @@ val GreenAccent: Color
 
 val OrangeAccent: Color
     @Composable get() = MaterialTheme.colorScheme.tertiary
+
+/** A clear blue action accent for clean, non-destructive navigation rows. */
+val BlueAccent: Color
+    @Composable get() = if (MaterialTheme.colorScheme.background == DarkBackgroundColor) {
+        DarkBlueAccent
+    } else Color(0xFF1F6FD8)
 
 val YellowAccent: Color
     @Composable get() = if (MaterialTheme.colorScheme.background == DarkBackgroundColor) {

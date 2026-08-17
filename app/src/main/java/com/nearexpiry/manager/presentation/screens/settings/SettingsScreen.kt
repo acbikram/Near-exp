@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
+import com.nearexpiry.manager.notifications.UpdateDownloadWorker
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
@@ -66,6 +67,14 @@ fun SettingsScreen(
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
     var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // An update may finish after navigation or while this app is backgrounded.
+    // Keep automatic installer launch limited to a visibly active Settings screen;
+    // otherwise the worker gives the user an actionable system notification.
+    DisposableEffect(Unit) {
+        UpdateDownloadWorker.setSettingsScreenVisible(true)
+        onDispose { UpdateDownloadWorker.setSettingsScreenVisible(false) }
+    }
 
     // Arrived from the notification's "Update Now": check + auto-start download.
     LaunchedEffect(autoStartUpdate) {
@@ -315,7 +324,8 @@ fun SettingsScreen(
                                 onClick = {
                                     dataManagementExpanded = false
                                     navController.navigate(Screen.BackupRestore.route)
-                                }
+                                },
+                                tone = GlassActionTone.Neutral
                             )
                             Spacer(Modifier.height(8.dp))
                             GlassActionButton(
@@ -335,7 +345,7 @@ fun SettingsScreen(
                                     viewModel.testExpiryNotificationNow()
                                     dataManagementExpanded = false
                                 },
-                                tone = GlassActionTone.Warning
+                                tone = GlassActionTone.Neutral
                             )
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !DailyExpiryAlarmScheduler.canScheduleExact(context)) {
                                 Spacer(Modifier.height(12.dp))
@@ -359,7 +369,7 @@ fun SettingsScreen(
                                         )
                                         runCatching { context.startActivity(intent) }
                                     },
-                                    tone = GlassActionTone.Warning
+                                    tone = GlassActionTone.Neutral
                                 )
                             }
                             Spacer(Modifier.height(8.dp))
@@ -434,7 +444,7 @@ fun SettingsScreen(
                                     GlassActionButton(
                                         label = stringResource(R.string.install_now),
                                         onClick = { viewModel.installUpdate() },
-                                        tone = GlassActionTone.Success
+                                        tone = GlassActionTone.Neutral
                                     )
                                 }
                             }
@@ -444,7 +454,8 @@ fun SettingsScreen(
                                         stringResource(R.string.checking_for_updates)
                                     else stringResource(R.string.check_for_updates),
                                     onClick = { viewModel.checkForUpdate() },
-                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.CHECKING
+                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.CHECKING,
+                                    tone = GlassActionTone.Neutral
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 when (uiState.updateState) {

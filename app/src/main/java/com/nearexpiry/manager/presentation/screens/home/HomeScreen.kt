@@ -58,7 +58,7 @@ const val FILTER_7D        = "ONE_TO_SEVEN"
 const val FILTER_30D       = "EIGHT_TO_THIRTY"
 const val FILTER_QUANTITY  = "QUANTITY"
 
-private val NORMAL_DASHBOARD_CARD_HEIGHT = 104.dp
+private val NORMAL_DASHBOARD_CARD_HEIGHT = 90.dp
 
 private const val WHATSAPP_DEVELOPER_LINK =
     "https://wa.me/9779860874001?text=Hi%20Bikram,%20I%20reached%20you%20through%20the%20Near%20Expiry%20application%20can%20you%20respond%20me?"

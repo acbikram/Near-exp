@@ -387,6 +387,7 @@
     <string name="first_scan_title">جاهز لأول عملية مسح</string>
     <string name="first_scan_description">استخدم الكاميرا أو زر لوحة المفاتيح لإضافة منتج.</string>
     <string name="install_now">تثبيت الآن</string>
+    <string name="install_later">تثبيت لاحقاً</string>
     <string name="data_management_expanded_description">النسخ الاحتياطي والاستعادة وسلة المحذوفات وأدوات الإشعارات</string>
     <string name="data_management_collapsed_description">اضغط لإدارة النسخ الاحتياطية وبيانات التطبيق</string>
     <string name="update_install_automatic">سيفتح المثبّت تلقائياً عند اكتمال التنزيل.</string>
