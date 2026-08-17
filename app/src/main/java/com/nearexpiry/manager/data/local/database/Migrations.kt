@@ -539,7 +539,46 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
  */
 val MIGRATION_15_16 = object : Migration(15, 16) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        addColumnIfMissing(db, "recheck_codes", "serialNumber", "INTEGER")
+        addColumnIfMissing(db, "recheck_codes", "serialNumber", "INTEGER DEFAULT NULL")
+    }
+}
+
+/**
+ * v16 -> v17: repairs the v16 Serial Number column definition. v16 created
+ * the nullable SQLite column without an explicit DEFAULT NULL, while Room's
+ * entity schema declares one. Rebuilding this independent index table keeps
+ * every saved Recheck row and lets affected installations open safely.
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE `recheck_codes_repaired` (
+                `code` TEXT NOT NULL,
+                `sortOrder` INTEGER NOT NULL DEFAULT 2147483647,
+                `description` TEXT NOT NULL DEFAULT '',
+                `uom` TEXT NOT NULL DEFAULT '',
+                `damageExpiryQuantity` REAL NOT NULL DEFAULT 0.0,
+                `serialNumber` INTEGER DEFAULT NULL,
+                PRIMARY KEY(`code`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `recheck_codes_repaired`
+                (`code`, `sortOrder`, `description`, `uom`, `damageExpiryQuantity`, `serialNumber`)
+            SELECT
+                `code`, `sortOrder`, `description`, `uom`, `damageExpiryQuantity`, `serialNumber`
+            FROM `recheck_codes`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `recheck_codes`")
+        db.execSQL("ALTER TABLE `recheck_codes_repaired` RENAME TO `recheck_codes`")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_recheck_codes_sortOrder` " +
+                "ON `recheck_codes` (`sortOrder`)"
+        )
     }
 }
 
@@ -558,5 +597,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_12_13,
     MIGRATION_13_14,
     MIGRATION_14_15,
-    MIGRATION_15_16
+    MIGRATION_15_16,
+    MIGRATION_16_17
 )
