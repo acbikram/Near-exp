@@ -1,5 +1,7 @@
 package com.nearexpiry.manager.presentation.screens.home
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,12 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,6 +55,9 @@ const val FILTER_7D        = "ONE_TO_SEVEN"
 const val FILTER_30D       = "EIGHT_TO_THIRTY"
 const val FILTER_QUANTITY  = "QUANTITY"
 
+private const val WHATSAPP_DEVELOPER_LINK =
+    "https://wa.me/9779860874001?text=Hi%20Bikram,%20I%20reached%20you%20through%20the%20Near%20Expiry%20application%20can%20you%20respond%20me?"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -61,6 +65,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val expiryListState = rememberLazyListState()
@@ -115,18 +120,45 @@ fun HomeScreen(
                         color = CyanAccent
                     )
                 )
-                Text(
-                    text = buildAnnotatedString {
-                        append(stringResource(R.string.developed_by))
-                        withStyle(SpanStyle(color = OrangeAccent, fontWeight = FontWeight.SemiBold)) {
-                            append("Bikram Acharya")
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontStyle = FontStyle.Italic,
-                        color = SubtleGray
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.developed_by),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontStyle = FontStyle.Italic,
+                            color = SubtleGray
+                        )
                     )
-                )
+                    Spacer(Modifier.width(8.dp))
+                    Row(
+                        modifier = Modifier.clickable {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(WHATSAPP_DEVELOPER_LINK))
+                                )
+                            }
+                        },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_whatsapp),
+                            contentDescription = stringResource(R.string.whatsapp_contact_bikram),
+                            tint = GreenAccent,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Bikram Acharya",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontStyle = FontStyle.Italic,
+                                fontWeight = FontWeight.SemiBold,
+                                color = OrangeAccent
+                            )
+                        )
+                    }
+                }
             }
 
             ActiveProjectHeader()

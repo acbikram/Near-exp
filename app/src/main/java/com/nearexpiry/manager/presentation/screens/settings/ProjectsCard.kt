@@ -57,10 +57,7 @@ fun ProjectsSection(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val headerInteraction = remember { MutableInteractionSource() }
 
-    GlassSectionCard(
-        selected = expanded,
-        interactionSource = headerInteraction
-    ) {
+    GlassSectionCard {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier

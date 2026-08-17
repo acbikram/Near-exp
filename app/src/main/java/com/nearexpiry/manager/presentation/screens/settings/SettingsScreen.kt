@@ -115,10 +115,7 @@ fun SettingsScreen(
 
             // ── Language ───────────────────────────────────────────────────
             item {
-                GlassSectionCard(
-                    selected = languageExpanded,
-                    interactionSource = languageHeaderInteraction
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
@@ -153,10 +150,7 @@ fun SettingsScreen(
 
             // ── Appearance ─────────────────────────────────────────────────────
             item {
-                GlassSectionCard(
-                    selected = appearanceExpanded,
-                    interactionSource = appearanceHeaderInteraction
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
@@ -236,10 +230,7 @@ fun SettingsScreen(
 
             // ── Data Management ────────────────────────────────────────────────
             item {
-                GlassSectionCard(
-                    selected = dataManagementExpanded,
-                    interactionSource = dataManagementHeaderInteraction
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
