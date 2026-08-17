@@ -31,8 +31,10 @@ class RecheckCodeStore @Inject constructor(
     suspend fun matchingRow(itemCode: String?, barcode: String): RecheckCodeEntity? {
         val preferredCode = normalize(itemCode)
         val fallbackBarcode = normalize(barcode)
-        return preferredCode?.let(dao::findByCode)
-            ?: fallbackBarcode?.let(dao::findByCode)
+        if (preferredCode != null) {
+            dao.findByCode(preferredCode)?.let { return it }
+        }
+        return if (fallbackBarcode != null) dao.findByCode(fallbackBarcode) else null
     }
 
     /** Replaces the complete ordered template index in one Room transaction. */

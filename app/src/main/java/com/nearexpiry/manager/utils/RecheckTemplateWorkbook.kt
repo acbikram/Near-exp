@@ -65,8 +65,8 @@ object RecheckTemplateWorkbook {
     ): SheetResult {
         val parsedRows = parseRows(sheetXml, sharedStrings)
         val header = parsedRows.firstNotNullOfOrNull { (rowNumber, cells) ->
-            val roles = cells.mapNotNull { (column, value) ->
-                headerRole(value)?.let { it to column }
+            val roles = cells.mapNotNull { (column, cell) ->
+                headerRole(cell.value)?.let { it to column }
             }.toMap()
             if (roles[HeaderRole.CODE] != null && roles[HeaderRole.PHYSICAL] != null) rowNumber to roles else null
         } ?: return SheetResult(sheetXml, 0)
