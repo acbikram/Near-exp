@@ -492,6 +492,7 @@ private fun ThemePreviewSwatch(mode: String, selected: Boolean) {
             .background(previewColor, RoundedCornerShape(8.dp))
             .border(1.dp, borderColor, RoundedCornerShape(8.dp))
     )
+}
 
 @Composable
 private fun NotifInfoRowRemoved() {}
