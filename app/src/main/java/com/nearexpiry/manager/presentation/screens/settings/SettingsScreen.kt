@@ -191,10 +191,7 @@ fun SettingsScreen(
                         }
                         if (appearanceExpanded) {
                             Spacer(Modifier.height(10.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 listOf(
                                     "dark" to R.string.theme_dark,
                                     "light" to R.string.theme_light,
@@ -204,7 +201,7 @@ fun SettingsScreen(
                                         selected = themeMode == mode,
                                         onClick = { viewModel.setThemeMode(mode) },
                                         label = { Text(stringResource(labelRes), maxLines = 1) },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = CyanAccent.copy(alpha = 0.18f),
                                             selectedLabelColor = CyanAccent

@@ -121,7 +121,8 @@ fun NearExpiryManagerTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-        shapes = AppShapes,
-        content = content
-    )
+        shapes = AppShapes
+    ) {
+        NearExpiryDisplayScaleGuard(content)
+    }
 }
