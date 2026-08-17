@@ -25,5 +25,8 @@ data class RecheckCodeEntity(
     val description: String = "",
     /** Template UOM shown when the scanned item has no unit. */
     @ColumnInfo(defaultValue = "''")
-    val uom: String = ""
+    val uom: String = "",
+    /** Existing Damage & Expiry quantity retained from the Recheck template. */
+    @ColumnInfo(defaultValue = "0.0")
+    val damageExpiryQuantity: Double = 0.0
 )

@@ -9,6 +9,7 @@ import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.presentation.components.EditableUnitTypes
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,13 +27,16 @@ class DetailViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val recheckCodeStore: RecheckCodeStore
 ) : ViewModel() {
 
     data class DetailUiState(
         val item: ExpiryItem? = null,
         val projectName: String = "",
         val isStockMode: Boolean = false,
+        /** Existing Damage/Exp Qty resolved from the matching Recheck template row. */
+        val damageExpiryQuantity: Double = 0.0,
         val expiryDate: String = "",
         /** Editable UOM / Unit Type; always one of PCS, KG, CTN, or OFR. */
         val unitText: String = "",
@@ -68,11 +72,17 @@ class DetailViewModel @Inject constructor(
                 val project = item?.let { projectRepository.getProjectById(it.projectId) }
                 val projectName = project?.name.orEmpty()
                 val isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+                val damageExpiryQuantity = if (isStockMode && item != null) {
+                    recheckCodeStore.matchingTemplateRow(item.itemCode, item.barcode)?.damageExpiryQuantity ?: 0.0
+                } else {
+                    0.0
+                }
                 _uiState.update {
                     it.copy(
                         item = item,
                         projectName = projectName,
                         isStockMode = isStockMode,
+                        damageExpiryQuantity = damageExpiryQuantity,
                         expiryDate = item?.expiryDate ?: "",
                         unitText = EditableUnitTypes.normalizedOrNull(item?.unit.orEmpty()) ?: "PCS",
                         quantityText = (item?.quantity ?: 0.0).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() },

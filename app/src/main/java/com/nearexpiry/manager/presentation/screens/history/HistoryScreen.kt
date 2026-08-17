@@ -437,6 +437,7 @@ fun HistoryScreen(
                     HistoryItemCard(
                         item = item,
                         srNo = uiState.srNoMap[item.id],
+                        stockTotalQuantity = uiState.stockTotalQuantityByItem[item.id],
                         showExpiryStatus = !uiState.isStockMode,
                         modifier = Modifier.animateItemPlacement(),
                         selectionMode = uiState.selectionMode,
@@ -733,6 +734,8 @@ private fun HistoryFilterChip(
 fun HistoryItemCard(
     item: ExpiryItem,
     srNo: Int? = null,
+    /** Non-null only in Stock Mode: Physical Qty + template Damage/Exp Qty. */
+    stockTotalQuantity: Double? = null,
     /** False for Stock Mode, which has no expiry workflow or expiry visuals. */
     showExpiryStatus: Boolean = true,
     selectionMode: Boolean = false,
@@ -829,18 +832,25 @@ fun HistoryItemCard(
                             style = MaterialTheme.typography.bodyMedium.copy(color = expiryColor)
                         )
                     }
+                    val displayQuantity = stockTotalQuantity ?: item.quantity
                     Text(
-                        text = if (item.unit != null)
+                        text = if (stockTotalQuantity != null && item.unit != null) {
                             stringResource(
-                                R.string.qty_unit_format,
-                                QuantityFormatter.format(item.quantity),
+                                R.string.total_qty_unit_format,
+                                QuantityFormatter.format(displayQuantity),
                                 item.unit
                             )
-                        else
+                        } else if (stockTotalQuantity != null) {
+                            stringResource(R.string.total_qty_format, QuantityFormatter.format(displayQuantity))
+                        } else if (item.unit != null) {
                             stringResource(
-                                R.string.qty_format,
-                                QuantityFormatter.format(item.quantity)
-                            ),
+                                R.string.qty_unit_format,
+                                QuantityFormatter.format(displayQuantity),
+                                item.unit
+                            )
+                        } else {
+                            stringResource(R.string.qty_format, QuantityFormatter.format(displayQuantity))
+                        },
                         style = MaterialTheme.typography.bodyMedium.copy(color = OrangeAccent)
                     )
                 }

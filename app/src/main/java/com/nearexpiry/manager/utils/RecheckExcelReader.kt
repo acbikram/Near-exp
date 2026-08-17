@@ -14,10 +14,11 @@ object RecheckExcelReader {
         val code: String,
         val sortOrder: Int,
         val description: String,
-        val uom: String
+        val uom: String,
+        val damageExpiryQuantity: Double
     )
 
-    private enum class HeaderRole { CODE, DESCRIPTION, UOM }
+    private enum class HeaderRole { CODE, DESCRIPTION, UOM, DAMAGE }
 
     private val rowRegex = Regex("""<row[^>]*\br="(\d+)"[^>]*>(.*?)</row>""", RegexOption.DOT_MATCHES_ALL)
     private val cellRegex = Regex("""<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>|<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)/>""", RegexOption.DOT_MATCHES_ALL)
@@ -119,6 +120,7 @@ object RecheckExcelReader {
         val codeColumn = columns.getValue(HeaderRole.CODE)
         val descriptionColumn = columns[HeaderRole.DESCRIPTION]
         val uomColumn = columns[HeaderRole.UOM]
+        val damageColumn = columns[HeaderRole.DAMAGE]
 
         return rows
             .asSequence()
@@ -129,7 +131,12 @@ object RecheckExcelReader {
                         code = code,
                         sortOrder = 0,
                         description = cells[descriptionColumn].orEmpty().trim(),
-                        uom = cells[uomColumn].orEmpty().trim()
+                        uom = cells[uomColumn].orEmpty().trim(),
+                        damageExpiryQuantity = cells[damageColumn]
+                            ?.trim()
+                            ?.replace(",", "")
+                            ?.toDoubleOrNull()
+                            ?: 0.0
                     )
                 }
             }
@@ -143,6 +150,7 @@ object RecheckExcelReader {
             compact.contains("itemdescription") || compact == "description" ||
                 compact.contains("productdescription") || compact.contains("itemname") -> HeaderRole.DESCRIPTION
             compact == "uom" || compact.contains("unitofmeasure") || compact == "unit" -> HeaderRole.UOM
+            compact.contains("damage") || compact.contains("expiryquantity") || compact.contains("damagestock") -> HeaderRole.DAMAGE
             else -> null
         }
     }

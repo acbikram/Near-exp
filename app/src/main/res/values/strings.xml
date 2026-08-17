@@ -67,6 +67,10 @@
     <string name="expiry_format">Expiry: %1$s</string>
     <string name="qty_format">Qty: %1$s</string>
     <string name="qty_unit_format">Qty: %1$s %2$s</string>
+    <string name="total_qty_format">Total Qty: %1$s</string>
+    <string name="total_qty_unit_format">Total Qty: %1$s %2$s</string>
+    <string name="physical_qty">Physical Qty</string>
+    <string name="damage_exp_qty">Damage/Exp Qty</string>
     <string name="item_quantity">Item Quantity</string>
     <string name="item_expiry_date">Expiry Date</string>
     <string name="scanned_format">Scanned: %1$s</string>

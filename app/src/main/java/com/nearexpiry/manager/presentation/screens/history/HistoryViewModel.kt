@@ -51,6 +51,8 @@ class HistoryViewModel @Inject constructor(
         val allItems: List<ExpiryItem> = emptyList(),
         /** Item id -> Sr No. (scan-order rank within the project, 1-based). */
         val srNoMap: Map<Long, Int> = emptyMap(),
+        /** Stock item id -> Physical Qty + matching Recheck Damage/Exp Qty. */
+        val stockTotalQuantityByItem: Map<Long, Double> = emptyMap(),
         /** Whether the active project has been manually reordered via Move Up/Down. */
         val hasCustomSort: Boolean = false,
         /** True for permanent inventory/stock-check projects with no expiry workflow. */
@@ -109,8 +111,10 @@ class HistoryViewModel @Inject constructor(
 
     private fun observeRecheckRows() {
         viewModelScope.launch {
-            recheckCodeStore.observeOrderedRows().collect { rows ->
-                recheckRowsByCode = rows.associateBy { it.code }
+            recheckCodeStore.observeOrderedRows().collect {
+                // Prefer the master workbook itself, so pre-v2.75 templates
+                // also supply Damage/Exp Qty immediately after the upgrade.
+                recheckRowsByCode = recheckCodeStore.templateOrderedRows().associateBy { it.code }
                 applyFiltersAndSort()
             }
         }
@@ -437,6 +441,14 @@ class HistoryViewModel @Inject constructor(
             scanSrNoMap
         }
 
+        val stockTotalQuantityByItem = if (state.isStockMode) {
+            state.allItems.associate { item ->
+                item.id to (item.quantity + (recheckRowFor(item)?.damageExpiryQuantity ?: 0.0))
+            }
+        } else {
+            emptyMap()
+        }
+
         // Drop selections that no longer exist (e.g. item deleted elsewhere).
         val validIds = state.allItems.map { it.id }.toSet()
         val prunedSelection = state.selectedIds.intersect(validIds)
@@ -464,6 +476,7 @@ class HistoryViewModel @Inject constructor(
                 filteredItems = filtered,
                 itemsInFilter = itemsInFilter,
                 srNoMap = displaySrNoMap,
+                stockTotalQuantityByItem = stockTotalQuantityByItem,
                 selectedIds = prunedSelection,
                 availableMonths = availableMonths
             )

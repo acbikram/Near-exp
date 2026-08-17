@@ -67,6 +67,10 @@
     <string name="expiry_format">تاريخ الانتهاء: %1$s</string>
     <string name="qty_format">الكمية: %1$s</string>
     <string name="qty_unit_format">الكمية: %1$s %2$s</string>
+    <string name="total_qty_format">إجمالي الكمية: %1$s</string>
+    <string name="total_qty_unit_format">إجمالي الكمية: %1$s %2$s</string>
+    <string name="physical_qty">الكمية الفعلية</string>
+    <string name="damage_exp_qty">كمية التالف/المنتهي</string>
     <string name="item_quantity">كمية الصنف</string>
     <string name="item_expiry_date">تاريخ الصلاحية</string>
     <string name="scanned_format">تم المسح: %1$s</string>

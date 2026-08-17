@@ -2,7 +2,9 @@ package com.nearexpiry.manager.utils
 
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.RecheckCodeEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,7 +15,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class RecheckCodeStore @Inject constructor(
-    database: ExpiryDatabase
+    database: ExpiryDatabase,
+    private val templateStore: RecheckTemplateStore
 ) {
     private val dao = database.recheckCodeDao()
 
@@ -24,6 +27,34 @@ class RecheckCodeStore @Inject constructor(
     suspend fun orderedRows(): List<RecheckCodeEntity> = dao.getAllOrdered()
 
     fun observeOrderedRows(): Flow<List<RecheckCodeEntity>> = dao.observeAllOrdered()
+
+    /**
+     * Resolves the selected workbook again when available. This lets display
+     * screens use its current Damage/Exp Qty immediately after an app upgrade,
+     * even when the persisted Recheck index predates that field.
+     */
+    suspend fun templateOrderedRows(): List<RecheckCodeEntity> {
+        val template = templateStore.read() ?: return orderedRows()
+        val parsedRows = withContext(Dispatchers.Default) { RecheckExcelReader.readRows(template) }
+        if (parsedRows.isEmpty()) return orderedRows()
+        return parsedRows.map { row ->
+            RecheckCodeEntity(
+                code = row.code,
+                sortOrder = row.sortOrder,
+                description = row.description,
+                uom = row.uom,
+                damageExpiryQuantity = row.damageExpiryQuantity
+            )
+        }
+    }
+
+    suspend fun matchingTemplateRow(itemCode: String?, barcode: String): RecheckCodeEntity? {
+        val rows = templateOrderedRows()
+        val preferredCode = normalize(itemCode)
+        val fallbackBarcode = normalize(barcode)
+        return rows.firstOrNull { it.code == preferredCode }
+            ?: rows.firstOrNull { it.code == fallbackBarcode }
+    }
 
     suspend fun containsCatalogItem(itemCode: String?, barcode: String): Boolean =
         matchingRow(itemCode, barcode) != null
@@ -48,7 +79,8 @@ class RecheckCodeStore @Inject constructor(
                     code = code,
                     sortOrder = row.sortOrder,
                     description = row.description.trim(),
-                    uom = row.uom.trim()
+                    uom = row.uom.trim(),
+                    damageExpiryQuantity = row.damageExpiryQuantity
                 )
             )
         }

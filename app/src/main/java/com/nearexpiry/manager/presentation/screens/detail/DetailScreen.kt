@@ -150,21 +150,59 @@ fun DetailScreen(
                                 modifier = Modifier.padding(14.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    text = stringResource(R.string.item_quantity),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = CyanAccent
-                                )
-                                Text(
-                                    text = if (!item.unit.isNullOrBlank()) {
-                                        "${QuantityFormatter.format(item.quantity)} ${item.unit}"
-                                    } else {
-                                        QuantityFormatter.format(item.quantity)
-                                    },
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = OrangeAccent
-                                )
-                                if (!uiState.isStockMode) {
+                                if (uiState.isStockMode) {
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(R.string.physical_qty),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = CyanAccent
+                                            )
+                                            Text(
+                                                text = if (!item.unit.isNullOrBlank()) {
+                                                    "${QuantityFormatter.format(item.quantity)} ${item.unit}"
+                                                } else {
+                                                    QuantityFormatter.format(item.quantity)
+                                                },
+                                                style = MaterialTheme.typography.headlineMedium,
+                                                color = OrangeAccent
+                                            )
+                                        }
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            horizontalAlignment = Alignment.End
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.damage_exp_qty),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = CyanAccent
+                                            )
+                                            Text(
+                                                text = if (!item.unit.isNullOrBlank()) {
+                                                    "${QuantityFormatter.format(uiState.damageExpiryQuantity)} ${item.unit}"
+                                                } else {
+                                                    QuantityFormatter.format(uiState.damageExpiryQuantity)
+                                                },
+                                                style = MaterialTheme.typography.headlineMedium,
+                                                color = OrangeAccent
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = stringResource(R.string.item_quantity),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = CyanAccent
+                                    )
+                                    Text(
+                                        text = if (!item.unit.isNullOrBlank()) {
+                                            "${QuantityFormatter.format(item.quantity)} ${item.unit}"
+                                        } else {
+                                            QuantityFormatter.format(item.quantity)
+                                        },
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = OrangeAccent
+                                    )
                                     HorizontalDivider(color = CyanAccent.copy(alpha = 0.35f))
                                     Text(
                                         text = stringResource(R.string.item_expiry_date),

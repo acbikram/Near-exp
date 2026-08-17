@@ -518,6 +518,21 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+/**
+ * v14 -> v15: saves the existing Damage & Expiry quantity from the selected
+ * Recheck workbook so Stock History and Item Details can display totals.
+ */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        addColumnIfMissing(
+            db,
+            "recheck_codes",
+            "damageExpiryQuantity",
+            "REAL NOT NULL DEFAULT 0.0"
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -531,5 +546,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_10_11,
     MIGRATION_11_12,
     MIGRATION_12_13,
-    MIGRATION_13_14
+    MIGRATION_13_14,
+    MIGRATION_14_15
 )
