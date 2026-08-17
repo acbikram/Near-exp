@@ -58,7 +58,9 @@ fun ExportScreen(
     val shareCsvLabel = stringResource(R.string.share_csv)
 
     val itemsToExport = uiState.itemsToExport
-    val canExport = !uiState.isExporting && if (uiState.isStockMode) uiState.allItems.isNotEmpty() else itemsToExport.isNotEmpty()
+    // A selected Stock Recheck template can be exported even before any scan:
+    // every template row then receives physical quantity zero.
+    val canExport = !uiState.isExporting && if (uiState.isStockMode) true else itemsToExport.isNotEmpty()
 
     val saveMimeType = if (uiState.isStockMode) {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -210,7 +212,7 @@ fun ExportScreen(
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (uiState.isStockMode) "Save Stock Check Excel" else stringResource(R.string.save_csv))
+                        Text(if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else stringResource(R.string.save_csv))
                     }
                 }
                 item {
@@ -224,7 +226,7 @@ fun ExportScreen(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (uiState.isStockMode) "Share Stock Check Excel" else stringResource(R.string.share_csv))
+                        Text(if (uiState.isStockMode) stringResource(R.string.share_stock_check_excel) else stringResource(R.string.share_csv))
                     }
                 }
                 item {
@@ -243,7 +245,7 @@ fun ExportScreen(
                         Button(
                             onClick = { viewModel.generateStockReport(context) },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = uiState.allItems.isNotEmpty() && !uiState.isExporting
+                            enabled = !uiState.isExporting
                         ) {
                             Icon(Icons.Default.Description, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
@@ -253,8 +255,7 @@ fun ExportScreen(
                         OutlinedButton(
                             onClick = { viewModel.generateStockReport(context, sendToPc = true) },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = uiState.allItems.isNotEmpty() &&
-                                !uiState.isExporting &&
+                            enabled = !uiState.isExporting &&
                                 uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
                                 uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
                         ) {
@@ -264,7 +265,7 @@ fun ExportScreen(
                                 when (uiState.sendToPcState) {
                                     ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
                                     ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
-                                    else -> "Send Stock Excel to PC (Wi-Fi)"
+                                    else -> stringResource(R.string.send_stock_check_excel_to_pc)
                                 }
                             )
                         }

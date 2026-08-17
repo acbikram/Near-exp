@@ -386,7 +386,10 @@
     <string name="history_empty_filter_description">Try another expiry status or add products from Scan.</string>
     <string name="history_empty_search_description">Try a product name, item code, or barcode.</string>
     <string name="stock_check_excel_title">Stock Check Excel</string>
-    <string name="stock_check_excel_description_format">Exports %1$s in the Recheck layout: scan order, POS code, description, UOM, and quantity.</string>
+    <string name="stock_check_excel_description_format">Exports %1$s from the selected Recheck template, preserving its rows and layout while updating quantities.</string>
+    <string name="save_stock_check_excel">Save Stock Check Excel</string>
+    <string name="share_stock_check_excel">Share Stock Check Excel</string>
+    <string name="send_stock_check_excel_to_pc">Send Stock Excel to PC (Wi-Fi)</string>
     <string name="recheck_file_selected_format">Selected: %1$s · %2$d codes</string>
     <string name="recheck_excel_default_name">Recheck Excel</string>
     <string name="recheck_file_select_description">Select the Excel file used to decide which Stock items need quantity recheck.</string>

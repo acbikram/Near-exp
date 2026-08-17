@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.nearexpiry.manager.data.local.entity.RecheckCodeEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RecheckCodeDao {
@@ -14,6 +15,15 @@ interface RecheckCodeDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM recheck_codes WHERE code = :code)")
     suspend fun contains(code: String): Boolean
+
+    @Query("SELECT * FROM recheck_codes WHERE code = :code LIMIT 1")
+    suspend fun findByCode(code: String): RecheckCodeEntity?
+
+    @Query("SELECT * FROM recheck_codes ORDER BY sortOrder ASC, code ASC")
+    suspend fun getAllOrdered(): List<RecheckCodeEntity>
+
+    @Query("SELECT * FROM recheck_codes ORDER BY sortOrder ASC, code ASC")
+    fun observeAllOrdered(): Flow<List<RecheckCodeEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(codes: List<RecheckCodeEntity>)

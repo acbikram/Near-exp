@@ -9,6 +9,7 @@ import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,6 +43,7 @@ class HistoryViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
+    private val recheckCodeStore: RecheckCodeStore,
     private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext
 ) : ViewModel() {
 
@@ -103,8 +105,33 @@ class HistoryViewModel @Inject constructor(
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     private var activeProjectId: Long = 1L
+    private var recheckRowsByCode = emptyMap<String, com.nearexpiry.manager.data.local.entity.RecheckCodeEntity>()
+
+    private fun observeRecheckRows() {
+        viewModelScope.launch {
+            recheckCodeStore.observeOrderedRows().collect { rows ->
+                recheckRowsByCode = rows.associateBy { it.code }
+                applyFiltersAndSort()
+            }
+        }
+    }
+
+    private fun recheckRowFor(item: ExpiryItem) =
+        recheckCodeStore.normalize(item.itemCode)?.let(recheckRowsByCode::get)
+            ?: recheckCodeStore.normalize(item.barcode)?.let(recheckRowsByCode::get)
+
+    private fun templateDisplayItem(item: ExpiryItem): ExpiryItem {
+        val row = recheckRowFor(item) ?: return item
+        if (row.description.isBlank() && row.uom.isBlank()) return item
+        return item.copy(
+            productName = row.description.ifBlank { item.productName },
+            productNameArabic = row.description.ifBlank { item.productNameArabic },
+            unit = row.uom.ifBlank { item.unit }
+        )
+    }
 
     init {
+        observeRecheckRows()
         observeItems()
         observeOtherProjects()
         observeActiveProjectCustomSort()
@@ -143,7 +170,7 @@ class HistoryViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 filter = if (it.isStockMode) Filter.ALL else filter,
-                sortOrder = if (it.isStockMode && sort == SortOrder.EXPIRY_DATE) SortOrder.NEWEST else sort
+                sortOrder = if (it.isStockMode) SortOrder.NEWEST else sort
             )
         }
         applyFiltersAndSort()
@@ -197,7 +224,8 @@ class HistoryViewModel @Inject constructor(
                     it.copy(
                         hasCustomSort = project?.hasCustomSort == true,
                         isStockMode = isStockProject,
-                        filter = if (isStockProject) Filter.ALL else it.filter
+                        filter = if (isStockProject) Filter.ALL else it.filter,
+                        sortOrder = if (isStockProject) SortOrder.NEWEST else it.sortOrder
                     )
                 }
                 applyFiltersAndSort()
@@ -248,12 +276,13 @@ class HistoryViewModel @Inject constructor(
 
     /** Applies a sort explicitly selected from the History sort menu. */
     fun setSortOrder(sortOrder: SortOrder) {
-        val resolved = if (_uiState.value.isStockMode && sortOrder == SortOrder.EXPIRY_DATE) {
-            SortOrder.NEWEST
-        } else {
-            sortOrder
+        // Stock History always follows the selected Recheck workbook order.
+        // Normal projects retain all user-selected sorting behavior.
+        if (_uiState.value.isStockMode) {
+            applyFiltersAndSort()
+            return
         }
-        _uiState.update { it.copy(sortOrder = resolved) }
+        _uiState.update { it.copy(sortOrder = sortOrder) }
         applyFiltersAndSort()
     }
 
@@ -345,10 +374,17 @@ class HistoryViewModel @Inject constructor(
     private fun applyFiltersAndSort() {
         val state = _uiState.value
         val today = LocalDate.now()
+        // Matching Stock items display the description and UOM from the master
+        // Recheck file, while the saved scan remains the source of quantity.
+        val presentationItems = if (state.isStockMode) {
+            state.allItems.map(::templateDisplayItem)
+        } else {
+            state.allItems
+        }
 
         // Items matching the date dimension AND unit filter (no search) — used by
         // "Delete N Item(s) In This Filter" and the live count.
-        val itemsInFilter = state.allItems.filter {
+        val itemsInFilter = presentationItems.filter {
             matchesDateDimension(it, state, today) && matchesUnitFilter(it, state.unitFilter)
         }
 
@@ -363,21 +399,42 @@ class HistoryViewModel @Inject constructor(
             }
         }
 
-        // Sort by nearest expiry date first (ascending) for EXPIRY_DATE
-        filtered = when (state.sortOrder) {
-            // "Scan Order" / "Custom Sort": last-scanned-or-last-moved at the
-            // top. Uses effectiveOrder (displayOrder if manually set via Move
-            // Up/Down, else true createdAt), tie-broken by id — this exactly
-            // matches the DAO's Sr No. ranking, so the visible order and each
-            // row's Sr No. never disagree.
-            SortOrder.NEWEST      -> filtered.sortedWith(compareByDescending<ExpiryItem> { it.effectiveOrder }.thenByDescending { it.id })
-            // True original scan chronology, oldest first — unaffected by any
-            // manual reordering (always ignores displayOrder).
-            SortOrder.OLDEST      -> filtered.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
-            SortOrder.EXPIRY_DATE -> filtered.sortedBy { it.expiryDate }
-            SortOrder.QUANTITY    -> filtered.sortedByDescending { it.quantity }
-            SortOrder.ITEM_CODE_ASC -> filtered.sortedWith(itemCodeComparator(descending = false))
-            SortOrder.ITEM_CODE_DESC -> filtered.sortedWith(itemCodeComparator(descending = true))
+        // Stock History contains only scanned project rows and intentionally
+        // keeps the most recent scans first. Each row still shows the matching
+        // source-row Sr. No. from the selected Recheck workbook. Normal projects
+        // retain all existing sort options.
+        filtered = if (state.isStockMode) {
+            // Keep the latest stock scan readily visible at the top. The
+            // visible Sr. No. still identifies the item's original row in the
+            // master Recheck workbook, so staff can find that row instantly.
+            filtered.sortedWith(
+                compareByDescending<ExpiryItem> { it.effectiveOrder }
+                    .thenByDescending { it.id }
+            )
+        } else {
+            when (state.sortOrder) {
+                SortOrder.NEWEST -> filtered.sortedWith(compareByDescending<ExpiryItem> { it.effectiveOrder }.thenByDescending { it.id })
+                SortOrder.OLDEST -> filtered.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
+                SortOrder.EXPIRY_DATE -> filtered.sortedBy { it.expiryDate }
+                SortOrder.QUANTITY -> filtered.sortedByDescending { it.quantity }
+                SortOrder.ITEM_CODE_ASC -> filtered.sortedWith(itemCodeComparator(descending = false))
+                SortOrder.ITEM_CODE_DESC -> filtered.sortedWith(itemCodeComparator(descending = true))
+            }
+        }
+
+        // Sr. No. is scan rank for normal projects. In Stock Mode it becomes
+        // the original one-based source-row number from the selected Recheck
+        // file, while retaining a scan-rank fallback for legacy unmatched data.
+        val scanSrNoMap = state.allItems
+            .sortedWith(compareBy({ it.effectiveOrder }, { it.id }))
+            .mapIndexed { index, item -> item.id to (index + 1) }
+            .toMap()
+        val displaySrNoMap = if (state.isStockMode) {
+            state.allItems.associate { item ->
+                item.id to ((recheckRowFor(item)?.sortOrder?.plus(1)) ?: scanSrNoMap[item.id] ?: 0)
+            }
+        } else {
+            scanSrNoMap
         }
 
         // Drop selections that no longer exist (e.g. item deleted elsewhere).
@@ -406,6 +463,7 @@ class HistoryViewModel @Inject constructor(
             it.copy(
                 filteredItems = filtered,
                 itemsInFilter = itemsInFilter,
+                srNoMap = displaySrNoMap,
                 selectedIds = prunedSelection,
                 availableMonths = availableMonths
             )

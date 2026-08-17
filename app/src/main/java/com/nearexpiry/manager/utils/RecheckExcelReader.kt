@@ -4,15 +4,21 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Reads the global Stock Recheck Excel workbook selected by the user.
- *
- * The sheet layout is deliberately flexible: the reader looks through every
- * worksheet for a header containing POS Code, Item Code, or Barcode (ignoring
- * spaces, underscores, punctuation, and letter case), then imports the values
- * below that same column. This supports the app's own Recheck layout as well
- * as externally prepared stock sheets.
+ * Reads the selected Stock Recheck workbook without assuming fixed column
+ * letters. A POS Code / Item Code / Barcode header is required; description and
+ * UOM headers are optional and are retained when present. Source-row order is
+ * preserved exactly for Stock History and template-driven export.
  */
 object RecheckExcelReader {
+    data class Row(
+        val code: String,
+        val sortOrder: Int,
+        val description: String,
+        val uom: String
+    )
+
+    private enum class HeaderRole { CODE, DESCRIPTION, UOM }
+
     private val rowRegex = Regex("""<row[^>]*\br="(\d+)"[^>]*>(.*?)</row>""", RegexOption.DOT_MATCHES_ALL)
     private val cellRegex = Regex("""<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>|<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)/>""", RegexOption.DOT_MATCHES_ALL)
     private val inlineRegex = Regex("""<is>.*?<t[^>]*>(.*?)</t>.*?</is>""", RegexOption.DOT_MATCHES_ALL)
@@ -20,40 +26,96 @@ object RecheckExcelReader {
     private val sharedItemRegex = Regex("""<si>(.*?)</si>""", RegexOption.DOT_MATCHES_ALL)
     private val tagRegex = Regex("""<[^>]+>""")
 
-    /** Returns normalized code values from every matching header column. */
-    fun readCodes(bytes: ByteArray): Set<String> {
-        val workbookEntries = linkedMapOf<String, ByteArray>()
+    /**
+     * Returns all distinct data rows from the first workbook worksheet that
+     * contains a supported code header. Duplicate codes retain their first
+     * source row because Stock scans and History identify an item by code.
+     */
+    fun readRows(bytes: ByteArray): List<Row> {
+        val entries = workbookEntries(bytes)
+        val sharedStrings = sharedStrings(entries["xl/sharedStrings.xml"])
+        val uniqueRows = linkedMapOf<String, Row>()
+
+        entries
+            .filterKeys { it.startsWith("xl/worksheets/") && it.endsWith(".xml") }
+            .toSortedMap()
+            .values
+            .forEach { sheetBytes ->
+                val rows = rowsFromSheet(parseRows(sheetBytes.toString(Charsets.UTF_8), sharedStrings))
+                if (rows.isNotEmpty()) {
+                    rows.forEach { row -> uniqueRows.putIfAbsent(row.code, row) }
+                    // The selected workbook is the master template. Use the
+                    // first matching sheet rather than combining unrelated tabs.
+                    return uniqueRows.values.mapIndexed { index, row -> row.copy(sortOrder = index) }
+                }
+            }
+        return emptyList()
+    }
+
+    private fun workbookEntries(bytes: ByteArray): Map<String, ByteArray> {
+        val entries = linkedMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
                 if (entry.name == "xl/sharedStrings.xml" ||
                     (entry.name.startsWith("xl/worksheets/") && entry.name.endsWith(".xml"))
                 ) {
-                    workbookEntries[entry.name] = zip.readBytes()
+                    entries[entry.name] = zip.readBytes()
                 }
                 entry = zip.nextEntry
             }
         }
+        return entries
+    }
 
-        val sharedStrings = workbookEntries["xl/sharedStrings.xml"]
-            ?.toString(Charsets.UTF_8)
-            ?.let { xml ->
-                sharedItemRegex.findAll(xml).map { match ->
-                    unescape(tagRegex.replace(match.groupValues[1], ""))
-                }.toList()
-            }
-            ?: emptyList()
+    private fun sharedStrings(bytes: ByteArray?): List<String> = bytes
+        ?.toString(Charsets.UTF_8)
+        ?.let { xml ->
+            sharedItemRegex.findAll(xml).map { match ->
+                unescape(tagRegex.replace(match.groupValues[1], ""))
+            }.toList()
+        }
+        ?: emptyList()
 
-        val allCodes = linkedSetOf<String>()
-        workbookEntries
-            .filterKeys { it.startsWith("xl/worksheets/") && it.endsWith(".xml") }
-            .toSortedMap()
-            .values
-            .forEach { sheetBytes ->
-                val rows = parseRows(sheetBytes.toString(Charsets.UTF_8), sharedStrings)
-                allCodes += codesFromSheet(rows)
+    private fun rowsFromSheet(rows: Map<Int, Map<String, String>>): List<Row> {
+        val header = rows.entries.firstNotNullOfOrNull { (rowNumber, cells) ->
+            val roles = cells.mapNotNull { (column, value) ->
+                headerRole(value)?.let { role -> role to column }
+            }.toMap()
+            roles[HeaderRole.CODE]?.let { rowNumber to roles }
+        } ?: return emptyList()
+
+        val headerRow = header.first
+        val columns = header.second
+        val codeColumn = columns.getValue(HeaderRole.CODE)
+        val descriptionColumn = columns[HeaderRole.DESCRIPTION]
+        val uomColumn = columns[HeaderRole.UOM]
+
+        return rows
+            .asSequence()
+            .filter { (rowNumber, _) -> rowNumber > headerRow }
+            .mapNotNull { (_, cells) ->
+                normalizeCode(cells[codeColumn])?.let { code ->
+                    Row(
+                        code = code,
+                        sortOrder = 0,
+                        description = cells[descriptionColumn].orEmpty().trim(),
+                        uom = cells[uomColumn].orEmpty().trim()
+                    )
+                }
             }
-        return allCodes
+            .toList()
+    }
+
+    private fun headerRole(value: String): HeaderRole? {
+        val compact = value.lowercase().replace(Regex("""[^a-z0-9]+"""), "")
+        return when {
+            compact.contains("poscode") || compact.contains("itemcode") || compact.contains("barcode") -> HeaderRole.CODE
+            compact.contains("itemdescription") || compact == "description" ||
+                compact.contains("productdescription") || compact.contains("itemname") -> HeaderRole.DESCRIPTION
+            compact == "uom" || compact.contains("unitofmeasure") || compact == "unit" -> HeaderRole.UOM
+            else -> null
+        }
     }
 
     private fun parseRows(sheetXml: String, sharedStrings: List<String>): Map<Int, Map<String, String>> {
@@ -74,39 +136,6 @@ object RecheckExcelReader {
         return rows
     }
 
-    private fun codesFromSheet(rows: Map<Int, Map<String, String>>): Set<String> {
-        val headers = mutableListOf<Pair<Int, String>>()
-        rows.forEach { (rowNumber, cells) ->
-            cells.forEach { (column, value) ->
-                if (isAcceptedHeader(value)) headers += rowNumber to column
-            }
-        }
-        if (headers.isEmpty()) return emptySet()
-
-        // Each header governs only the cells below that same column. This also
-        // supports workbooks that place POS Code and Item Code in different
-        // sections or sheets without importing the header text itself.
-        return headers
-            .asSequence()
-            .flatMap { (headerRow, column) ->
-                rows.asSequence()
-                    .filter { (rowNumber, _) -> rowNumber > headerRow }
-                    .mapNotNull { (_, cells) -> cells[column] }
-            }
-            .filterNot(::isAcceptedHeader)
-            .mapNotNull(::normalizeCode)
-            .toCollection(linkedSetOf())
-    }
-
-    private fun isAcceptedHeader(value: String): Boolean {
-        val compact = value
-            .lowercase()
-            .replace(Regex("""[^a-z0-9]+"""), "")
-        return compact.contains("poscode") ||
-            compact.contains("itemcode") ||
-            compact.contains("barcode")
-    }
-
     private fun cellText(inner: String, attributes: String, sharedStrings: List<String>): String {
         inlineRegex.find(inner)?.let { return unescape(it.groupValues[1]) }
         if (attributes.contains("t=\"s\"")) {
@@ -116,7 +145,7 @@ object RecheckExcelReader {
         return valueRegex.find(inner)?.let { unescape(it.groupValues[1]) }.orEmpty()
     }
 
-    private fun normalizeCode(value: String?): String? = value
+    fun normalizeCode(value: String?): String? = value
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
         ?.uppercase()

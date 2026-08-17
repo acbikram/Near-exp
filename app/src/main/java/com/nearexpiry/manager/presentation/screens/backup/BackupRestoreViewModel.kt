@@ -20,6 +20,7 @@ import com.nearexpiry.manager.utils.AutoBackup
 import com.nearexpiry.manager.utils.XlsxReportReader
 import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.RecheckExcelReader
+import com.nearexpiry.manager.utils.RecheckTemplateStore
 import com.nearexpiry.manager.utils.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,6 +42,7 @@ class BackupRestoreViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
     private val recheckCodeStore: RecheckCodeStore,
+    private val recheckTemplateStore: RecheckTemplateStore,
     private val preferencesManager: PreferencesManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -371,11 +373,14 @@ class BackupRestoreViewModel @Inject constructor(
                 if (bytes.size < 2 || bytes[0] != 'P'.code.toByte() || bytes[1] != 'K'.code.toByte()) {
                     error("Please select an .xlsx Stock Recheck Excel file.")
                 }
-                val codes = withContext(Dispatchers.Default) { RecheckExcelReader.readCodes(bytes) }
-                if (codes.isEmpty()) {
+                val rows = withContext(Dispatchers.Default) { RecheckExcelReader.readRows(bytes) }
+                if (rows.isEmpty()) {
                     error("No POS Code, Item Code, or Barcode header with usable codes was found in this Excel file.")
                 }
-                val count = recheckCodeStore.replaceCodes(codes)
+                // Preserve the user-selected workbook before updating Room so a
+                // failed file write cannot replace the currently working index.
+                recheckTemplateStore.replace(bytes)
+                val count = recheckCodeStore.replaceRows(rows)
                 val fileName = resolveDisplayName(context, uri)
                 preferencesManager.setRecheckFileMetadata(fileName, count)
                 _uiState.update {

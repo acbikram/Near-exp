@@ -18,7 +18,9 @@ import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
-import com.nearexpiry.manager.utils.StockReportExcel
+import com.nearexpiry.manager.utils.RecheckCodeStore
+import com.nearexpiry.manager.utils.RecheckTemplateStore
+import com.nearexpiry.manager.utils.RecheckTemplateWorkbook
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +59,9 @@ class ExportViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
     private val branchDirectory: BranchDirectory,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val recheckCodeStore: RecheckCodeStore,
+    private val recheckTemplateStore: RecheckTemplateStore
 ) : ViewModel() {
 
     data class ExportUiState(
@@ -298,11 +302,50 @@ class ExportViewModel @Inject constructor(
         }
     }
 
+    /** Builds code-keyed scanned quantities only for rows present in the master workbook. */
+    private suspend fun stockTemplateQuantities(items: List<ExpiryItem>): Map<String, Double> {
+        val templateRows = recheckCodeStore.orderedRows().associateBy { it.code }
+        val quantities = linkedMapOf<String, Double>()
+        items.forEach { item ->
+            val itemCode = recheckCodeStore.normalize(item.itemCode)
+            val barcode = recheckCodeStore.normalize(item.barcode)
+            val matchingCode = when {
+                itemCode != null && itemCode in templateRows -> itemCode
+                barcode != null && barcode in templateRows -> barcode
+                else -> null
+            } ?: return@forEach
+            quantities[matchingCode] = (quantities[matchingCode] ?: 0.0) + item.quantity
+        }
+        return quantities
+    }
+
+    private data class StockTemplateExport(
+        val workbook: ByteArray,
+        val templateRowCount: Int,
+        val dateLabel: String
+    )
+
     /**
-     * Generates the supplied Recheck-format workbook for the active Stock
-     * project. Rows are true scan order (first scan first); column B is the
-     * POS code with a yellow warning when description or UOM is incomplete.
+     * Updates the preserved workbook directly. Every template row remains in
+     * its original position and retains its formatting; unscanned rows receive
+     * physical quantity zero and Total Stock is recalculated with its existing
+     * Damage & Expiry quantity.
      */
+    private suspend fun buildStockTemplateExport(items: List<ExpiryItem>): StockTemplateExport {
+        val template = recheckTemplateStore.read()
+            ?: error("Select the Stock Recheck File (Excel) first.")
+        val quantities = stockTemplateQuantities(items)
+        val workbook = withContext(Dispatchers.Default) {
+            RecheckTemplateWorkbook.applyQuantities(template, quantities)
+        }
+        return StockTemplateExport(
+            workbook = workbook,
+            templateRowCount = recheckCodeStore.importedCodeCount(),
+            dateLabel = stockReportDateLabel(items)
+        )
+    }
+
+    /** Generates a shareable or Send-to-PC copy of the preserved Stock template. */
     fun generateStockReport(context: Context, sendToPc: Boolean = false) {
         viewModelScope.launch {
             val state = _uiState.value
@@ -310,92 +353,46 @@ class ExportViewModel @Inject constructor(
                 _uiState.update { it.copy(error = "Stock export is available only for Stock projects.") }
                 return@launch
             }
-            if (state.allItems.isEmpty()) {
-                _uiState.update { it.copy(error = "This Stock project has no items to export.") }
-                return@launch
-            }
             _uiState.update { it.copy(isExporting = true, error = null, reportFileUri = null) }
             try {
-                val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
-                val dateLabel = stockReportDateLabel(ordered)
-                val rows = ordered.map { item ->
-                    val posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode
-                    val description = item.productName?.takeIf { it.isNotBlank() }
-                        ?: item.productNameArabic?.takeIf { it.isNotBlank() }.orEmpty()
-                    val uom = item.unit?.takeIf { it.isNotBlank() }.orEmpty()
-                    StockReportExcel.Row(
-                        posCode = posCode,
-                        description = description,
-                        uom = uom,
-                        quantity = item.quantity,
-                        highlightPosCode = description.isBlank() || uom.isBlank()
-                    )
-                }
+                val export = buildStockTemplateExport(state.allItems)
                 val file = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    File(dir, "Recheck $dateLabel.xlsx").also { report ->
-                        FileOutputStream(report).use { output ->
-                            StockReportExcel.write(
-                                out = output,
-                                rows = rows,
-                                title = "Recheck on $dateLabel",
-                                sheetName = dateLabel
-                            )
-                        }
+                    File(dir, "Recheck ${export.dateLabel}.xlsx").also { report ->
+                        report.writeBytes(export.workbook)
                     }
                 }
                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 _uiState.update {
                     it.copy(
                         isExporting = false,
-                        // Wi-Fi transfer uses the file path directly. Only
-                        // create a share-sheet URI for the explicit Share action.
                         reportFileUri = if (sendToPc) null else uri,
                         reportFilePath = file.absolutePath,
                         reportFileName = file.name,
-                        reportSummary = "${rows.size} stock items · Recheck on $dateLabel"
+                        reportSummary = "${export.templateRowCount} template items · Recheck on ${export.dateLabel}"
                     )
                 }
-                if (sendToPc) {
-                    // The workbook has been generated in the same cache folder
-                    // used by the existing PC receiver. Route it through the
-                    // shared XLSX transfer path immediately, without requiring
-                    // the user to generate it first and press a second button.
-                    sendReportToPc()
-                }
+                if (sendToPc) sendReportToPc()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message ?: "Stock export failed") }
             }
         }
     }
 
-    /** Writes the required Recheck workbook directly to the user-selected Save location. */
+    /** Writes the updated master workbook directly to the user-selected Save location. */
     fun exportStockReportToUri(context: Context, uri: Uri) {
         viewModelScope.launch {
             val state = _uiState.value
-            if (!state.isStockMode || state.allItems.isEmpty()) {
-                _uiState.update { it.copy(error = "This Stock project has no items to export.") }
+            if (!state.isStockMode) {
+                _uiState.update { it.copy(error = "Stock export is available only for Stock projects.") }
                 return@launch
             }
             _uiState.update { it.copy(isExporting = true, error = null, success = false) }
             try {
-                val ordered = state.allItems.sortedWith(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })
-                val dateLabel = stockReportDateLabel(ordered)
-                val rows = ordered.map { item ->
-                    val description = item.productName?.takeIf { it.isNotBlank() }
-                        ?: item.productNameArabic?.takeIf { it.isNotBlank() }.orEmpty()
-                    val uom = item.unit?.takeIf { it.isNotBlank() }.orEmpty()
-                    StockReportExcel.Row(
-                        posCode = item.itemCode?.takeIf { it.isNotBlank() } ?: item.barcode,
-                        description = description,
-                        uom = uom,
-                        quantity = item.quantity,
-                        highlightPosCode = description.isBlank() || uom.isBlank()
-                    )
-                }
+                val export = buildStockTemplateExport(state.allItems)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { output ->
-                        StockReportExcel.write(output, rows, "Recheck on $dateLabel", dateLabel)
+                        output.write(export.workbook)
                     } ?: error("Unable to open the selected export location")
                 }
                 _uiState.update { it.copy(isExporting = false, success = true) }

@@ -2,12 +2,14 @@ package com.nearexpiry.manager.utils
 
 import com.nearexpiry.manager.data.local.database.ExpiryDatabase
 import com.nearexpiry.manager.data.local.entity.RecheckCodeEntity
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Persistent global list of codes imported from the selected Stock Recheck
- * workbook. This is intentionally shared by all Stock/Recheck projects.
+ * Persistent global index of the selected Stock Recheck workbook. It provides
+ * fast scan gating plus source-row ordering and description metadata for every
+ * Stock/Recheck project.
  */
 @Singleton
 class RecheckCodeStore @Inject constructor(
@@ -19,19 +21,37 @@ class RecheckCodeStore @Inject constructor(
 
     suspend fun importedCodeCount(): Int = dao.count()
 
-    suspend fun containsCatalogItem(itemCode: String?, barcode: String): Boolean {
+    suspend fun orderedRows(): List<RecheckCodeEntity> = dao.getAllOrdered()
+
+    fun observeOrderedRows(): Flow<List<RecheckCodeEntity>> = dao.observeAllOrdered()
+
+    suspend fun containsCatalogItem(itemCode: String?, barcode: String): Boolean =
+        matchingRow(itemCode, barcode) != null
+
+    suspend fun matchingRow(itemCode: String?, barcode: String): RecheckCodeEntity? {
         val preferredCode = normalize(itemCode)
-        return if (preferredCode != null) {
-            dao.contains(preferredCode)
-        } else {
-            normalize(barcode)?.let { dao.contains(it) } ?: false
-        }
+        val fallbackBarcode = normalize(barcode)
+        return preferredCode?.let(dao::findByCode)
+            ?: fallbackBarcode?.let(dao::findByCode)
     }
 
-    suspend fun replaceCodes(rawCodes: Collection<String>): Int {
-        val normalized = rawCodes.mapNotNull(::normalize).distinct()
-        dao.replaceAll(normalized.map(::RecheckCodeEntity))
-        return normalized.size
+    /** Replaces the complete ordered template index in one Room transaction. */
+    suspend fun replaceRows(rows: Collection<RecheckExcelReader.Row>): Int {
+        val unique = linkedMapOf<String, RecheckCodeEntity>()
+        rows.forEach { row ->
+            val code = normalize(row.code) ?: return@forEach
+            unique.putIfAbsent(
+                code,
+                RecheckCodeEntity(
+                    code = code,
+                    sortOrder = row.sortOrder,
+                    description = row.description.trim(),
+                    uom = row.uom.trim()
+                )
+            )
+        }
+        dao.replaceAll(unique.values.toList())
+        return unique.size
     }
 
     /** Case-insensitive matching with whitespace removed around a POS/item code. */

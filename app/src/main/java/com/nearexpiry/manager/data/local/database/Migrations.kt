@@ -500,6 +500,24 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+/**
+ * v13 -> v14: retains the first source-row order and template metadata for
+ * each imported Stock Recheck POS code. Existing code-only imports remain
+ * usable for scan gating; users can reselect the workbook to restore its
+ * export master file and populate the new metadata.
+ */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        addColumnIfMissing(db, "recheck_codes", "sortOrder", "INTEGER NOT NULL DEFAULT 2147483647")
+        addColumnIfMissing(db, "recheck_codes", "description", "TEXT NOT NULL DEFAULT ''")
+        addColumnIfMissing(db, "recheck_codes", "uom", "TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_recheck_codes_sortOrder` " +
+                "ON `recheck_codes` (`sortOrder`)"
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -512,5 +530,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_9_10,
     MIGRATION_10_11,
     MIGRATION_11_12,
-    MIGRATION_12_13
+    MIGRATION_12_13,
+    MIGRATION_13_14
 )

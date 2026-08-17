@@ -386,7 +386,10 @@
     <string name="history_empty_filter_description">جرّب حالة صلاحية أخرى أو أضف منتجات من شاشة المسح.</string>
     <string name="history_empty_search_description">جرّب اسم المنتج أو رمز الصنف أو الباركود.</string>
     <string name="stock_check_excel_title">Excel لفحص المخزون</string>
-    <string name="stock_check_excel_description_format">يتم تصدير %1$s بتخطيط إعادة الفحص: ترتيب المسح، ورمز POS، والوصف، ووحدة القياس، والكمية.</string>
+    <string name="stock_check_excel_description_format">يتم تصدير %1$s من قالب إعادة الفحص المحدد، مع الحفاظ على صفوفه وتخطيطه وتحديث الكميات.</string>
+    <string name="save_stock_check_excel">حفظ Excel لفحص المخزون</string>
+    <string name="share_stock_check_excel">مشاركة Excel لفحص المخزون</string>
+    <string name="send_stock_check_excel_to_pc">إرسال Excel المخزون إلى الكمبيوتر (Wi-Fi)</string>
     <string name="recheck_file_selected_format">المحدد: %1$s · %2$d رمزاً</string>
     <string name="recheck_excel_default_name">Excel لإعادة الفحص</string>
     <string name="recheck_file_select_description">اختر ملف Excel المستخدم لتحديد أصناف المخزون التي تحتاج إلى إعادة فحص الكمية.</string>
