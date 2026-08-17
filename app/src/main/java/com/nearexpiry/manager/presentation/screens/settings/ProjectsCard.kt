@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.components.GlassSectionCard
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.SubtleGray
@@ -53,13 +55,21 @@ fun ProjectsSection(
     var deleteTarget by remember { mutableStateOf<Long?>(null) }
     var colorTarget by remember { mutableStateOf<Long?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val headerInteraction = remember { MutableInteractionSource() }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(vertical = 4.dp),
+    GlassSectionCard(
+        selected = expanded,
+        interactionSource = headerInteraction
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = headerInteraction,
+                        indication = null
+                    ) { expanded = !expanded }
+                    .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -84,24 +94,25 @@ fun ProjectsSection(
             )
         }
 
-        if (expanded) {
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { showCreate = true }) {
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { showCreate = true }) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.project_create), color = CyanAccent)
             }
-            projects.forEach { summary ->
-                ProjectRow(
-                    summary = summary,
-                    isActive = summary.project.id == activeProjectId,
-                    onSwitch = { onSwitch(summary.project.id) },
-                    onRename = { renameTarget = summary.project.id },
-                    onClone = { cloneTarget = summary.project.id },
-                    onRecolor = { colorTarget = summary.project.id },
-                    onDelete = { deleteTarget = summary.project.id }
-                )
-                Spacer(Modifier.height(8.dp))
+                projects.forEach { summary ->
+                    ProjectRow(
+                        summary = summary,
+                        isActive = summary.project.id == activeProjectId,
+                        onSwitch = { onSwitch(summary.project.id) },
+                        onRename = { renameTarget = summary.project.id },
+                        onClone = { cloneTarget = summary.project.id },
+                        onRecolor = { colorTarget = summary.project.id },
+                        onDelete = { deleteTarget = summary.project.id }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +66,7 @@ private fun glassSurfaceColor(selected: Boolean, accent: Color): Color {
     // rectangular white inset inside an otherwise rounded glass card.
     val base = if (light) Color(0xFFE6F3F8) else Color(0xFF132632)
     return if (selected) {
-        accent.copy(alpha = if (light) 0.13f else 0.20f).compositeOver(base)
+        accent.copy(alpha = if (light) 0.22f else 0.34f).compositeOver(base)
     } else {
         base
     }
@@ -85,16 +87,21 @@ private fun glassOutline(selected: Boolean, accent: Color): Color {
 fun GlassSectionCard(
     modifier: Modifier = Modifier,
     accent: Color = CyanAccent,
+    selected: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
     content: @Composable () -> Unit
 ) {
     val shape = GlassCardShape
+    val source = interactionSource ?: remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val emphasized = selected || pressed
     Surface(
         modifier = modifier
             .clip(shape)
-            .border(1.dp, glassOutline(selected = false, accent = accent), shape),
-        color = glassSurfaceColor(selected = false, accent = accent),
+            .border(if (emphasized) 1.5.dp else 1.dp, glassOutline(selected = emphasized, accent = accent), shape),
+        color = glassSurfaceColor(selected = emphasized, accent = accent),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shadowElevation = 2.dp,
+        shadowElevation = if (emphasized) 5.dp else 2.dp,
         tonalElevation = 0.dp,
         shape = shape
     ) {
@@ -120,8 +127,10 @@ fun GlassSelectableOption(
 ) {
     val shape = GlassControlShape
     val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val emphasized = selected || pressed
     val animatedElevation = animateDpAsState(
-        targetValue = if (selected) 4.dp else 0.dp,
+        targetValue = if (emphasized) 5.dp else 0.dp,
         animationSpec = tween(durationMillis = 160),
         label = "glassOptionElevation"
     )
@@ -130,14 +139,14 @@ fun GlassSelectableOption(
             .fillMaxWidth()
             .defaultMinSize(minHeight = AppDimens.MinimumTouchTarget)
             .clip(shape)
-            .border(if (selected) 1.5.dp else 1.dp, glassOutline(selected, accent), shape)
+            .border(if (emphasized) 1.5.dp else 1.dp, glassOutline(emphasized, accent), shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 role = Role.RadioButton,
                 onClick = onClick
             ),
-        color = glassSurfaceColor(selected, accent),
+        color = glassSurfaceColor(emphasized, accent),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = animatedElevation.value,
         tonalElevation = 0.dp,
@@ -224,16 +233,25 @@ fun GlassActionButton(
         GlassActionTone.Neutral -> SubtleGray
     }
     val shape = GlassControlShape
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val emphasized = tone != GlassActionTone.Neutral || pressed
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = AppDimens.MinimumTouchTarget)
             .clip(shape)
-            .border(1.dp, glassOutline(selected = tone != GlassActionTone.Neutral, accent = accent), shape)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        color = glassSurfaceColor(selected = tone != GlassActionTone.Neutral, accent = accent),
+            .border(if (emphasized) 1.5.dp else 1.dp, glassOutline(selected = emphasized, accent = accent), shape)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        color = glassSurfaceColor(selected = emphasized, accent = accent),
         contentColor = accent,
-        shadowElevation = if (enabled) 1.dp else 0.dp,
+        shadowElevation = if (emphasized && enabled) 4.dp else 1.dp,
         tonalElevation = 0.dp,
         shape = shape
     ) {

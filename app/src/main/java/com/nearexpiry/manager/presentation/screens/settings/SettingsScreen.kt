@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -81,6 +82,9 @@ fun SettingsScreen(
 
     // ── Language selection ────────────────────────────────────────────────────
     var currentLanguage by remember { mutableStateOf(LanguageManager.getCurrentLanguage()) }
+    val languageHeaderInteraction = remember { MutableInteractionSource() }
+    val appearanceHeaderInteraction = remember { MutableInteractionSource() }
+    val dataManagementHeaderInteraction = remember { MutableInteractionSource() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -97,26 +101,33 @@ fun SettingsScreen(
 
             // ── Projects ───────────────────────────────────────────────────
             item {
-                GlassSectionCard {
-                    ProjectsSection(
-                        projects = uiState.projects,
-                        activeProjectId = uiState.activeProjectId,
-                        onSwitch = { viewModel.switchProject(it) },
-                        onCreate = { name, color -> viewModel.createProject(name, color) },
-                        onRename = { id, name -> viewModel.renameProject(id, name) },
-                        onRecolor = { id, color -> viewModel.updateProjectColor(id, color) },
-                        onClone = { id, name, color -> viewModel.cloneProject(id, name, color) },
-                        onDelete = { viewModel.deleteProject(it) }
-                    )
-                }
+                ProjectsSection(
+                    projects = uiState.projects,
+                    activeProjectId = uiState.activeProjectId,
+                    onSwitch = { viewModel.switchProject(it) },
+                    onCreate = { name, color -> viewModel.createProject(name, color) },
+                    onRename = { id, name -> viewModel.renameProject(id, name) },
+                    onRecolor = { id, color -> viewModel.updateProjectColor(id, color) },
+                    onClone = { id, name, color -> viewModel.cloneProject(id, name, color) },
+                    onDelete = { viewModel.deleteProject(it) }
+                )
             }
 
             // ── Language ───────────────────────────────────────────────────
             item {
-                GlassSectionCard {
+                GlassSectionCard(
+                    selected = languageExpanded,
+                    interactionSource = languageHeaderInteraction
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { languageExpanded = !languageExpanded }.padding(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    interactionSource = languageHeaderInteraction,
+                                    indication = null
+                                ) { languageExpanded = !languageExpanded }
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -142,12 +153,18 @@ fun SettingsScreen(
 
             // ── Appearance ─────────────────────────────────────────────────────
             item {
-                GlassSectionCard {
+                GlassSectionCard(
+                    selected = appearanceExpanded,
+                    interactionSource = appearanceHeaderInteraction
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { appearanceExpanded = !appearanceExpanded }
+                                .clickable(
+                                    interactionSource = appearanceHeaderInteraction,
+                                    indication = null
+                                ) { appearanceExpanded = !appearanceExpanded }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -219,10 +236,19 @@ fun SettingsScreen(
 
             // ── Data Management ────────────────────────────────────────────────
             item {
-                GlassSectionCard {
+                GlassSectionCard(
+                    selected = dataManagementExpanded,
+                    interactionSource = dataManagementHeaderInteraction
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { dataManagementExpanded = !dataManagementExpanded }.padding(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    interactionSource = dataManagementHeaderInteraction,
+                                    indication = null
+                                ) { dataManagementExpanded = !dataManagementExpanded }
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
