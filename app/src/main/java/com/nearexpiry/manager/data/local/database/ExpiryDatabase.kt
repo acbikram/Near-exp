@@ -26,7 +26,7 @@ import com.nearexpiry.manager.data.local.typeconverter.Converters
         RecycleBinEntity::class,
         RecheckCodeEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

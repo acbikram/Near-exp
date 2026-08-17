@@ -43,7 +43,8 @@ class RecheckCodeStore @Inject constructor(
                 sortOrder = row.sortOrder,
                 description = row.description,
                 uom = row.uom,
-                damageExpiryQuantity = row.damageExpiryQuantity
+                damageExpiryQuantity = row.damageExpiryQuantity,
+                serialNumber = row.serialNumber
             )
         }
     }
@@ -80,7 +81,8 @@ class RecheckCodeStore @Inject constructor(
                     sortOrder = row.sortOrder,
                     description = row.description.trim(),
                     uom = row.uom.trim(),
-                    damageExpiryQuantity = row.damageExpiryQuantity
+                    damageExpiryQuantity = row.damageExpiryQuantity,
+                    serialNumber = row.serialNumber
                 )
             )
         }

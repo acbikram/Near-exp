@@ -72,6 +72,27 @@ class RecheckExcelReaderTest {
     }
 
     @Test
+    fun `captures workbook Sr No for each matching POS Code`() {
+        val bytes = workbook(
+            """
+            <worksheet><sheetData>
+              <row r="1">
+                <c r="A1" t="inlineStr"><is><t>Sr. No.</t></is></c>
+                <c r="B1" t="inlineStr"><is><t>POS_CODE</t></is></c>
+              </row>
+              <row r="2"><c r="A2"><v>42</v></c><c r="B2" t="inlineStr"><is><t>pos-0042</t></is></c></row>
+              <row r="3"><c r="A3"><v>99</v></c><c r="B3" t="inlineStr"><is><t>pos-0099</t></is></c></row>
+            </sheetData></worksheet>
+            """.trimIndent()
+        )
+
+        val rows = RecheckExcelReader.readRows(bytes)
+
+        assertEquals(listOf("POS-0042", "POS-0099"), rows.map { it.code })
+        assertEquals(listOf(42, 99), rows.map { it.serialNumber })
+    }
+
+    @Test
     fun `ignores workbooks without a supported code header`() {
         val bytes = workbook(
             """

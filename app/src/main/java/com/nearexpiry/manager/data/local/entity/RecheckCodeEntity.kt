@@ -28,5 +28,8 @@ data class RecheckCodeEntity(
     val uom: String = "",
     /** Existing Damage & Expiry quantity retained from the Recheck template. */
     @ColumnInfo(defaultValue = "0.0")
-    val damageExpiryQuantity: Double = 0.0
+    val damageExpiryQuantity: Double = 0.0,
+    /** Source Sr. No. from the matching Recheck workbook row, when supplied. */
+    @ColumnInfo(defaultValue = "NULL")
+    val serialNumber: Int? = null
 )

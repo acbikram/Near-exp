@@ -426,16 +426,23 @@ class HistoryViewModel @Inject constructor(
             }
         }
 
-        // Sr. No. is scan rank for normal projects. In Stock Mode it becomes
-        // the original one-based source-row number from the selected Recheck
-        // file, while retaining a scan-rank fallback for legacy unmatched data.
+        // Sr. No. is scan rank for normal projects. In Stock Mode it prefers
+        // the explicit Serial Number from the matching Recheck workbook row,
+        // then falls back to that file row's sorted position, and finally to
+        // the scanned-row position for unmatched legacy data.
         val scanSrNoMap = state.allItems
             .sortedWith(compareBy({ it.effectiveOrder }, { it.id }))
             .mapIndexed { index, item -> item.id to (index + 1) }
             .toMap()
         val displaySrNoMap = if (state.isStockMode) {
             state.allItems.associate { item ->
-                item.id to ((recheckRowFor(item)?.sortOrder?.plus(1)) ?: scanSrNoMap[item.id] ?: 0)
+                val recheckRow = recheckRowFor(item)
+                item.id to (
+                    recheckRow?.serialNumber
+                        ?: recheckRow?.sortOrder?.plus(1)
+                        ?: scanSrNoMap[item.id]
+                        ?: 0
+                )
             }
         } else {
             scanSrNoMap

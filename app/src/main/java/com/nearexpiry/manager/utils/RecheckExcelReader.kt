@@ -15,7 +15,8 @@ object RecheckExcelReader {
         val sortOrder: Int,
         val description: String,
         val uom: String,
-        val damageExpiryQuantity: Double
+        val damageExpiryQuantity: Double,
+        val serialNumber: Int?
     )
 
     /**
@@ -39,7 +40,7 @@ object RecheckExcelReader {
         val blankCodeRowCount: Int
     )
 
-    private enum class HeaderRole { CODE, DESCRIPTION, UOM, DAMAGE }
+    private enum class HeaderRole { CODE, DESCRIPTION, UOM, DAMAGE, SERIAL }
 
     private val rowRegex = Regex("""<row[^>]*\br="(\d+)"[^>]*>(.*?)</row>""", RegexOption.DOT_MATCHES_ALL)
     private val cellRegex = Regex("""<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>|<c\b[^>]*\br="([A-Z]+)(\d+)"([^>]*)/>""", RegexOption.DOT_MATCHES_ALL)
@@ -157,6 +158,7 @@ object RecheckExcelReader {
         val descriptionColumn = columns[HeaderRole.DESCRIPTION]
         val uomColumn = columns[HeaderRole.UOM]
         val damageColumn = columns[HeaderRole.DAMAGE]
+        val serialColumn = columns[HeaderRole.SERIAL]
         val sourceRows = mutableListOf<Row>()
         var blankCodeRows = 0
 
@@ -177,7 +179,8 @@ object RecheckExcelReader {
                         ?.trim()
                         ?.replace(",", "")
                         ?.toDoubleOrNull()
-                        ?: 0.0
+                        ?: 0.0,
+                    serialNumber = cells[serialColumn].toSerialNumberOrNull()
                 )
             }
 
@@ -203,7 +206,7 @@ object RecheckExcelReader {
         columns[HeaderRole.CODE] = codeColumn
         cells.forEach { (column, value) ->
             when (val role = headerRole(value)) {
-                HeaderRole.DESCRIPTION, HeaderRole.UOM, HeaderRole.DAMAGE -> columns.putIfAbsent(role, column)
+                HeaderRole.DESCRIPTION, HeaderRole.UOM, HeaderRole.DAMAGE, HeaderRole.SERIAL -> columns.putIfAbsent(role, column)
                 else -> Unit
             }
         }
@@ -223,6 +226,7 @@ object RecheckExcelReader {
     private fun headerRole(value: String): HeaderRole? {
         val compact = compactHeader(value)
         return when {
+            compact == "srno" || compact == "serialno" || compact == "serialnumber" || compact == "sno" -> HeaderRole.SERIAL
             compact.contains("poscode") || compact.contains("itemcode") || compact.contains("barcode") -> HeaderRole.CODE
             compact.contains("itemdescription") || compact == "description" ||
                 compact.contains("productdescription") || compact.contains("itemname") -> HeaderRole.DESCRIPTION
@@ -266,6 +270,12 @@ object RecheckExcelReader {
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
         ?.uppercase()
+
+    private fun String?.toSerialNumberOrNull(): Int? {
+        val value = this?.trim()?.replace(",", "") ?: return null
+        val numeric = value.toDoubleOrNull() ?: return null
+        return numeric.toInt().takeIf { numeric > 0.0 && numeric % 1.0 == 0.0 }
+    }
 
     private fun unescape(value: String): String = value
         .replace("&amp;", "&")
