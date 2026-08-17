@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -45,6 +47,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToLong
 
 // Filter keys used when navigating to History with a pre-set filter
 const val FILTER_ALL       = "ALL"
@@ -54,6 +57,8 @@ const val FILTER_TODAY     = "TODAY"
 const val FILTER_7D        = "ONE_TO_SEVEN"
 const val FILTER_30D       = "EIGHT_TO_THIRTY"
 const val FILTER_QUANTITY  = "QUANTITY"
+
+private val NORMAL_DASHBOARD_CARD_HEIGHT = 104.dp
 
 private const val WHATSAPP_DEVELOPER_LINK =
     "https://wa.me/9779860874001?text=Hi%20Bikram,%20I%20reached%20you%20through%20the%20Near%20Expiry%20application%20can%20you%20respond%20me?"
@@ -259,18 +264,18 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ClickableStatCard(label = stringResource(R.string.expired), value = uiState.expiredCount, accentColor = Color(0xFFE53935), modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_EXPIRED&sort=EXPIRY_DATE") })
-                    ClickableStatCard(label = stringResource(R.string.today), value = uiState.expiringToday, accentColor = Color(0xFFFF7043), modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_TODAY&sort=EXPIRY_DATE") })
-                    ClickableStatCard(label = stringResource(R.string.total_items), value = uiState.totalRecords, accentColor = CyanAccent, modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.expired), value = uiState.expiredCount, accentColor = Color(0xFFE53935), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_EXPIRED&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.today), value = uiState.expiringToday, accentColor = Color(0xFFFF7043), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_TODAY&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.total_items), value = uiState.totalRecords, accentColor = CyanAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE") })
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ClickableStatCard(label = stringResource(R.string.one_to_seven_days), value = uiState.expiring1to7Days, accentColor = Color(0xFFFFC107), modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_7D&sort=EXPIRY_DATE") })
-                    ClickableStatCard(label = stringResource(R.string.eight_to_thirty_days), value = uiState.expiring8to30Days, accentColor = Color(0xFF42A5F5), modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE") })
-                    ClickableStatCard(label = stringResource(R.string.total_quantity), value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                    ClickableStatCard(label = stringResource(R.string.one_to_seven_days), value = uiState.expiring1to7Days, accentColor = Color(0xFFFFC107), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_7D&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.eight_to_thirty_days), value = uiState.expiring8to30Days, accentColor = Color(0xFF42A5F5), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_30D&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.total_quantity), value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
                 }
                 val today = LocalDate.now()
                 val firstVisibleExpiryItem = uiState.expiringSoonItems
@@ -355,10 +360,13 @@ fun ClickableStatCard(
     value: Number,
     accentColor: Color = CyanAccent,
     modifier: Modifier = Modifier,
+    fixedHeight: Dp? = null,
+    compactLongDecimal: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
+            .then(if (fixedHeight != null) Modifier.height(fixedHeight) else Modifier)
             .border(1.dp, accentColor.copy(alpha = 0.48f), MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
@@ -366,9 +374,9 @@ fun ClickableStatCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
-            modifier = Modifier.padding(AppDimens.CardPadding),
+            modifier = Modifier.padding(horizontal = AppDimens.CardPadding, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -376,18 +384,32 @@ fun ClickableStatCard(
                     .height(42.dp)
                     .background(accentColor, RoundedCornerShape(50))
             )
-            Column {
-                val displayValue = when (value) {
-                    is Double -> QuantityFormatter.format(value)
-                    is Float -> QuantityFormatter.format(value.toDouble())
-                    else -> value.toString()
+            Column(modifier = Modifier.weight(1f)) {
+                val rawDecimalValue = when (value) {
+                    is Double -> value
+                    is Float -> value.toDouble()
+                    else -> null
+                }
+                val displayValue = if (compactLongDecimal && rawDecimalValue != null && rawDecimalValue.toLong().toString().length >= 5) {
+                    rawDecimalValue.roundToLong().toString()
+                } else {
+                    rawDecimalValue?.let(QuantityFormatter::format) ?: value.toString()
+                }
+                val valueFontSize = when {
+                    displayValue.length >= 8 -> 17.sp
+                    displayValue.length >= 6 -> 20.sp
+                    else -> 24.sp
                 }
                 Text(
                     text = displayValue,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         color = accentColor,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = valueFontSize
+                    ),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip
                 )
                 Text(
                     text = label,
