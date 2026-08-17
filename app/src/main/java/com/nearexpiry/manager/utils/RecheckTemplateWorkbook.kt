@@ -127,7 +127,13 @@ object RecheckTemplateWorkbook {
 
     private fun replaceNumericCell(rowInner: String, column: String, row: Int, value: Double): String {
         val reference = "$column$row"
-        val numericCellRegex = Regex("""<c\b(?=[^>]*\br="$reference")[^>]*>.*?</c>|<c\b(?=[^>]*\br="$reference")[^>]*/>""", RegexOption.DOT_MATCHES_ALL)
+        // Keep normal and self-closing cells distinct. Without the negative
+        // lookbehind, a styled blank cell (<c .../>) is mistaken for an open
+        // cell and its replacement consumes the next column's closing tag.
+        val numericCellRegex = Regex(
+            """<c\b(?=[^>]*\br="$reference")[^>]*?(?<!/)>.*?</c>|<c\b(?=[^>]*\br="$reference")[^>]*/>""",
+            RegexOption.DOT_MATCHES_ALL
+        )
         val numericValue = QuantityFormatter.format(value)
         return if (numericCellRegex.containsMatchIn(rowInner)) {
             numericCellRegex.replace(rowInner) { match ->
