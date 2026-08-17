@@ -117,6 +117,7 @@ class RecheckExcelReaderTest {
     @Test
     fun `normalizes only a trailing decimal artifact from numeric POS codes`() {
         assertEquals("8600617", RecheckExcelReader.normalizeCode("8600617.0"))
+        assertEquals("80006588", RecheckExcelReader.normalizeCode("8.0006588E7"))
         assertEquals("00123", RecheckExcelReader.normalizeCode("00123"))
         assertEquals("POS-1.0", RecheckExcelReader.normalizeCode("POS-1.0"))
     }

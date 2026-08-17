@@ -19,6 +19,7 @@ import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.RecheckCodeStore
+import com.nearexpiry.manager.utils.RecheckExcelReader
 import com.nearexpiry.manager.utils.RecheckTemplateStore
 import com.nearexpiry.manager.utils.RecheckTemplateWorkbook
 import com.nearexpiry.manager.utils.StockProjectClassifier
@@ -302,16 +303,22 @@ class ExportViewModel @Inject constructor(
         }
     }
 
-    /** Builds code-keyed scanned quantities only for rows present in the master workbook. */
-    private suspend fun stockTemplateQuantities(items: List<ExpiryItem>): Map<String, Double> {
-        val templateRows = recheckCodeStore.orderedRows().associateBy { it.code }
+    /**
+     * Builds code-keyed scanned Physical Qty only for rows in the exact master
+     * workbook being exported. This deliberately does not depend on the Room
+     * index, which can predate a newly selected template or a code-format fix.
+     */
+    private fun stockTemplateQuantities(
+        items: List<ExpiryItem>,
+        templateCodes: Set<String>
+    ): Map<String, Double> {
         val quantities = linkedMapOf<String, Double>()
         items.forEach { item ->
             val itemCode = recheckCodeStore.normalize(item.itemCode)
             val barcode = recheckCodeStore.normalize(item.barcode)
             val matchingCode = when {
-                itemCode != null && itemCode in templateRows -> itemCode
-                barcode != null && barcode in templateRows -> barcode
+                itemCode != null && itemCode in templateCodes -> itemCode
+                barcode != null && barcode in templateCodes -> barcode
                 else -> null
             } ?: return@forEach
             quantities[matchingCode] = (quantities[matchingCode] ?: 0.0) + item.quantity
@@ -334,13 +341,20 @@ class ExportViewModel @Inject constructor(
     private suspend fun buildStockTemplateExport(items: List<ExpiryItem>): StockTemplateExport {
         val template = recheckTemplateStore.read()
             ?: error("Select the Stock Recheck File (Excel) first.")
-        val quantities = stockTemplateQuantities(items)
+        val templateRows = withContext(Dispatchers.Default) {
+            RecheckExcelReader.readRows(template)
+        }
+        check(templateRows.isNotEmpty()) {
+            "The Stock Recheck Excel file has no POS Code rows to export."
+        }
+        val templateCodes = templateRows.mapTo(linkedSetOf()) { it.code }
+        val quantities = stockTemplateQuantities(items, templateCodes)
         val workbook = withContext(Dispatchers.Default) {
             RecheckTemplateWorkbook.applyQuantities(template, quantities)
         }
         return StockTemplateExport(
             workbook = workbook,
-            templateRowCount = recheckCodeStore.importedCodeCount(),
+            templateRowCount = templateRows.size,
             dateLabel = stockReportDateLabel(items)
         )
     }

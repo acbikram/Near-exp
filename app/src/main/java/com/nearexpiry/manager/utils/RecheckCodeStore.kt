@@ -90,10 +90,6 @@ class RecheckCodeStore @Inject constructor(
         return unique.size
     }
 
-    /** Case-insensitive matching with whitespace removed around a POS/item code. */
-    fun normalize(value: String?): String? = value
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?.replace(Regex("""^(\d+)\.0+$"""), "$1")
-        ?.uppercase()
+    /** Uses the same safe text-and-numeric POS Code normalization as Excel imports. */
+    fun normalize(value: String?): String? = RecheckExcelReader.normalizeCode(value)
 }

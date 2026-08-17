@@ -131,9 +131,17 @@ object RecheckTemplateWorkbook {
         val numericValue = QuantityFormatter.format(value)
         return if (numericCellRegex.containsMatchIn(rowInner)) {
             numericCellRegex.replace(rowInner) { match ->
-                val attributes = match.value.substringAfter("<c").substringBefore('>')
+                // A blank but styled Excel cell is encoded as <c .../>. Read
+                // attributes from the opening tag only, stripping the terminal
+                // slash so the replacement remains well-formed XML.
+                val openingTag = match.value.substringBefore('>')
+                val attributes = openingTag
+                    .removePrefix("<c")
+                    .trim()
+                    .removeSuffix("/")
+                    .trim()
                     .replace(Regex("""\s+t="[^"]*""""), "")
-                "<c$attributes><v>$numericValue</v></c>"
+                "<c $attributes><v>$numericValue</v></c>"
             }
         } else {
             "$rowInner<c r=\"$reference\"><v>$numericValue</v></c>"

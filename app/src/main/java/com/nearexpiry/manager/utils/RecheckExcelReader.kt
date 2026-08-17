@@ -266,11 +266,22 @@ object RecheckExcelReader {
         return valueRegex.find(inner)?.let { unescape(it.groupValues[1]) }.orEmpty()
     }
 
-    fun normalizeCode(value: String?): String? = value
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?.replace(Regex("""^(\d+)\.0+$"""), "$1")
-        ?.uppercase()
+    /**
+     * Keeps text POS codes intact while normalizing Excel's numeric artifacts,
+     * including trailing .0 and scientific notation such as 8.0006588E7.
+     * Leading-zero text codes are deliberately preserved.
+     */
+    fun normalizeCode(value: String?): String? {
+        val raw = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val isExcelNumericArtifact = raw.matches(Regex("""^\d+\.0+$""")) ||
+            raw.matches(Regex("""^\d+(?:\.\d+)?[eE][+-]?\d+$"""))
+        val normalizedNumeric = if (isExcelNumericArtifact) {
+            runCatching { java.math.BigDecimal(raw).toBigIntegerExact().toString() }.getOrNull()
+        } else {
+            null
+        }
+        return (normalizedNumeric ?: raw).uppercase()
+    }
 
     private fun String?.toSerialNumberOrNull(): Int? {
         val value = this?.trim()?.replace(",", "") ?: return null
