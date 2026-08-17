@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 
 @Composable
@@ -51,12 +52,16 @@ fun QuantityInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.enter_quantity)) },
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
+        titleContentColor = CyanAccent,
+        textContentColor = MaterialTheme.colorScheme.onSurface,
+        title = { Text(stringResource(R.string.enter_quantity), fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 itemCode?.takeIf { it.isNotBlank() }?.let { code ->
                     Text(
-                        text = "Item Code: $code",
+                        text = stringResource(R.string.item_code_format, code),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = OrangeAccent,
                             fontWeight = FontWeight.Bold
@@ -100,7 +105,7 @@ fun QuantityInputDialog(
             TextButton(
                 onClick = handleConfirm
             ) {
-                Text(stringResource(R.string.save))
+                Text(stringResource(R.string.save), color = CyanAccent, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

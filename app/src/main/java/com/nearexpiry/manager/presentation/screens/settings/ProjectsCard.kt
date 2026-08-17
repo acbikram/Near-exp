@@ -27,6 +27,7 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
 import com.nearexpiry.manager.presentation.theme.SubtleGray
+import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import com.nearexpiry.manager.presentation.theme.SurfaceVariant
 import com.nearexpiry.manager.utils.StockProjectClassifier
 
@@ -186,18 +187,23 @@ private fun ProjectRow(
     val color = runCatching { Color(android.graphics.Color.parseColor(summary.project.colorHex)) }
         .getOrDefault(CyanAccent)
 
+    val rowShape = RoundedCornerShape(16.dp)
     Surface(
-        color = if (isActive) CyanAccent.copy(alpha = 0.12f) else SurfaceVariant,
-        shape = RoundedCornerShape(10.dp),
+        color = if (isActive) CyanAccent.copy(alpha = 0.16f) else SurfaceDark,
+        shape = rowShape,
+        tonalElevation = if (isActive) 1.dp else 0.dp,
+        shadowElevation = if (isActive) 3.dp else 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (isActive) Modifier.border(1.dp, CyanAccent, RoundedCornerShape(10.dp)) else Modifier
+            .border(
+                width = if (isActive) 1.5.dp else 1.dp,
+                color = if (isActive) CyanAccent else CyanAccent.copy(alpha = 0.34f),
+                shape = rowShape
             )
             .clickable { onSwitch() }
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Colour tag (tap to recolor)

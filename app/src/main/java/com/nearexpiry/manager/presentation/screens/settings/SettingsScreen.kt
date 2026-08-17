@@ -9,6 +9,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -22,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +36,10 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.notifications.ExpiryNotificationWorker
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
+import com.nearexpiry.manager.presentation.components.GlassActionButton
+import com.nearexpiry.manager.presentation.components.GlassActionTone
+import com.nearexpiry.manager.presentation.components.GlassSectionCard
+import com.nearexpiry.manager.presentation.components.GlassSelectableOption
 import com.nearexpiry.manager.presentation.navigation.Screen
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.ErrorRed
@@ -90,10 +97,7 @@ fun SettingsScreen(
 
             // ── Projects ───────────────────────────────────────────────────
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
+                GlassSectionCard {
                     ProjectsSection(
                         projects = uiState.projects,
                         activeProjectId = uiState.activeProjectId,
@@ -109,10 +113,7 @@ fun SettingsScreen(
 
             // ── Language ───────────────────────────────────────────────────
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape  = RoundedCornerShape(12.dp)
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { languageExpanded = !languageExpanded }.padding(vertical = 4.dp),
@@ -129,9 +130,11 @@ fun SettingsScreen(
                         }
                         if (languageExpanded) {
                             Spacer(Modifier.height(12.dp))
-                            LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
-                            LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
-                            LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
+                                LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
+                                LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
+                            }
                         }
                     }
                 }
@@ -139,10 +142,7 @@ fun SettingsScreen(
 
             // ── Appearance ─────────────────────────────────────────────────────
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape = MaterialTheme.shapes.medium
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
@@ -197,15 +197,18 @@ fun SettingsScreen(
                                     "light" to R.string.theme_light,
                                     "system" to R.string.theme_system
                                 ).forEach { (mode, labelRes) ->
-                                    FilterChip(
+                                    GlassSelectableOption(
+                                        label = stringResource(labelRes),
                                         selected = themeMode == mode,
                                         onClick = { viewModel.setThemeMode(mode) },
-                                        label = { Text(stringResource(labelRes), maxLines = 1) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = CyanAccent.copy(alpha = 0.18f),
-                                            selectedLabelColor = CyanAccent
-                                        )
+                                        detail = stringResource(
+                                            when (mode) {
+                                                "dark" -> R.string.theme_dark_description
+                                                "light" -> R.string.theme_light_description
+                                                else -> R.string.theme_system_description
+                                            }
+                                        ),
+                                        trailingContent = { ThemePreviewSwatch(mode = mode, selected = themeMode == mode) }
                                     )
                                 }
                             }
@@ -216,10 +219,7 @@ fun SettingsScreen(
 
             // ── Data Management ────────────────────────────────────────────────
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape  = RoundedCornerShape(12.dp)
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { dataManagementExpanded = !dataManagementExpanded }.padding(vertical = 4.dp),
@@ -240,11 +240,25 @@ fun SettingsScreen(
                         }
                         if (dataManagementExpanded) {
                             Spacer(Modifier.height(12.dp))
-                            Button(onClick = { navController.navigate(Screen.BackupRestore.route) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.backup_restore)) }
+                            GlassActionButton(
+                                label = stringResource(R.string.backup_restore),
+                                supportingText = stringResource(R.string.glass_backup_restore_detail),
+                                onClick = { navController.navigate(Screen.BackupRestore.route) }
+                            )
                             Spacer(Modifier.height(8.dp))
-                            Button(onClick = { navController.navigate(Screen.RecycleBin.route) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.recycle_bin)) }
+                            GlassActionButton(
+                                label = stringResource(R.string.recycle_bin),
+                                supportingText = stringResource(R.string.glass_recycle_bin_detail),
+                                onClick = { navController.navigate(Screen.RecycleBin.route) },
+                                tone = GlassActionTone.Neutral
+                            )
                             Spacer(Modifier.height(8.dp))
-                            Button(onClick = { viewModel.testExpiryNotificationNow() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.test_notification_now)) }
+                            GlassActionButton(
+                                label = stringResource(R.string.test_notification_now),
+                                supportingText = stringResource(R.string.glass_test_notification_detail),
+                                onClick = { viewModel.testExpiryNotificationNow() },
+                                tone = GlassActionTone.Warning
+                            )
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !DailyExpiryAlarmScheduler.canScheduleExact(context)) {
                                 Spacer(Modifier.height(12.dp))
                                 Text(
@@ -257,7 +271,8 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                Button(
+                                GlassActionButton(
+                                    label = stringResource(R.string.exact_alarm_access_button),
                                     onClick = {
                                         val intent = Intent(
                                             Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
@@ -265,15 +280,15 @@ fun SettingsScreen(
                                         )
                                         runCatching { context.startActivity(intent) }
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant, contentColor = CyanAccent),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(stringResource(R.string.exact_alarm_access_button))
-                                }
+                                    tone = GlassActionTone.Warning
+                                )
                             }
                             Spacer(Modifier.height(8.dp))
-                            Button(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ErrorRed.copy(alpha = 0.15f), contentColor = ErrorRed), shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.clear_all_records)) }
+                            GlassActionButton(
+                                label = stringResource(R.string.clear_all_records),
+                                onClick = { showClearDialog = true },
+                                tone = GlassActionTone.Destructive
+                            )
                         }
                     }
                 }
@@ -281,10 +296,7 @@ fun SettingsScreen(
 
             // ── App Updates ──────────────────────────────────────────────
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape  = RoundedCornerShape(12.dp)
-                ) {
+                GlassSectionCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             stringResource(R.string.app_updates),
@@ -337,37 +349,21 @@ fun SettingsScreen(
                                 )
                                 if (uiState.updateState == SettingsViewModel.UpdateState.DOWNLOADED) {
                                     Spacer(Modifier.height(12.dp))
-                                    Button(
+                                    GlassActionButton(
+                                        label = stringResource(R.string.install_now),
                                         onClick = { viewModel.installUpdate() },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = GreenAccent,
-                                            contentColor = MaterialTheme.colorScheme.onSecondary
-                                        ),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text(stringResource(R.string.install_now), fontWeight = FontWeight.Bold)
-                                    }
+                                        tone = GlassActionTone.Success
+                                    )
                                 }
                             }
                             else -> {
-                                Button(
+                                GlassActionButton(
+                                    label = if (uiState.updateState == SettingsViewModel.UpdateState.CHECKING)
+                                        stringResource(R.string.checking_for_updates)
+                                    else stringResource(R.string.check_for_updates),
                                     onClick = { viewModel.checkForUpdate() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.CHECKING,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = SurfaceVariant,
-                                        contentColor   = CyanAccent
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        if (uiState.updateState == SettingsViewModel.UpdateState.CHECKING)
-                                            stringResource(R.string.checking_for_updates)
-                                        else
-                                            stringResource(R.string.check_for_updates)
-                                    )
-                                }
+                                    enabled = uiState.updateState != SettingsViewModel.UpdateState.CHECKING
+                                )
                                 Spacer(Modifier.height(6.dp))
                                 when (uiState.updateState) {
                                     SettingsViewModel.UpdateState.UP_TO_DATE -> Text(
@@ -474,28 +470,28 @@ fun SettingsScreen(
 
 @Composable
 private fun LanguageOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = CyanAccent,
-                unselectedColor = SubtleGray
-            )
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        )
-    }
+    GlassSelectableOption(
+        label = label,
+        selected = selected,
+        onClick = onClick
+    )
 }
+
+@Composable
+private fun ThemePreviewSwatch(mode: String, selected: Boolean) {
+    val previewColor = when (mode) {
+        "dark" -> Color(0xFF142630)
+        "light" -> Color(0xFFF5FBFE)
+        else -> SurfaceVariant
+    }
+    val borderColor = if (selected) CyanAccent else SubtleGray.copy(alpha = 0.6f)
+    Box(
+        modifier = Modifier
+            .width(36.dp)
+            .height(24.dp)
+            .background(previewColor, RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+    )
 
 @Composable
 private fun NotifInfoRowRemoved() {}

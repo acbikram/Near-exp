@@ -1,5 +1,8 @@
 package com.nearexpiry.manager.presentation.components
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.History
@@ -13,6 +16,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -46,8 +50,11 @@ fun BottomNavigationBar(navController: NavController) {
     val currentRoute   = backStackEntry?.destination?.route
 
     NavigationBar(
-        containerColor = SurfaceDark,
-        tonalElevation = 8.dp
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .border(1.dp, CyanAccent.copy(alpha = 0.34f), RoundedCornerShape(22.dp)),
+        containerColor = SurfaceDark.copy(alpha = 0.96f),
+        tonalElevation = 0.dp
     ) {
         items.forEach { (screen, labelRes, icon) ->
             // Strip query-param template so History with ?filter=... is still matched
@@ -83,7 +90,7 @@ fun BottomNavigationBar(navController: NavController) {
                     selectedTextColor   = CyanAccent,
                     unselectedIconColor = SubtleGray,
                     unselectedTextColor = SubtleGray,
-                    indicatorColor      = CyanAccent.copy(alpha = 0.15f)
+                    indicatorColor      = CyanAccent.copy(alpha = 0.22f)
                 )
             )
         }

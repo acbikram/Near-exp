@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
+import com.nearexpiry.manager.presentation.components.GlassActionButton
+import com.nearexpiry.manager.presentation.components.GlassActionTone
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,39 +89,33 @@ fun BackupRestoreScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Button(
+                GlassActionButton(
+                    label = stringResource(R.string.backup_database),
                     onClick = { backupLauncher.launch("NearExpiry_backup_${System.currentTimeMillis()}.json") },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.backup_database))
-                }
-                Button(
+                )
+                GlassActionButton(
+                    label = stringResource(R.string.backup_all_projects),
                     onClick = { backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json") },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.backup_all_projects))
-                }
-                Button(
+                )
+                GlassActionButton(
+                    label = stringResource(R.string.backup_now_internal),
                     onClick = { viewModel.backupNowToInternal(context) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.backup_now_internal))
-                }
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Neutral
+                )
                 Text(
                     stringResource(R.string.auto_backup_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Button(
+                GlassActionButton(
+                    label = stringResource(R.string.restore_database),
                     onClick = { restoreLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.restore_database))
-                }
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Warning
+                )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -141,30 +137,24 @@ fun BackupRestoreScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Button(
+                GlassActionButton(
+                    label = stringResource(R.string.update_catalog),
                     onClick = { catalogUpdateLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.update_catalog))
-                }
+                )
 
                 // ── Get latest catalog from PC over WiFi ─────────────────────
                 val wifiBusy = uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DISCOVERING ||
                     uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING
-                Button(
+                GlassActionButton(
+                    label = when (uiState.wifiState) {
+                        BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
+                        BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
+                        else -> stringResource(R.string.get_catalog_wifi)
+                    },
                     onClick = { viewModel.pullCatalogFromPc() },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading && !wifiBusy
-                ) {
-                    Text(
-                        when (uiState.wifiState) {
-                            BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
-                            BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
-                            else -> stringResource(R.string.get_catalog_wifi)
-                        }
-                    )
-                }
+                )
                 if (wifiBusy) {
                     if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING && uiState.wifiProgress > 0f) {
                         LinearProgressIndicator(
@@ -190,7 +180,8 @@ fun BackupRestoreScreen(
                 // list is applied only to valid catalog scans in Stock/Recheck
                 // projects to decide whether a quantity check is required.
                 Spacer(Modifier.height(4.dp))
-                Button(
+                GlassActionButton(
+                    label = stringResource(R.string.stock_recheck_file_excel),
                     onClick = {
                         recheckExcelLauncher.launch(
                             arrayOf(
@@ -200,11 +191,8 @@ fun BackupRestoreScreen(
                             )
                         )
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.stock_recheck_file_excel))
-                }
+                )
                 Text(
                     text = if (uiState.recheckCodeCount > 0) {
                         stringResource(

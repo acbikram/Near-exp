@@ -1,6 +1,7 @@
 package com.nearexpiry.manager.presentation.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -326,10 +327,11 @@ fun ClickableStatCard(
 ) {
     Card(
         modifier = modifier
+            .border(1.dp, accentColor.copy(alpha = 0.48f), MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = SurfaceVariant.copy(alpha = 0.92f)),
         shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier.padding(AppDimens.CardPadding),
@@ -374,11 +376,13 @@ fun RecentItemCard(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, CyanAccent.copy(alpha = 0.30f), MaterialTheme.shapes.medium),
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.94f)),
         shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
             Column(modifier = Modifier.padding(AppDimens.CardPadding)) {
             Text(
@@ -407,8 +411,9 @@ fun RecentItemCard(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (showExpiry) {
                     Surface(
-                        color = GreenAccent.copy(alpha = 0.12f),
-                        shape = MaterialTheme.shapes.extraSmall
+                        color = GreenAccent.copy(alpha = 0.16f),
+                        shape = MaterialTheme.shapes.extraSmall,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GreenAccent.copy(alpha = 0.38f))
                     ) {
                         Text(
                             text = stringResource(R.string.expiry_format, item.expiryDate),
@@ -418,8 +423,9 @@ fun RecentItemCard(
                     }
                 }
                 Surface(
-                    color = OrangeAccent.copy(alpha = 0.14f),
-                    shape = MaterialTheme.shapes.extraSmall
+                    color = OrangeAccent.copy(alpha = 0.16f),
+                    shape = MaterialTheme.shapes.extraSmall,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, OrangeAccent.copy(alpha = 0.38f))
                 ) {
                     val displayQuantity = stockTotalQuantity ?: item.quantity
                     Text(

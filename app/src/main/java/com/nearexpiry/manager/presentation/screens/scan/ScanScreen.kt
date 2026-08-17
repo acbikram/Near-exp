@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
@@ -671,12 +672,14 @@ private fun ScanErrorBanner(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, ErrorRed.copy(alpha = 0.80f), RoundedCornerShape(14.dp)),
         color = containerColor,
         contentColor = textColor,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(14.dp),
         tonalElevation = 3.dp,
-        shadowElevation = 3.dp
+        shadowElevation = 4.dp
     ) {
         Text(
             text = message,
@@ -701,10 +704,12 @@ private fun RecentScanCard(
     onEdit: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, CyanAccent.copy(alpha = 0.30f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.94f)),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier
@@ -913,9 +918,11 @@ private fun ScanConfirmationCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = GreenAccent.copy(alpha = 0.96f)),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.5.dp, GreenAccent, RoundedCornerShape(18.dp)),
+        colors = CardDefaults.cardColors(containerColor = GreenAccent.copy(alpha = 0.88f)),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {

@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.presentation.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,10 +107,11 @@ fun ActiveProjectHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
+                .border(1.5.dp, CyanAccent.copy(alpha = 0.72f), MaterialTheme.shapes.medium)
                 .clickable(enabled = state.projects.size > 1) { expanded = true },
             shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
-            elevation = CardDefaults.cardElevation(3.dp)
+            colors = CardDefaults.cardColors(containerColor = SurfaceVariant.copy(alpha = 0.92f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = AppDimens.CardPadding, vertical = 14.dp),

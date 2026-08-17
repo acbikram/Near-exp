@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.screens.history
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -767,12 +768,13 @@ fun HistoryItemCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .border(1.dp, CyanAccent.copy(alpha = 0.30f), MaterialTheme.shapes.medium)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = SurfaceDark
+            containerColor = SurfaceDark.copy(alpha = 0.94f)
         ),
         shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier.padding(AppDimens.CardPadding),
@@ -799,7 +801,8 @@ fun HistoryItemCard(
                 if (showExpiryStatus) {
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = expiryColor.copy(alpha = 0.16f)
+                        color = expiryColor.copy(alpha = 0.16f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, expiryColor.copy(alpha = 0.42f))
                     ) {
                         Text(
                             text = expiryLabel,

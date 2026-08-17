@@ -234,9 +234,15 @@
     <string name="appearance_current_theme_format">Theme: %1$s</string>
     <string name="theme_selection_description">Choose how the app should look. You can change this later in Settings.</string>
     <string name="theme_dark">Dark</string>
+    <string name="theme_dark_description">Deep frosted surfaces</string>
     <string name="theme_light">Light</string>
+    <string name="theme_light_description">Bright liquid-glass surfaces</string>
     <string name="theme_system">System default</string>
+    <string name="theme_system_description">Follow this device</string>
     <string name="data_management">Data Management</string>
+    <string name="glass_backup_restore_detail">Backup, restore, and import files</string>
+    <string name="glass_recycle_bin_detail">Review recently removed items</string>
+    <string name="glass_test_notification_detail">Preview today’s expiry alerts</string>
     <string name="clear_all_records">Clear All Records</string>
     <string name="clear_all_records_confirm">This action cannot be undone. Are you sure?</string>
     <string name="language">Language</string>

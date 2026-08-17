@@ -234,9 +234,15 @@
     <string name="appearance_current_theme_format">المظهر: %1$s</string>
     <string name="theme_selection_description">اختر شكل التطبيق. يمكنك تغييره لاحقاً من الإعدادات.</string>
     <string name="theme_dark">داكن</string>
+    <string name="theme_dark_description">أسطح زجاجية داكنة</string>
     <string name="theme_light">فاتح</string>
+    <string name="theme_light_description">أسطح زجاجية سائلة ومشرقة</string>
     <string name="theme_system">إعدادات النظام</string>
+    <string name="theme_system_description">اتّباع مظهر الجهاز</string>
     <string name="data_management">إدارة البيانات</string>
+    <string name="glass_backup_restore_detail">نسخ احتياطي واستعادة واستيراد الملفات</string>
+    <string name="glass_recycle_bin_detail">مراجعة العناصر المحذوفة مؤخراً</string>
+    <string name="glass_test_notification_detail">معاينة تنبيهات انتهاء الصلاحية لليوم</string>
     <string name="clear_all_records">مسح جميع السجلات</string>
     <string name="clear_all_records_confirm">لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟</string>
     <string name="language">اللغة</string>
