@@ -8,6 +8,7 @@ import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.utils.ActiveProjectManager
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.ItemNavigationContext
+import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +23,8 @@ class HomeViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val activeProjectManager: ActiveProjectManager,
-    private val itemNavigationContext: ItemNavigationContext
+    private val itemNavigationContext: ItemNavigationContext,
+    private val recheckCodeStore: RecheckCodeStore
 ) : ViewModel() {
 
     data class HomeUiState(
@@ -41,6 +43,8 @@ class HomeViewModel @Inject constructor(
         val expiringSoonItems: List<ExpiryItem> = emptyList(),
         /** Most recently scanned items, used by permanent Stock projects. */
         val recentScanItems: List<ExpiryItem> = emptyList(),
+        /** Stock-only totals: entered Physical Qty plus Recheck Damage/Exp Qty. */
+        val stockTotalQuantityByItem: Map<Long, Double> = emptyMap(),
         val isStockMode: Boolean = false,
         val activeProjectName: String = "",
         /** Colour tag of the active project (hex), used to tint the dashboard project name. */
@@ -96,18 +100,46 @@ class HomeViewModel @Inject constructor(
     private fun observeItems() {
         viewModelScope.launch {
             activeProjectManager.activeProjectIdFlow
-                .flatMapLatest { projectId -> repository.getAllItems(projectId) }
+                .flatMapLatest { projectId ->
+                    repository.getAllItems(projectId).map { items -> projectId to items }
+                }
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
-                .collect { allItems ->
+                .collect { (projectId, allItems) ->
                     // Keep malformed legacy data or an edge-case date value
                     // from escaping this startup collector as a fatal
                     // ViewModel coroutine exception.
                     runCatching {
                         val today = LocalDate.now()
 
+                        val project = projectRepository.getProjectById(projectId)
+                        val isStockProject = StockProjectClassifier.isStockProject(
+                            project?.isStockMode == true,
+                            project?.name
+                        )
+                        val recheckRowsByCode = if (isStockProject) {
+                            recheckCodeStore.templateOrderedRows().associateBy { it.code }
+                        } else {
+                            emptyMap()
+                        }
+                        val stockTotalQuantityByItem = if (isStockProject) {
+                            allItems.associate { item ->
+                                val itemCode = recheckCodeStore.normalize(item.itemCode)
+                                val barcode = recheckCodeStore.normalize(item.barcode)
+                                val damageExpiryQuantity = recheckRowsByCode[itemCode]?.damageExpiryQuantity
+                                    ?: recheckRowsByCode[barcode]?.damageExpiryQuantity
+                                    ?: 0.0
+                                item.id to (item.quantity + damageExpiryQuantity)
+                            }
+                        } else {
+                            emptyMap()
+                        }
                         val totalRecords = allItems.size
                         val uniqueProducts = allItems.map { it.barcode }.distinct().size
-                        val totalQuantity = allItems.sumOf { it.quantity }
+                        val totalQuantity = if (isStockProject) {
+                            stockTotalQuantityByItem.values.sum()
+                        } else {
+                            allItems.sumOf { it.quantity }
+                        }
                         val tomorrow = today.plusDays(1)
                         val daySeven = today.plusDays(7)
                         val dayEight = today.plusDays(8)
@@ -146,6 +178,8 @@ class HomeViewModel @Inject constructor(
                                 expiring8to30Days = expiring8to30Days,
                                 expiringSoonItems = expiringSoonItems,
                                 recentScanItems = recentScanItems,
+                                stockTotalQuantityByItem = stockTotalQuantityByItem,
+                                isStockMode = isStockProject,
                                 error = null
                             )
                         }

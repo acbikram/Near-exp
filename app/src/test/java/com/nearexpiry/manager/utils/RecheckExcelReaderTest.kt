@@ -93,6 +93,13 @@ class RecheckExcelReaderTest {
     }
 
     @Test
+    fun `normalizes only a trailing decimal artifact from numeric POS codes`() {
+        assertEquals("8600617", RecheckExcelReader.normalizeCode("8600617.0"))
+        assertEquals("00123", RecheckExcelReader.normalizeCode("00123"))
+        assertEquals("POS-1.0", RecheckExcelReader.normalizeCode("POS-1.0"))
+    }
+
+    @Test
     fun `ignores workbooks without a supported code header`() {
         val bytes = workbook(
             """

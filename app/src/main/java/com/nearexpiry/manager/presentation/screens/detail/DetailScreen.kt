@@ -188,6 +188,24 @@ fun DetailScreen(
                                             )
                                         }
                                     }
+                                    HorizontalDivider(color = CyanAccent.copy(alpha = 0.35f))
+                                    val totalQuantity = item.quantity + uiState.damageExpiryQuantity
+                                    Text(
+                                        text = if (!item.unit.isNullOrBlank()) {
+                                            stringResource(
+                                                R.string.total_qty_unit_format,
+                                                QuantityFormatter.format(totalQuantity),
+                                                item.unit
+                                            )
+                                        } else {
+                                            stringResource(
+                                                R.string.total_qty_format,
+                                                QuantityFormatter.format(totalQuantity)
+                                            )
+                                        },
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = OrangeAccent
+                                    )
                                 } else {
                                     Text(
                                         text = stringResource(R.string.item_quantity),
