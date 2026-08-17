@@ -93,12 +93,14 @@ fun BackupRestoreScreen(
                 GlassActionButton(
                     label = stringResource(R.string.backup_database),
                     onClick = { backupLauncher.launch("NearExpiry_backup_${System.currentTimeMillis()}.json") },
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Neutral
                 )
                 GlassActionButton(
                     label = stringResource(R.string.backup_all_projects),
                     onClick = { backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json") },
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Neutral
                 )
                 GlassActionButton(
                     label = stringResource(R.string.backup_now_internal),
@@ -115,7 +117,7 @@ fun BackupRestoreScreen(
                     label = stringResource(R.string.restore_database),
                     onClick = { restoreLauncher.launch(arrayOf("*/*")) },
                     enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Warning
+                    tone = GlassActionTone.Neutral
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -141,7 +143,8 @@ fun BackupRestoreScreen(
                 GlassActionButton(
                     label = stringResource(R.string.update_catalog),
                     onClick = { catalogUpdateLauncher.launch(arrayOf("*/*")) },
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Neutral
                 )
 
                 // ── Get latest catalog from PC over WiFi ─────────────────────
@@ -154,7 +157,8 @@ fun BackupRestoreScreen(
                         else -> stringResource(R.string.get_catalog_wifi)
                     },
                     onClick = { viewModel.pullCatalogFromPc() },
-                    enabled = !uiState.isLoading && !wifiBusy
+                    enabled = !uiState.isLoading && !wifiBusy,
+                    tone = GlassActionTone.Neutral
                 )
                 if (wifiBusy) {
                     if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING && uiState.wifiProgress > 0f) {
@@ -192,7 +196,8 @@ fun BackupRestoreScreen(
                             )
                         )
                     },
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    tone = GlassActionTone.Neutral
                 )
                 Text(
                     text = if (uiState.recheckCodeCount > 0) {
