@@ -58,6 +58,13 @@ fun ExportScreen(
     val shareCsvLabel = stringResource(R.string.share_csv)
 
     val itemsToExport = uiState.itemsToExport
+    // Stock export always writes the entire selected Recheck template, while
+    // normal projects export the current filtered/selected item list.
+    val visibleExportRecordCount = if (uiState.isStockMode) {
+        uiState.stockTemplateRecordCount
+    } else {
+        itemsToExport.size
+    }
     // A selected Stock Recheck template can be exported even before any scan:
     // every template row then receives physical quantity zero.
     val canExport = !uiState.isExporting && if (uiState.isStockMode) true else itemsToExport.isNotEmpty()
@@ -94,7 +101,7 @@ fun ExportScreen(
                 }
                 item {
                     Text(
-                        stringResource(R.string.total_records_count_format, uiState.totalRecords),
+                        stringResource(R.string.total_records_count_format, visibleExportRecordCount),
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
@@ -161,9 +168,9 @@ fun ExportScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                stringResource(R.string.export_record_count_format, itemsToExport.size),
+                                stringResource(R.string.export_record_count_format, visibleExportRecordCount),
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = if (itemsToExport.isEmpty()) MaterialTheme.colorScheme.error else GreenAccent,
+                                    color = if (visibleExportRecordCount == 0) MaterialTheme.colorScheme.error else GreenAccent,
                                     fontWeight = FontWeight.Bold
                                 )
                             )

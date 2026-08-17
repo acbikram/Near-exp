@@ -392,6 +392,22 @@ class HistoryViewModel @Inject constructor(
             matchesDateDimension(it, state, today) && matchesUnitFilter(it, state.unitFilter)
         }
 
+        // Sr. No. is scan rank for normal projects. In Stock Mode it prefers
+        // the explicit Serial Number from the matching Recheck workbook, then
+        // that file row's sorted position, and finally scan order for unmatched
+        // legacy items.
+        val scanSrNoMap = state.allItems
+            .sortedWith(compareBy({ it.effectiveOrder }, { it.id }))
+            .mapIndexed { index, item -> item.id to (index + 1) }
+            .toMap()
+        fun stockSrNo(item: ExpiryItem): Int {
+            val recheckRow = recheckRowFor(item)
+            return recheckRow?.serialNumber
+                ?: recheckRow?.sortOrder?.plus(1)
+                ?: scanSrNoMap[item.id]
+                ?: 0
+        }
+
         var filtered = itemsInFilter
 
         if (state.searchQuery.isNotBlank()) {
@@ -403,16 +419,13 @@ class HistoryViewModel @Inject constructor(
             }
         }
 
-        // Stock History contains only scanned project rows and intentionally
-        // keeps the most recent scans first. Each row still shows the matching
-        // source-row Sr. No. from the selected Recheck workbook. Normal projects
-        // retain all existing sort options.
+        // Stock History lists the highest source Sr. No. first. The visible
+        // order therefore mirrors a descending Recheck-file sort (e.g. 17,
+        // then 8) while normal projects retain their existing sort options.
         filtered = if (state.isStockMode) {
-            // Keep the latest stock scan readily visible at the top. The
-            // visible Sr. No. still identifies the item's original row in the
-            // master Recheck workbook, so staff can find that row instantly.
             filtered.sortedWith(
-                compareByDescending<ExpiryItem> { it.effectiveOrder }
+                compareByDescending<ExpiryItem> { stockSrNo(it) }
+                    .thenByDescending { it.effectiveOrder }
                     .thenByDescending { it.id }
             )
         } else {
@@ -426,24 +439,8 @@ class HistoryViewModel @Inject constructor(
             }
         }
 
-        // Sr. No. is scan rank for normal projects. In Stock Mode it prefers
-        // the explicit Serial Number from the matching Recheck workbook row,
-        // then falls back to that file row's sorted position, and finally to
-        // the scanned-row position for unmatched legacy data.
-        val scanSrNoMap = state.allItems
-            .sortedWith(compareBy({ it.effectiveOrder }, { it.id }))
-            .mapIndexed { index, item -> item.id to (index + 1) }
-            .toMap()
         val displaySrNoMap = if (state.isStockMode) {
-            state.allItems.associate { item ->
-                val recheckRow = recheckRowFor(item)
-                item.id to (
-                    recheckRow?.serialNumber
-                        ?: recheckRow?.sortOrder?.plus(1)
-                        ?: scanSrNoMap[item.id]
-                        ?: 0
-                )
-            }
+            state.allItems.associate { item -> item.id to stockSrNo(item) }
         } else {
             scanSrNoMap
         }

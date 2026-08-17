@@ -67,7 +67,10 @@ class ExportViewModel @Inject constructor(
 
     data class ExportUiState(
         val allItems: List<ExpiryItem> = emptyList(),
+        /** Current project rows; Stock exports use [stockTemplateRecordCount] instead. */
         val totalRecords: Int = 0,
+        /** Every POS Code row in the selected Stock Recheck master workbook. */
+        val stockTemplateRecordCount: Int = 0,
         val isExporting: Boolean = false,
         val error: String? = null,
         val success: Boolean = false,
@@ -151,6 +154,7 @@ class ExportViewModel @Inject constructor(
 
     init {
         observeItems()
+        observeTemplateRecordCount()
     }
 
     /**
@@ -163,10 +167,13 @@ class ExportViewModel @Inject constructor(
             activeProjectManager.activeProjectIdFlow
                 .onEach { projectId ->
                     val project = projectRepository.getProjectById(projectId)
+                    val isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+                    val templateCount = if (isStockMode) recheckCodeStore.templateOrderedRows().size else 0
                     _uiState.update {
                         it.copy(
                             projectName = project?.name ?: "",
-                            isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+                            isStockMode = isStockMode,
+                            stockTemplateRecordCount = templateCount
                         )
                     }
                 }
@@ -182,6 +189,18 @@ class ExportViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    /** Refreshes the displayed Stock export count whenever the selected master workbook changes. */
+    private fun observeTemplateRecordCount() {
+        viewModelScope.launch {
+            recheckCodeStore.observeOrderedRows().collect {
+                if (_uiState.value.isStockMode) {
+                    val count = recheckCodeStore.templateOrderedRows().size
+                    _uiState.update { state -> state.copy(stockTemplateRecordCount = count) }
+                }
+            }
         }
     }
 
