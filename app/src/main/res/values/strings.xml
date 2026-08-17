@@ -247,6 +247,9 @@
     <string name="clear_all_records_confirm">This action cannot be undone. Are you sure?</string>
     <string name="language">Language</string>
     <string name="language_description">Choose the app\'s display language.</string>
+    <string name="language_collapsed_description">Tap to choose the app language</string>
+    <string name="collapse_appearance">Collapse appearance</string>
+    <string name="expand_appearance">Expand appearance</string>
     <string name="language_system_default">System Default</string>
     <string name="language_english">English</string>
     <string name="language_arabic">العربية (Arabic)</string>

@@ -110,7 +110,7 @@ fun ActiveProjectHeader(
                 .border(1.5.dp, CyanAccent.copy(alpha = 0.72f), MaterialTheme.shapes.medium)
                 .clickable(enabled = state.projects.size > 1) { expanded = true },
             shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = SurfaceVariant.copy(alpha = 0.92f)),
+            colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Row(

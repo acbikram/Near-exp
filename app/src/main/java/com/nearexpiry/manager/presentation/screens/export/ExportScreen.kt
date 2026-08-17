@@ -33,6 +33,10 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
+import com.nearexpiry.manager.presentation.components.GlassActionButton
+import com.nearexpiry.manager.presentation.components.GlassActionTone
+import com.nearexpiry.manager.presentation.components.GlassSectionCard
+import com.nearexpiry.manager.presentation.components.GlassSelectableOption
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
@@ -84,6 +88,7 @@ fun ExportScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = { BottomNavigationBar(navController) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -97,21 +102,21 @@ fun ExportScreen(
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
                 item {
-                    Text(stringResource(R.string.export_all_records_csv), style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        stringResource(R.string.export_all_records_csv),
+                        style = MaterialTheme.typography.headlineSmall.copy(color = CyanAccent, fontWeight = FontWeight.Bold)
+                    )
                 }
                 item {
                     Text(
                         stringResource(R.string.total_records_count_format, visibleExportRecordCount),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge.copy(color = SubtleGray)
                     )
                 }
 
                 // ── Export Selected Data Only toggle ─────────────────────
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
+                    GlassSectionCard {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -139,22 +144,19 @@ fun ExportScreen(
                                 Spacer(Modifier.height(12.dp))
 
                                 // ── Mode selector ──────────────────────────
-                                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                                    SegmentedButton(
-                                        selected = uiState.exportMode == ExportMode.BY_FILTER,
-                                        onClick = { viewModel.setExportMode(ExportMode.BY_FILTER) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                                    ) {
-                                        Text(stringResource(R.string.export_mode_by_tag_type), style = MaterialTheme.typography.labelMedium)
-                                    }
-                                    SegmentedButton(
-                                        selected = uiState.exportMode == ExportMode.SELECT_ITEMS,
-                                        onClick = { viewModel.setExportMode(ExportMode.SELECT_ITEMS) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                                    ) {
-                                        Text(stringResource(R.string.export_mode_select_items), style = MaterialTheme.typography.labelMedium)
-                                    }
-                                }
+                                GlassSelectableOption(
+                                    label = stringResource(R.string.export_mode_by_tag_type),
+                                    selected = uiState.exportMode == ExportMode.BY_FILTER,
+                                    onClick = { viewModel.setExportMode(ExportMode.BY_FILTER) },
+                                    trailingContent = {}
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                GlassSelectableOption(
+                                    label = stringResource(R.string.export_mode_select_items),
+                                    selected = uiState.exportMode == ExportMode.SELECT_ITEMS,
+                                    onClick = { viewModel.setExportMode(ExportMode.SELECT_ITEMS) },
+                                    trailingContent = {}
+                                )
 
                                 Spacer(Modifier.height(12.dp))
 
@@ -207,34 +209,29 @@ fun ExportScreen(
                 // ── Save / Share buttons ───────────────────────────────────
                 item {
                     Spacer(Modifier.height(4.dp))
-                    Button(
+                    GlassActionButton(
+                        label = if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else stringResource(R.string.save_csv),
+                        icon = Icons.Default.Save,
                         onClick = {
                             saveLauncher.launch(
                                 if (uiState.isStockMode) viewModel.buildStockReportFilename()
                                 else viewModel.buildCsvFilename()
                             )
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canExport
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else stringResource(R.string.save_csv))
-                    }
+                        enabled = canExport,
+                        tone = GlassActionTone.Success
+                    )
                 }
                 item {
-                    Button(
+                    GlassActionButton(
+                        label = if (uiState.isStockMode) stringResource(R.string.share_stock_check_excel) else stringResource(R.string.share_csv),
+                        icon = Icons.Default.Share,
                         onClick = {
                             if (uiState.isStockMode) viewModel.generateStockReport(context)
                             else viewModel.shareAsCsv(context)
                         },
-                        modifier = Modifier.fillMaxWidth(),
                         enabled = canExport
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (uiState.isStockMode) stringResource(R.string.share_stock_check_excel) else stringResource(R.string.share_csv))
-                    }
+                    )
                 }
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -249,33 +246,27 @@ fun ExportScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
-                        Button(
+                        GlassActionButton(
+                            label = stringResource(R.string.export_stock_check_excel),
+                            icon = Icons.Default.Description,
                             onClick = { viewModel.generateStockReport(context) },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isExporting
-                        ) {
-                            Icon(Icons.Default.Description, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.export_stock_check_excel))
-                        }
+                            enabled = !uiState.isExporting,
+                            tone = GlassActionTone.Success
+                        )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
+                        GlassActionButton(
+                            label = when (uiState.sendToPcState) {
+                                ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                else -> stringResource(R.string.send_stock_check_excel_to_pc)
+                            },
+                            icon = Icons.Default.Computer,
                             onClick = { viewModel.generateStockReport(context, sendToPc = true) },
-                            modifier = Modifier.fillMaxWidth(),
                             enabled = !uiState.isExporting &&
                                 uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
-                                uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
-                        ) {
-                            Icon(Icons.Default.Computer, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                when (uiState.sendToPcState) {
-                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
-                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
-                                    else -> stringResource(R.string.send_stock_check_excel_to_pc)
-                                }
-                            )
-                        }
+                                uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING,
+                            tone = GlassActionTone.Neutral
+                        )
                     } else {
                         Text(
                             stringResource(R.string.company_report_desc),
@@ -283,31 +274,25 @@ fun ExportScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        Button(
+                        GlassActionButton(
+                            label = stringResource(R.string.make_excel_file),
+                            icon = Icons.Default.Description,
                             onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.SHARE) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Description, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.make_excel_file))
-                        }
+                            tone = GlassActionTone.Success
+                        )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
+                        GlassActionButton(
+                            label = when (uiState.sendToPcState) {
+                                ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                else -> stringResource(R.string.send_to_pc)
+                            },
+                            icon = Icons.Default.Computer,
                             onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.PC) },
-                            modifier = Modifier.fillMaxWidth(),
                             enabled = uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
-                                      uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING
-                        ) {
-                            Icon(Icons.Default.Computer, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                when (uiState.sendToPcState) {
-                                    ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
-                                    ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
-                                    else -> stringResource(R.string.send_to_pc)
-                                }
-                            )
-                        }
+                                      uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING,
+                            tone = GlassActionTone.Neutral
+                        )
                     }
                 }
             }
@@ -625,11 +610,12 @@ private fun DateFieldButton(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(date?.format(formatter) ?: label, maxLines = 1)
-        }
+        GlassActionButton(
+            label = date?.format(formatter) ?: label,
+            icon = Icons.Default.CalendarMonth,
+            onClick = onClick,
+            tone = GlassActionTone.Neutral
+        )
         if (date != null) {
             TextButton(onClick = onClear, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.export_clear_date), style = MaterialTheme.typography.labelSmall, color = SubtleGray)
@@ -672,12 +658,18 @@ private fun SelectableExportItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 2.dp)
+            .border(
+                width = if (checked) 1.5.dp else 1.dp,
+                color = if (checked) CyanAccent else CyanAccent.copy(alpha = 0.30f),
+                shape = RoundedCornerShape(16.dp)
+            ),
         onClick = onToggle,
         colors = CardDefaults.cardColors(
-            containerColor = if (checked) CyanAccent.copy(alpha = 0.12f) else SurfaceDark
+            containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer else SurfaceDark
         ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

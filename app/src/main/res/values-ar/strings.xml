@@ -247,6 +247,9 @@
     <string name="clear_all_records_confirm">لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟</string>
     <string name="language">اللغة</string>
     <string name="language_description">اختر لغة عرض التطبيق.</string>
+    <string name="language_collapsed_description">اضغط لاختيار لغة التطبيق</string>
+    <string name="collapse_appearance">طي إعدادات المظهر</string>
+    <string name="expand_appearance">توسيع إعدادات المظهر</string>
     <string name="language_system_default">لغة النظام</string>
     <string name="language_english">English (الإنجليزية)</string>
     <string name="language_arabic">العربية</string>

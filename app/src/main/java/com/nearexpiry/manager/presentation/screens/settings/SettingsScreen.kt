@@ -122,7 +122,7 @@ fun SettingsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
                                 Text(
-                                    if (languageExpanded) stringResource(R.string.language_description) else "Tap to choose the app language",
+                                    if (languageExpanded) stringResource(R.string.language_description) else stringResource(R.string.language_collapsed_description),
                                     style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
                                 )
                             }
@@ -182,9 +182,9 @@ fun SettingsScreen(
                                     Icons.Default.KeyboardArrowDown
                                 },
                                 contentDescription = if (appearanceExpanded) {
-                                    "Collapse appearance"
+                                    stringResource(R.string.collapse_appearance)
                                 } else {
-                                    "Expand appearance"
+                                    stringResource(R.string.expand_appearance)
                                 },
                                 tint = CyanAccent
                             )

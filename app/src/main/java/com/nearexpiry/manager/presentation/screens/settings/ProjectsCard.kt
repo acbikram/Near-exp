@@ -189,7 +189,7 @@ private fun ProjectRow(
 
     val rowShape = RoundedCornerShape(16.dp)
     Surface(
-        color = if (isActive) CyanAccent.copy(alpha = 0.16f) else SurfaceDark,
+        color = if (isActive) MaterialTheme.colorScheme.primaryContainer else SurfaceDark,
         shape = rowShape,
         tonalElevation = if (isActive) 1.dp else 0.dp,
         shadowElevation = if (isActive) 3.dp else 0.dp,

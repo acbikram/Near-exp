@@ -2,7 +2,6 @@ package com.nearexpiry.manager.presentation.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,8 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -58,13 +57,17 @@ private val GlassControlShape = RoundedCornerShape(16.dp)
 private fun isLightAppearance(): Boolean = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
 @Composable
-private fun glassFill(selected: Boolean, accent: Color): Brush {
+private fun glassSurfaceColor(selected: Boolean, accent: Color): Color {
     val light = isLightAppearance()
-    val base = if (light) Color.White else MaterialTheme.colorScheme.surface
-    val highlight = if (selected) accent.copy(alpha = if (light) 0.18f else 0.24f)
-    else if (light) Color(0xFFEFF8FB).copy(alpha = 0.88f) else Color(0xFF202B35).copy(alpha = 0.84f)
-    val end = if (light) base.copy(alpha = 0.86f) else base.copy(alpha = 0.92f)
-    return Brush.linearGradient(listOf(highlight, end))
+    // Use one opaque tinted surface instead of a translucent gradient behind a
+    // transparent Material Surface. This prevents Light theme from showing a
+    // rectangular white inset inside an otherwise rounded glass card.
+    val base = if (light) Color(0xFFE6F3F8) else Color(0xFF132632)
+    return if (selected) {
+        accent.copy(alpha = if (light) 0.13f else 0.20f).compositeOver(base)
+    } else {
+        base
+    }
 }
 
 @Composable
@@ -88,9 +91,8 @@ fun GlassSectionCard(
     Surface(
         modifier = modifier
             .clip(shape)
-            .background(glassFill(selected = false, accent = accent))
             .border(1.dp, glassOutline(selected = false, accent = accent), shape),
-        color = Color.Transparent,
+        color = glassSurfaceColor(selected = false, accent = accent),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 2.dp,
         tonalElevation = 0.dp,
@@ -128,7 +130,6 @@ fun GlassSelectableOption(
             .fillMaxWidth()
             .defaultMinSize(minHeight = AppDimens.MinimumTouchTarget)
             .clip(shape)
-            .background(glassFill(selected, accent))
             .border(if (selected) 1.5.dp else 1.dp, glassOutline(selected, accent), shape)
             .clickable(
                 interactionSource = interactionSource,
@@ -136,7 +137,7 @@ fun GlassSelectableOption(
                 role = Role.RadioButton,
                 onClick = onClick
             ),
-        color = Color.Transparent,
+        color = glassSurfaceColor(selected, accent),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = animatedElevation.value,
         tonalElevation = 0.dp,
@@ -228,10 +229,9 @@ fun GlassActionButton(
             .fillMaxWidth()
             .defaultMinSize(minHeight = AppDimens.MinimumTouchTarget)
             .clip(shape)
-            .background(glassFill(selected = tone != GlassActionTone.Neutral, accent = accent))
             .border(1.dp, glassOutline(selected = tone != GlassActionTone.Neutral, accent = accent), shape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        color = Color.Transparent,
+        color = glassSurfaceColor(selected = tone != GlassActionTone.Neutral, accent = accent),
         contentColor = accent,
         shadowElevation = if (enabled) 1.dp else 0.dp,
         tonalElevation = 0.dp,

@@ -329,7 +329,7 @@ fun ClickableStatCard(
         modifier = modifier
             .border(1.dp, accentColor.copy(alpha = 0.48f), MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = SurfaceVariant.copy(alpha = 0.92f)),
+        colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
@@ -380,7 +380,7 @@ fun RecentItemCard(
             .fillMaxWidth()
             .border(1.dp, CyanAccent.copy(alpha = 0.30f), MaterialTheme.shapes.medium),
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.94f)),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
