@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.clickable
@@ -220,7 +219,7 @@ fun ExportScreen(
                             )
                         },
                         enabled = canExport,
-                        tone = GlassActionTone.Success
+                        tone = GlassActionTone.Neutral
                     )
                 }
                 item {
@@ -231,7 +230,8 @@ fun ExportScreen(
                             if (uiState.isStockMode) viewModel.generateStockReport(context)
                             else viewModel.shareAsCsv(context)
                         },
-                        enabled = canExport
+                        enabled = canExport,
+                        tone = GlassActionTone.Neutral
                     )
                 }
                 item {
@@ -247,14 +247,6 @@ fun ExportScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
-                        GlassActionButton(
-                            label = stringResource(R.string.export_stock_check_excel),
-                            icon = Icons.Default.Description,
-                            onClick = { viewModel.generateStockReport(context) },
-                            enabled = !uiState.isExporting,
-                            tone = GlassActionTone.Success
-                        )
-                        Spacer(Modifier.height(8.dp))
                         GlassActionButton(
                             label = when (uiState.sendToPcState) {
                                 ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
@@ -275,13 +267,6 @@ fun ExportScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        GlassActionButton(
-                            label = stringResource(R.string.make_excel_file),
-                            icon = Icons.Default.Description,
-                            onClick = { viewModel.startCompanyReport(ExportViewModel.ReportDestination.SHARE) },
-                            tone = GlassActionTone.Success
-                        )
-                        Spacer(Modifier.height(8.dp))
                         GlassActionButton(
                             label = when (uiState.sendToPcState) {
                                 ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
