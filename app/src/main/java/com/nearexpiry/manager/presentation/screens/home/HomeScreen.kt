@@ -154,6 +154,13 @@ fun HomeScreen(
                         onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") }
                     )
                     ClickableStatCard(
+                        label = stringResource(R.string.damage_exp_qty),
+                        value = uiState.stockDamageExpiryQuantity,
+                        accentColor = OrangeAccent,
+                        modifier = Modifier.weight(1f),
+                        onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") }
+                    )
+                    ClickableStatCard(
                         label = "Total Quantity",
                         value = uiState.totalQuantity,
                         accentColor = GreenAccent,

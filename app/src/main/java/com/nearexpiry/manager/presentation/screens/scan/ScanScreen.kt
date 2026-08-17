@@ -387,6 +387,7 @@ fun ScanScreen(
                     RecentScanCard(
                         item = item,
                         showExpiry = !uiState.isStockMode,
+                        stockTotalQuantity = uiState.stockTotalQuantityByItem[item.id],
                         onEdit = { viewModel.requestEdit(item) }
                     )
                 }
@@ -695,6 +696,8 @@ private fun ScanErrorBanner(
 private fun RecentScanCard(
     item: ExpiryItem,
     showExpiry: Boolean = true,
+    /** Non-null in Stock Mode: entered Physical Qty plus Recheck Damage/Exp Qty. */
+    stockTotalQuantity: Double? = null,
     onEdit: () -> Unit
 ) {
     Card(
@@ -750,18 +753,25 @@ private fun RecentScanCard(
                             style = MaterialTheme.typography.bodySmall.copy(color = GreenAccent)
                         )
                     }
+                    val displayQuantity = stockTotalQuantity ?: item.quantity
                     Text(
-                        text = if (item.unit != null)
+                        text = if (stockTotalQuantity != null && item.unit != null) {
                             stringResource(
-                                R.string.qty_unit_format,
-                                QuantityFormatter.format(item.quantity),
+                                R.string.total_qty_unit_format,
+                                QuantityFormatter.format(displayQuantity),
                                 item.unit
                             )
-                        else
+                        } else if (stockTotalQuantity != null) {
+                            stringResource(R.string.total_qty_format, QuantityFormatter.format(displayQuantity))
+                        } else if (item.unit != null) {
                             stringResource(
-                                R.string.qty_format,
-                                QuantityFormatter.format(item.quantity)
-                            ),
+                                R.string.qty_unit_format,
+                                QuantityFormatter.format(displayQuantity),
+                                item.unit
+                            )
+                        } else {
+                            stringResource(R.string.qty_format, QuantityFormatter.format(displayQuantity))
+                        },
                         style = MaterialTheme.typography.bodySmall.copy(color = OrangeAccent)
                     )
                 }

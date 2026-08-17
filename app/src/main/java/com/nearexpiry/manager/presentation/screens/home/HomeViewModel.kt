@@ -45,6 +45,8 @@ class HomeViewModel @Inject constructor(
         val recentScanItems: List<ExpiryItem> = emptyList(),
         /** Stock-only totals: entered Physical Qty plus Recheck Damage/Exp Qty. */
         val stockTotalQuantityByItem: Map<Long, Double> = emptyMap(),
+        /** Aggregate Damage/Exp Qty from matching Recheck rows for scanned Stock items. */
+        val stockDamageExpiryQuantity: Double = 0.0,
         val isStockMode: Boolean = false,
         val activeProjectName: String = "",
         /** Colour tag of the active project (hex), used to tint the dashboard project name. */
@@ -121,18 +123,27 @@ class HomeViewModel @Inject constructor(
                         } else {
                             emptyMap()
                         }
-                        val stockTotalQuantityByItem = if (isStockProject) {
+                        val stockDamageExpiryByItem = if (isStockProject) {
                             allItems.associate { item ->
                                 val itemCode = recheckCodeStore.normalize(item.itemCode)
                                 val barcode = recheckCodeStore.normalize(item.barcode)
-                                val damageExpiryQuantity = recheckRowsByCode[itemCode]?.damageExpiryQuantity
-                                    ?: recheckRowsByCode[barcode]?.damageExpiryQuantity
-                                    ?: 0.0
-                                item.id to (item.quantity + damageExpiryQuantity)
+                                item.id to (
+                                    recheckRowsByCode[itemCode]?.damageExpiryQuantity
+                                        ?: recheckRowsByCode[barcode]?.damageExpiryQuantity
+                                        ?: 0.0
+                                )
                             }
                         } else {
                             emptyMap()
                         }
+                        val stockTotalQuantityByItem = if (isStockProject) {
+                            allItems.associate { item ->
+                                item.id to (item.quantity + (stockDamageExpiryByItem[item.id] ?: 0.0))
+                            }
+                        } else {
+                            emptyMap()
+                        }
+                        val stockDamageExpiryQuantity = stockDamageExpiryByItem.values.sum()
                         val totalRecords = allItems.size
                         val uniqueProducts = allItems.map { it.barcode }.distinct().size
                         val totalQuantity = if (isStockProject) {
@@ -179,6 +190,7 @@ class HomeViewModel @Inject constructor(
                                 expiringSoonItems = expiringSoonItems,
                                 recentScanItems = recentScanItems,
                                 stockTotalQuantityByItem = stockTotalQuantityByItem,
+                                stockDamageExpiryQuantity = stockDamageExpiryQuantity,
                                 isStockMode = isStockProject,
                                 error = null
                             )

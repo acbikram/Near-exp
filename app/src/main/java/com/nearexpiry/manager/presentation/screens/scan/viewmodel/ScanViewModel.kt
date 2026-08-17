@@ -49,6 +49,8 @@ class ScanViewModel @Inject constructor(
 
     data class ScanUiState(
         val recentScans: List<ExpiryItem> = emptyList(),
+        /** Stock-only: entered Physical Qty plus matching Recheck Damage/Exp Qty. */
+        val stockTotalQuantityByItem: Map<Long, Double> = emptyMap(),
         val activeProjectName: String = "",
         /** True when the active project is a permanent Stock / inventory check. */
         val isStockMode: Boolean = false,
@@ -974,8 +976,32 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val projectId = activeProjectManager.getActiveProjectId()
             val allItems = repository.getItemsOnce(projectId)
+            val project = projectRepository.getProjectById(projectId)
+            val isStockProject = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+            val recheckRowsByCode = if (isStockProject) {
+                recheckCodeStore.templateOrderedRows().associateBy { it.code }
+            } else {
+                emptyMap()
+            }
+            val stockTotalQuantityByItem = if (isStockProject) {
+                allItems.associate { item ->
+                    val itemCode = recheckCodeStore.normalize(item.itemCode)
+                    val barcode = recheckCodeStore.normalize(item.barcode)
+                    val damageExpiryQuantity = recheckRowsByCode[itemCode]?.damageExpiryQuantity
+                        ?: recheckRowsByCode[barcode]?.damageExpiryQuantity
+                        ?: 0.0
+                    item.id to (item.quantity + damageExpiryQuantity)
+                }
+            } else {
+                emptyMap()
+            }
             val items = allItems.sortedByDescending { it.createdAt }.take(20)
-            _uiState.update { it.copy(recentScans = items) }
+            _uiState.update {
+                it.copy(
+                    recentScans = items,
+                    stockTotalQuantityByItem = stockTotalQuantityByItem
+                )
+            }
         }
     }
 

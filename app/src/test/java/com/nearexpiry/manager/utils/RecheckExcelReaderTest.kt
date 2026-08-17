@@ -93,6 +93,28 @@ class RecheckExcelReaderTest {
     }
 
     @Test
+    fun `captures Damage Expiry Stock for numeric POS Code rows`() {
+        val bytes = workbook(
+            """
+            <worksheet><sheetData>
+              <row r="1">
+                <c r="A1" t="inlineStr"><is><t>Sr. No.</t></is></c>
+                <c r="B1" t="inlineStr"><is><t>POS_CODE</t></is></c>
+                <c r="G1" t="inlineStr"><is><t>Damage Expiry Stock</t></is></c>
+              </row>
+              <row r="2"><c r="A2"><v>10</v></c><c r="B2"><v>8897605</v></c><c r="G2"><v>5</v></c></row>
+            </sheetData></worksheet>
+            """.trimIndent()
+        )
+
+        val row = RecheckExcelReader.readRows(bytes).single()
+
+        assertEquals("8897605", row.code)
+        assertEquals(10, row.serialNumber)
+        assertEquals(5.0, row.damageExpiryQuantity, 0.0)
+    }
+
+    @Test
     fun `normalizes only a trailing decimal artifact from numeric POS codes`() {
         assertEquals("8600617", RecheckExcelReader.normalizeCode("8600617.0"))
         assertEquals("00123", RecheckExcelReader.normalizeCode("00123"))
