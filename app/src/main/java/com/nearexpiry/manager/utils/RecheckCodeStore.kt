@@ -94,6 +94,6 @@ class RecheckCodeStore @Inject constructor(
     fun normalize(value: String?): String? = value
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
-        ?.replace(Regex("""^(\\d+)\\.0+$"""), "$1")
+        ?.replace(Regex("""^(\d+)\.0+$"""), "$1")
         ?.uppercase()
 }

@@ -269,7 +269,7 @@ object RecheckExcelReader {
     fun normalizeCode(value: String?): String? = value
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
-        ?.replace(Regex("""^(\\d+)\\.0+$"""), "$1")
+        ?.replace(Regex("""^(\d+)\.0+$"""), "$1")
         ?.uppercase()
 
     private fun String?.toSerialNumberOrNull(): Int? {
