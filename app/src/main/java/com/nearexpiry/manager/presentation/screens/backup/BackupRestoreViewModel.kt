@@ -82,6 +82,10 @@ class BackupRestoreViewModel @Inject constructor(
         val recheckCodeCount: Int = 0,
         /** Non-empty POS-code rows found in the selected master template. */
         val recheckSourceCodeRowCount: Int = 0,
+        /** Recheck rows with a positive Damage/Expiry quantity in the selected workbook. */
+        val recheckDamageExpiryItemCount: Int = 0,
+        /** Total positive Damage/Expiry quantity in the selected workbook. */
+        val recheckDamageExpiryTotal: Double = 0.0,
         /** One-shot confirmation after the Recheck workbook replaces the old list. */
         val recheckImportResult: String? = null
     )
@@ -98,19 +102,38 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             val storedCount = runCatching { recheckCodeStore.importedCodeCount() }.getOrDefault(0)
             val storedName = runCatching { preferencesManager.getRecheckFileName() }.getOrDefault("")
-            val sourceRowCount = runCatching {
+            val workbookStatus = runCatching {
                 val template = recheckTemplateStore.read()
                 if (template != null) withContext(Dispatchers.Default) {
-                    RecheckExcelReader.readImport(template).sourceCodeRowCount
-                } else storedCount
-            }.getOrDefault(storedCount)
+                    RecheckWorkbookStatus.from(RecheckExcelReader.readImport(template))
+                } else {
+                    RecheckWorkbookStatus(sourceCodeRowCount = storedCount)
+                }
+            }.getOrDefault(RecheckWorkbookStatus(sourceCodeRowCount = storedCount))
             _uiState.update {
                 it.copy(
                     recheckFileName = storedName,
                     recheckCodeCount = storedCount,
-                    recheckSourceCodeRowCount = sourceRowCount
+                    recheckSourceCodeRowCount = workbookStatus.sourceCodeRowCount,
+                    recheckDamageExpiryItemCount = workbookStatus.damageExpiryItemCount,
+                    recheckDamageExpiryTotal = workbookStatus.damageExpiryTotal
                 )
             }
+        }
+    }
+
+    private data class RecheckWorkbookStatus(
+        val sourceCodeRowCount: Int,
+        val damageExpiryItemCount: Int = 0,
+        val damageExpiryTotal: Double = 0.0
+    ) {
+        companion object {
+            fun from(import: RecheckExcelReader.ImportResult): RecheckWorkbookStatus =
+                RecheckWorkbookStatus(
+                    sourceCodeRowCount = import.sourceCodeRowCount,
+                    damageExpiryItemCount = import.damageExpiryItemCount,
+                    damageExpiryTotal = import.damageExpiryTotal
+                )
         }
     }
 
@@ -391,6 +414,7 @@ class BackupRestoreViewModel @Inject constructor(
                 // failed file write cannot replace the currently working index.
                 recheckTemplateStore.replace(bytes)
                 val count = recheckCodeStore.replaceRows(import.rows)
+                val workbookStatus = RecheckWorkbookStatus.from(import)
                 val fileName = resolveDisplayName(context, uri)
                 preferencesManager.setRecheckFileMetadata(fileName, count)
                 val importSummary = buildString {
@@ -407,7 +431,9 @@ class BackupRestoreViewModel @Inject constructor(
                         isLoading = false,
                         recheckFileName = fileName,
                         recheckCodeCount = count,
-                        recheckSourceCodeRowCount = import.sourceCodeRowCount,
+                        recheckSourceCodeRowCount = workbookStatus.sourceCodeRowCount,
+                        recheckDamageExpiryItemCount = workbookStatus.damageExpiryItemCount,
+                        recheckDamageExpiryTotal = workbookStatus.damageExpiryTotal,
                         recheckImportResult = importSummary
                     )
                 }

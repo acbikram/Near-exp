@@ -407,6 +407,7 @@
     <string name="share_stock_check_excel">Share Stock Check Excel</string>
     <string name="send_stock_check_excel_to_pc">Send Stock Excel to PC (Wi-Fi)</string>
     <string name="recheck_file_selected_format">Selected: %1$s · %2$d unique codes from %3$d POS Code rows</string>
+    <string name="recheck_damage_expiry_summary">Damage/Expiry: %1$d item(s) with %2$s total quantity</string>
     <string name="recheck_excel_default_name">Recheck Excel</string>
     <string name="recheck_file_select_description">Select the Excel file used to decide which Stock items need quantity recheck.</string>
     <string name="default_project_name">Project</string>

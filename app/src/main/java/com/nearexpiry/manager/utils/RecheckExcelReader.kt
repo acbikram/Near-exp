@@ -29,7 +29,11 @@ object RecheckExcelReader {
         val rows: List<Row>,
         val sourceCodeRowCount: Int,
         val duplicateCodeRowCount: Int,
-        val blankCodeRowCount: Int
+        val blankCodeRowCount: Int,
+        /** Positive Damage/Expiry rows in the source workbook, before code deduplication. */
+        val damageExpiryItemCount: Int = 0,
+        /** Total positive Damage/Expiry quantity in the source workbook. */
+        val damageExpiryTotal: Double = 0.0
     ) {
         val uniqueCodeCount: Int get() = rows.size
     }
@@ -88,11 +92,14 @@ object RecheckExcelReader {
         val uniqueRows = linkedMapOf<String, Row>()
         sheetRows.rows.forEach { row -> uniqueRows.putIfAbsent(row.code, row) }
         val orderedRows = uniqueRows.values.mapIndexed { index, row -> row.copy(sortOrder = index) }
+        val positiveDamageRows = sheetRows.rows.filter { it.damageExpiryQuantity > 0.0 }
         return ImportResult(
             rows = orderedRows,
             sourceCodeRowCount = sheetRows.sourceCodeRowCount,
             duplicateCodeRowCount = sheetRows.rows.size - orderedRows.size,
-            blankCodeRowCount = sheetRows.blankCodeRowCount
+            blankCodeRowCount = sheetRows.blankCodeRowCount,
+            damageExpiryItemCount = positiveDamageRows.size,
+            damageExpiryTotal = positiveDamageRows.sumOf { it.damageExpiryQuantity }
         )
     }
 

@@ -67,6 +67,8 @@ class RecheckExcelReaderTest {
         assertEquals(2, result.uniqueCodeCount)
         assertEquals(1, result.duplicateCodeRowCount)
         assertEquals(1, result.blankCodeRowCount)
+        assertEquals(1, result.damageExpiryItemCount)
+        assertEquals(2.5, result.damageExpiryTotal, 0.0)
         assertEquals(listOf("POS-001", "POS-002"), result.rows.map { it.code })
         assertEquals(2.5, result.rows.first().damageExpiryQuantity, 0.0)
     }

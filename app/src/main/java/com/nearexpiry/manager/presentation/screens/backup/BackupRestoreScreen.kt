@@ -19,6 +19,7 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
+import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -207,6 +208,18 @@ fun BackupRestoreScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (uiState.recheckDamageExpiryItemCount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.recheck_damage_expiry_summary,
+                            uiState.recheckDamageExpiryItemCount,
+                            QuantityFormatter.format(uiState.recheckDamageExpiryTotal)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
             }
 
             if (uiState.isLoading) {
