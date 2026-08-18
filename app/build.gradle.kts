@@ -14,10 +14,15 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 110
-        versionName = "2.99"
+        versionCode = 111
+        versionName = "3.00"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Phone-only universal APK: do not include emulator-native libraries.
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     // Release signing. The keystore + passwords come from environment
@@ -43,9 +48,8 @@ android {
 
     buildTypes {
         release {
-            // Keep minify OFF: avoids ProGuard/R8 stripping reflection-based
-            // code (Hilt/Room/serialization) at runtime on sideloaded builds.
-            isMinifyEnabled = false
+            // Remove unused code and optimize the production APK.
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
