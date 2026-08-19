@@ -54,8 +54,7 @@ class SnoozedReminderWorker @AssistedInject constructor(
         if (daysLeft < 0) return Result.success()
 
         NotificationHelper.createChannels(applicationContext)
-        val projectName = database.projectDao().getProjectById(item.projectId)?.name ?: ""
-        NotificationHelper.postItemNotification(applicationContext, daysLeft, item, projectName)
+        NotificationHelper.postItemNotification(applicationContext, daysLeft, item)
         return Result.success()
     }
 }

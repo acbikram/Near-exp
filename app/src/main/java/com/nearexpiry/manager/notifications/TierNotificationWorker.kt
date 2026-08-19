@@ -23,8 +23,7 @@ import java.util.concurrent.TimeUnit
  *
  * Re-reads the items by id at fire time so quantities/names are current and
  * any deleted items are dropped. Scoped to whatever the active project's
- * items were when enqueued (ids are passed in); the project name is looked
- * up fresh for the label.
+ * items were when enqueued (ids are passed in).
  */
 @HiltWorker
 class TierNotificationWorker @AssistedInject constructor(
@@ -71,12 +70,9 @@ class TierNotificationWorker @AssistedInject constructor(
         val items = ids.mapNotNull { dao.getItemById(it) }
         if (items.isEmpty()) return Result.success()
 
-        val projectId = items.first().projectId
-        val projectName = database.projectDao().getProjectById(projectId)?.name ?: ""
-
         // Individual notification per item (fired together as this tier's wave).
         items.forEach { item ->
-            NotificationHelper.postItemNotification(appContext, days, item, projectName)
+            NotificationHelper.postItemNotification(appContext, days, item)
         }
         return Result.success()
     }

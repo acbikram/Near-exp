@@ -39,19 +39,16 @@ object NotificationHelper {
     fun postItemNotification(
         context: Context,
         daysLeft: Int,
-        item: ExpiryItemEntity,
-        projectName: String
+        item: ExpiryItemEntity
     ) {
         val isHard = daysLeft == 0 || daysLeft == 3
         val channel = if (isHard) CHANNEL_HARD else CHANNEL_SOFT
 
         val name = displayName(item)
         val qty = formatQty(context, item.quantity, item.unit)
-        val titleBase = when (daysLeft) {
-            0    -> context.getString(R.string.notif_item_today_format, name)
-            else -> context.getString(R.string.notif_item_days_format, name, daysLeft)
-        }
-        val title = withProject(titleBase, projectName)
+        // Keep the first notification line focused on the product itself.
+        // Tier urgency is conveyed by the notification channel and vibration.
+        val title = name
         val body = context.getString(R.string.notif_item_body_format, qty, item.expiryDate)
 
         val builder = baseBuilder(context, channel, title, body)
@@ -69,10 +66,6 @@ object NotificationHelper {
 
         notifyIfPermitted(context, notifId(item.id, daysLeft), builder.build())
     }
-
-    /** Prefixes a notification title with the project name when present. */
-    private fun withProject(title: String, projectName: String): String =
-        if (projectName.isBlank()) title else "[$projectName] $title"
 
     /** Notifies that a newer app version is available; tapping opens the update screen. */
     fun postUpdateAvailableNotification(context: Context, versionName: String) {

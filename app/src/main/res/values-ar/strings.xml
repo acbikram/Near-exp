@@ -291,7 +291,7 @@
     <string name="app_updates">تحديثات التطبيق</string>
     <string name="notif_item_today_format">⚠️ %1$s ينتهي اليوم</string>
     <string name="notif_item_days_format">%1$s ينتهي خلال %2$d أيام</string>
-    <string name="notif_item_body_format">%1$s · ينتهي %2$s</string>
+    <string name="notif_item_body_format">%1$s · تاريخ الانتهاء: %2$s</string>
 
     <!-- ── أسماء الأشهر (الميلادية) لنافذة اختيار التاريخ ──────────────── -->
     <string-array name="month_short_names">

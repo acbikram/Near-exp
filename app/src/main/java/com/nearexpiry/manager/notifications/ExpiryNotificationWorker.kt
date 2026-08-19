@@ -137,7 +137,7 @@ class ExpiryNotificationWorker @AssistedInject constructor(
                     if (daysLeft !in tiersToPost) return@forEach
                     val tierItems = tiers[daysLeft].orEmpty()
                     tierItems.forEach { item ->
-                        NotificationHelper.postItemNotification(context, daysLeft, item, projectName)
+                        NotificationHelper.postItemNotification(context, daysLeft, item)
                     }
                     posted += tierItems.size
                 }

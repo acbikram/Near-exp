@@ -291,7 +291,7 @@
     <string name="app_updates">App Updates</string>
     <string name="notif_item_today_format">⚠️ %1$s expires today</string>
     <string name="notif_item_days_format">%1$s expiring in %2$d days</string>
-    <string name="notif_item_body_format">%1$s · exp %2$s</string>
+    <string name="notif_item_body_format">%1$s · Expiry: %2$s</string>
 
     <!-- ── Month names (Gregorian) for date picker ─────────────────────── -->
     <string-array name="month_short_names">
