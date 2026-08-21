@@ -14,8 +14,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 113
-        versionName = "3.02"
+        versionCode = 114
+        versionName = "3.03"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -23,6 +23,10 @@ android {
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
+
+        // The app supports English and Arabic; omit dependency translations for
+        // languages that the application does not offer.
+        resourceConfigurations += listOf("en", "ar")
     }
 
     // Release signing. The keystore + passwords come from environment
@@ -48,8 +52,9 @@ android {
 
     buildTypes {
         release {
-            // Remove unused code and optimize the production APK.
+            // Remove unused code and resources from the production APK.
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
