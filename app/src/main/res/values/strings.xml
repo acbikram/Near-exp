@@ -466,4 +466,7 @@
     <string name="google_drive_restore_confirm_title">Restore this Google Drive backup?</string>
     <string name="google_drive_restore_confirm_message">The selected backup will replace the relevant app data. A new all-project internal safety backup will be created first.</string>
     <string name="google_drive_section_summary_format">%1$s · %2$s</string>
+    <string name="google_drive_permission_required">Google Drive permission is required. Tap Grant Google Drive Permission to continue.</string>
+    <string name="google_drive_grant_permission">Grant Google Drive Permission</string>
+    <string name="google_drive_permission_granted">Google Drive permission granted</string>
 </resources>

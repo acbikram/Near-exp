@@ -1,10 +1,11 @@
 package com.nearexpiry.manager.utils
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
@@ -52,10 +53,18 @@ class GoogleDriveBackupManager @Inject constructor(
         val backupEnabled: Boolean = false
     )
 
+    /** The UI must launch [pendingIntent] to let the selected user grant Drive access. */
+    sealed interface DriveAuthorizationState {
+        data object Granted : DriveAuthorizationState
+        data class ConsentRequired(val pendingIntent: PendingIntent) : DriveAuthorizationState
+    }
+
+    /** Raised from background work only when user interaction is required. */
+    class DriveAuthorizationRequiredException : IllegalStateException("Google Drive permission is required")
+
     companion object {
         const val FOLDER_NAME = "Near Expiry Backups"
         private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-        private const val OAUTH_SCOPE = "oauth2:$DRIVE_FILE_SCOPE"
         private const val DRIVE_API = "https://www.googleapis.com/drive/v3"
         private const val DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3"
         private const val KEEP_COUNT = 14 // Seven days × noon and midnight.
@@ -64,7 +73,6 @@ class GoogleDriveBackupManager @Inject constructor(
     private val signInOptions: GoogleSignInOptions
         get() = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestScopes(Scope(DRIVE_FILE_SCOPE))
             .build()
 
     fun signInIntent(): Intent = GoogleSignIn.getClient(context, signInOptions).signInIntent
@@ -76,6 +84,10 @@ class GoogleDriveBackupManager @Inject constructor(
         backupEnabled = preferencesManager.isGoogleDriveBackupEnabled()
     )
 
+    /**
+     * Authentication identifies the selected account. Drive access is requested
+     * separately, only for the optional backup feature, through AuthorizationClient.
+     */
     suspend fun handleSignInResult(data: Intent?): String = withContext(Dispatchers.IO) {
         val account = GoogleSignIn.getSignedInAccountFromIntent(data)
             .getResult(ApiException::class.java)
@@ -83,6 +95,42 @@ class GoogleDriveBackupManager @Inject constructor(
         preferencesManager.setGoogleDriveAccountEmail(email)
         preferencesManager.setGoogleDriveBackupEnabled(true)
         email
+    }
+
+    /**
+     * Requests the narrow Drive scope for the selected account. On a returning
+     * account Google returns a short-lived token without UI; a new account gets
+     * a PendingIntent that the screen launches to obtain explicit consent.
+     */
+    suspend fun requestDriveAuthorization(): DriveAuthorizationState = withContext(Dispatchers.IO) {
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+            ?: throw IllegalStateException("Connect Google Drive first")
+        val androidAccount = account.account
+            ?: throw IllegalStateException("Google account is unavailable")
+        val result = Tasks.await(
+            Identity.getAuthorizationClient(context).authorize(authorizationRequest(androidAccount)),
+            30,
+            TimeUnit.SECONDS
+        )
+        if (result.hasResolution()) {
+            val pendingIntent = result.pendingIntent
+                ?: throw IllegalStateException("Google Drive permission could not be requested")
+            DriveAuthorizationState.ConsentRequired(pendingIntent)
+        } else {
+            result.accessToken?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("Google Drive did not return an access token")
+            preferencesManager.setGoogleDriveConsentRequired(false)
+            DriveAuthorizationState.Granted
+        }
+    }
+
+    /** Validates the Activity Result from the Google Drive consent screen. */
+    suspend fun handleDriveAuthorizationResult(data: Intent?) = withContext(Dispatchers.IO) {
+        if (data == null) throw IllegalStateException("Google Drive permission was not granted")
+        val result = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data)
+        result.accessToken?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Google Drive permission was not granted")
+        preferencesManager.setGoogleDriveConsentRequired(false)
     }
 
     suspend fun disconnect() = withContext(Dispatchers.IO) {
@@ -144,12 +192,25 @@ class GoogleDriveBackupManager @Inject constructor(
         )
     }
 
+    private fun authorizationRequest(account: android.accounts.Account): AuthorizationRequest =
+        AuthorizationRequest.builder()
+            .setAccount(account)
+            .setRequestedScopes(listOf(Scope(DRIVE_FILE_SCOPE)))
+            .build()
+
     private fun accessToken(): String {
         val account = GoogleSignIn.getLastSignedInAccount(context)
             ?: throw IllegalStateException("Connect Google Drive first")
         val androidAccount = account.account
             ?: throw IllegalStateException("Google account is unavailable")
-        return GoogleAuthUtil.getToken(context, androidAccount, OAUTH_SCOPE)
+        val result = Tasks.await(
+            Identity.getAuthorizationClient(context).authorize(authorizationRequest(androidAccount)),
+            30,
+            TimeUnit.SECONDS
+        )
+        if (result.hasResolution()) throw DriveAuthorizationRequiredException()
+        return result.accessToken?.takeIf { it.isNotBlank() }
+            ?: throw DriveAuthorizationRequiredException()
     }
 
     private fun getOrCreateFolder(token: String): String {

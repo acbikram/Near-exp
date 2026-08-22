@@ -3,6 +3,7 @@ package com.nearexpiry.manager.presentation.screens.backup
 import android.content.Context
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
@@ -62,6 +63,11 @@ fun BackupRestoreScreen(
     ) { result ->
         viewModel.handleGoogleDriveSignIn(result.data)
     }
+    val googleDriveAuthorizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        viewModel.handleGoogleDriveAuthorizationResult(result.data)
+    }
     var showBackupDestinationDialog by remember { mutableStateOf(false) }
     var showGoogleDriveRestoreDialog by remember { mutableStateOf(false) }
     var showDeleteRecheckDialog by remember { mutableStateOf(false) }
@@ -75,6 +81,15 @@ fun BackupRestoreScreen(
     LaunchedEffect(uiState.googleDriveSwitchRequest) {
         if (uiState.googleDriveSwitchRequest > 0L) {
             googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
+        }
+    }
+    LaunchedEffect(uiState.googleDriveAuthorizationRequest) {
+        if (uiState.googleDriveAuthorizationRequest > 0L) {
+            viewModel.consumeGoogleDriveAuthorizationPendingIntent()?.let { pendingIntent ->
+                googleDriveAuthorizationLauncher.launch(
+                    IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                )
+            }
         }
     }
 
@@ -188,6 +203,7 @@ fun BackupRestoreScreen(
 
                 val googleDriveHealth = when {
                     uiState.googleDriveUploadInProgress -> stringResource(R.string.google_drive_health_uploading)
+                    uiState.googleDriveConsentRequired -> stringResource(R.string.google_drive_health_attention)
                     uiState.googleDriveLastUploadError.isNotBlank() -> stringResource(R.string.google_drive_health_attention)
                     uiState.googleDrivePendingBackupName.isNotBlank() -> stringResource(R.string.google_drive_health_waiting)
                     uiState.googleDriveLastSuccessTime > 0L -> stringResource(R.string.google_drive_health_up_to_date)
@@ -248,6 +264,7 @@ fun BackupRestoreScreen(
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                             color = when {
                                 uiState.googleDriveUploadInProgress -> MaterialTheme.colorScheme.primary
+                                uiState.googleDriveConsentRequired -> MaterialTheme.colorScheme.error
                                 uiState.googleDriveLastUploadError.isNotBlank() -> MaterialTheme.colorScheme.error
                                 uiState.googleDrivePendingBackupName.isNotBlank() -> MaterialTheme.colorScheme.tertiary
                                 uiState.googleDriveLastSuccessTime > 0L -> MaterialTheme.colorScheme.primary
@@ -332,7 +349,18 @@ fun BackupRestoreScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-                    if (uiState.googleDrivePendingBackupName.isNotBlank()) {
+                    if (uiState.googleDriveConsentRequired) {
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.google_drive_grant_permission),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.requestGoogleDriveAuthorization()
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
+                        )
+                    } else if (uiState.googleDrivePendingBackupName.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         GlassActionButton(
                             label = stringResource(R.string.retry),

@@ -14,8 +14,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 118
-        versionName = "3.07"
+        versionCode = 119
+        versionName = "3.08"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -131,7 +131,7 @@ dependencies {
 
     // User-authorized Google Drive backups. The OAuth client is bound to this
     // package and the release signing SHA-1 registered in Google Cloud Console.
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
 
     implementation("androidx.datastore:datastore-preferences:1.1.0")
 

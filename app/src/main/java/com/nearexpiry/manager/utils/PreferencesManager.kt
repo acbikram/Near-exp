@@ -58,6 +58,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val googleDriveBackupEnabledKey = booleanPreferencesKey("google_drive_backup_enabled")
     private val googleDrivePendingBackupNameKey = stringPreferencesKey("google_drive_pending_backup_name")
     private val googleDriveLastUploadErrorKey = stringPreferencesKey("google_drive_last_upload_error")
+    private val googleDriveConsentRequiredKey = booleanPreferencesKey("google_drive_consent_required")
     private val googleDriveLastSuccessNameKey = stringPreferencesKey("google_drive_last_success_name")
     private val googleDriveLastSuccessTimeKey = longPreferencesKey("google_drive_last_success_time")
 
@@ -313,6 +314,16 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         context.dataStore.edit { prefs -> prefs.remove(googleDriveLastUploadErrorKey) }
     }
 
+    suspend fun isGoogleDriveConsentRequired(): Boolean =
+        context.dataStore.data.first()[googleDriveConsentRequiredKey] ?: false
+
+    suspend fun setGoogleDriveConsentRequired(required: Boolean) {
+        context.dataStore.edit { prefs ->
+            if (required) prefs[googleDriveConsentRequiredKey] = true
+            else prefs.remove(googleDriveConsentRequiredKey)
+        }
+    }
+
     suspend fun setGoogleDriveLastSuccess(backupName: String, completedAtMillis: Long) {
         context.dataStore.edit { prefs ->
             prefs[googleDriveLastSuccessNameKey] = backupName
@@ -332,6 +343,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
             prefs.remove(googleDriveBackupEnabledKey)
             prefs.remove(googleDrivePendingBackupNameKey)
             prefs.remove(googleDriveLastUploadErrorKey)
+            prefs.remove(googleDriveConsentRequiredKey)
             prefs.remove(googleDriveLastSuccessNameKey)
             prefs.remove(googleDriveLastSuccessTimeKey)
         }

@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.presentation.screens.backup
 
+import android.app.PendingIntent
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -66,6 +67,10 @@ class BackupRestoreViewModel @Inject constructor(
         val googleDrivePendingBackupName: String = "",
         /** Last upload failure retained while the local backup waits for retry. */
         val googleDriveLastUploadError: String = "",
+        /** True when the selected account must complete the Google Drive consent screen. */
+        val googleDriveConsentRequired: Boolean = false,
+        /** Incremented when Compose must launch a Google authorization PendingIntent. */
+        val googleDriveAuthorizationRequest: Long = 0L,
         val googleDriveLastSuccessName: String = "",
         val googleDriveLastSuccessTime: Long = 0L,
         val googleDriveUploadInProgress: Boolean = false,
@@ -109,6 +114,7 @@ class BackupRestoreViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
+    private var pendingGoogleDriveAuthorization: PendingIntent? = null
 
     init {
         refreshCatalogCount()
@@ -166,6 +172,7 @@ class BackupRestoreViewModel @Inject constructor(
             }
             val pendingBackupName = preferencesManager.getGoogleDrivePendingBackupName()
             val lastUploadError = preferencesManager.getGoogleDriveLastUploadError()
+            val consentRequired = preferencesManager.isGoogleDriveConsentRequired()
             val lastSuccessName = preferencesManager.getGoogleDriveLastSuccessName()
             val lastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime()
             _uiState.update {
@@ -174,6 +181,7 @@ class BackupRestoreViewModel @Inject constructor(
                     googleDriveBackupEnabled = status.accountEmail != null,
                     googleDrivePendingBackupName = pendingBackupName,
                     googleDriveLastUploadError = lastUploadError,
+                    googleDriveConsentRequired = consentRequired,
                     googleDriveLastSuccessName = lastSuccessName,
                     googleDriveLastSuccessTime = lastSuccessTime,
                     googleDriveStatus = if (status.accountEmail == null) "" else appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_ready)
@@ -191,20 +199,94 @@ class BackupRestoreViewModel @Inject constructor(
                 GoogleDriveBackupUploadWorker.cancelPending(appContext)
                 val email = googleDriveBackupManager.handleSignInResult(data)
                 preferencesManager.clearGoogleDriveLastUploadError()
+                preferencesManager.setGoogleDriveConsentRequired(false)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         googleDriveAccountEmail = email,
                         googleDriveBackupEnabled = true,
                         googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_enabled),
-                        googleDrivePendingBackupName = "",
                         googleDriveLastUploadError = "",
+                        googleDriveConsentRequired = false,
                         googleDriveLastSuccessName = "",
                         googleDriveLastSuccessTime = 0L
                     )
                 }
+                requestGoogleDriveAuthorization()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Google Drive sign-in failed") }
+            }
+        }
+    }
+
+    /** Starts the dedicated Google Drive scope authorization for the selected account. */
+    fun requestGoogleDriveAuthorization() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, googleDriveUploadInProgress = false) }
+            try {
+                when (val authorization = googleDriveBackupManager.requestDriveAuthorization()) {
+                    GoogleDriveBackupManager.DriveAuthorizationState.Granted -> {
+                        preferencesManager.setGoogleDriveConsentRequired(false)
+                        preferencesManager.clearGoogleDriveLastUploadError()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                googleDriveConsentRequired = false,
+                                googleDriveLastUploadError = "",
+                                googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_permission_granted)
+                            )
+                        }
+                        retryGoogleDriveUpload()
+                    }
+                    is GoogleDriveBackupManager.DriveAuthorizationState.ConsentRequired -> {
+                        pendingGoogleDriveAuthorization = authorization.pendingIntent
+                        preferencesManager.setGoogleDriveConsentRequired(true)
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                googleDriveConsentRequired = true,
+                                googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_permission_required),
+                                googleDriveAuthorizationRequest = it.googleDriveAuthorizationRequest + 1L
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to request Google Drive permission") }
+            }
+        }
+    }
+
+    fun consumeGoogleDriveAuthorizationPendingIntent(): PendingIntent? =
+        pendingGoogleDriveAuthorization.also { pendingGoogleDriveAuthorization = null }
+
+    /** Completes user consent, then resumes the already-created local backup if one is pending. */
+    fun handleGoogleDriveAuthorizationResult(data: Intent?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                googleDriveBackupManager.handleDriveAuthorizationResult(data)
+                preferencesManager.setGoogleDriveConsentRequired(false)
+                preferencesManager.clearGoogleDriveLastUploadError()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveConsentRequired = false,
+                        googleDriveLastUploadError = "",
+                        googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_permission_granted)
+                    )
+                }
+                retryGoogleDriveUpload()
+            } catch (e: Exception) {
+                preferencesManager.setGoogleDriveConsentRequired(true)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveConsentRequired = true,
+                        googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_permission_required),
+                        error = e.message ?: "Google Drive permission was not granted"
+                    )
+                }
             }
         }
     }
@@ -224,6 +306,7 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackups = emptyList(),
                         googleDrivePendingBackupName = "",
                         googleDriveLastUploadError = "",
+                        googleDriveConsentRequired = false,
                         googleDriveSwitchRequest = it.googleDriveSwitchRequest + 1L
                     )
                 }
@@ -248,6 +331,7 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackups = emptyList(),
                         googleDrivePendingBackupName = "",
                         googleDriveLastUploadError = "",
+                        googleDriveConsentRequired = false,
                         googleDriveLastSuccessName = "",
                         googleDriveLastSuccessTime = 0L
                     )
@@ -553,6 +637,7 @@ class BackupRestoreViewModel @Inject constructor(
                 var status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_internal_done)
                 var pendingBackupName = _uiState.value.googleDrivePendingBackupName
                 var lastUploadError = _uiState.value.googleDriveLastUploadError
+                var consentRequired = _uiState.value.googleDriveConsentRequired
                 if (uploadToGoogleDrive) {
                     if (!googleDriveBackupManager.isConnected()) {
                         throw IllegalStateException("Connect Google Drive before selecting it for Backup Now")
@@ -564,10 +649,16 @@ class BackupRestoreViewModel @Inject constructor(
                         status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_uploaded)
                         pendingBackupName = ""
                         lastUploadError = ""
+                        consentRequired = false
                     } else {
-                        status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_upload_queued)
+                        status = if (upload.authorizationRequired) {
+                            appContext.getString(com.nearexpiry.manager.R.string.google_drive_permission_required)
+                        } else {
+                            appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_upload_queued)
+                        }
                         pendingBackupName = name
                         lastUploadError = upload.error.orEmpty()
+                        consentRequired = upload.authorizationRequired
                     }
                 }
                 _uiState.update {
@@ -577,6 +668,7 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackupEnabled = if (uploadToGoogleDrive) true else it.googleDriveBackupEnabled,
                         googleDrivePendingBackupName = pendingBackupName,
                         googleDriveLastUploadError = lastUploadError,
+                        googleDriveConsentRequired = consentRequired,
                         googleDriveLastSuccessName = preferencesManager.getGoogleDriveLastSuccessName(),
                         googleDriveLastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime(),
                         googleDriveUploadInProgress = false,
@@ -602,11 +694,15 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveUploadInProgress = false,
                         googleDrivePendingBackupName = if (upload.uploaded) "" else backupName,
                         googleDriveLastUploadError = upload.error.orEmpty(),
+                        googleDriveConsentRequired = upload.authorizationRequired,
                         googleDriveLastSuccessName = preferencesManager.getGoogleDriveLastSuccessName(),
                         googleDriveLastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime(),
                         googleDriveStatus = appContext.getString(
-                            if (upload.uploaded) com.nearexpiry.manager.R.string.google_drive_status_uploaded
-                            else com.nearexpiry.manager.R.string.google_drive_status_upload_queued
+                            when {
+                                upload.uploaded -> com.nearexpiry.manager.R.string.google_drive_status_uploaded
+                                upload.authorizationRequired -> com.nearexpiry.manager.R.string.google_drive_permission_required
+                                else -> com.nearexpiry.manager.R.string.google_drive_status_upload_queued
+                            }
                         )
                     )
                 }

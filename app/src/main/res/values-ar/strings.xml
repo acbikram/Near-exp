@@ -466,4 +466,7 @@
     <string name="google_drive_restore_confirm_title">استعادة نسخة Google Drive هذه؟</string>
     <string name="google_drive_restore_confirm_message">ستستبدل النسخة المحددة بيانات التطبيق ذات الصلة. سيتم إنشاء نسخة أمان داخلية جديدة لجميع المشاريع أولاً.</string>
     <string name="google_drive_section_summary_format">%1$s · %2$s</string>
+    <string name="google_drive_permission_required">يلزم منح إذن Google Drive. اضغط «منح إذن Google Drive» للمتابعة.</string>
+    <string name="google_drive_grant_permission">منح إذن Google Drive</string>
+    <string name="google_drive_permission_granted">تم منح إذن Google Drive</string>
 </resources>
