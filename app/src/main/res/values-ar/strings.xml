@@ -177,6 +177,7 @@
     <string name="price_tag_scan_qr_title">امسح رمز QR لكمبيوتر Price Tag</string>
     <string name="price_tag_camera_permission">يُطلب إذن الكاميرا فقط لمسح رمز QR الخاص بإقران كمبيوتر Price Tag.</string>
     <string name="price_tag_allow_camera">السماح للكاميرا</string>
+    <string name="price_tag_camera_preview_error">تعذر بدء معاينة الكاميرا. يُرجى إعادة المحاولة.</string>
     <string name="price_tag_confirm_title">تأكيد كمبيوتر Price Tag</string>
     <string name="price_tag_confirm_message">هل تريد الإقران مع %1$s على %2$s:%3$d؟</string>
     <string name="price_tag_test_connection">اختبار الاتصال</string>

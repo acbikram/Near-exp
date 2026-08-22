@@ -177,6 +177,7 @@
     <string name="price_tag_scan_qr_title">Scan Price Tag PC QR</string>
     <string name="price_tag_camera_permission">Camera permission is required only to scan the Price Tag PC pairing QR code.</string>
     <string name="price_tag_allow_camera">Allow camera</string>
+    <string name="price_tag_camera_preview_error">Unable to start the camera preview. Please retry.</string>
     <string name="price_tag_confirm_title">Confirm Price Tag PC</string>
     <string name="price_tag_confirm_message">Pair with %1$s at %2$s:%3$d?</string>
     <string name="price_tag_test_connection">Test Connection</string>

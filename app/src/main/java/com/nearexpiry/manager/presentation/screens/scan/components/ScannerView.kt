@@ -6,11 +6,17 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.LifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
@@ -24,25 +30,63 @@ import java.util.concurrent.atomic.AtomicReference
  */
 private const val CONFIRM_DURATION_MS = 500L
 
+/**
+ * Reusable CameraX and ML Kit surface. The lifecycle owner is passed directly
+ * from Compose instead of being looked up while the [PreviewView] is being
+ * created. This is essential inside dialogs: the dialog window can attach the
+ * view after its factory runs, making findViewTreeLifecycleOwner() null and
+ * leaving a permanently black preview.
+ */
 @Composable
 fun ScannerView(
     cameraController: LifecycleCameraController,
     onBarcodeScanned: (com.google.mlkit.vision.barcode.common.Barcode) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    bindingKey: Int = 0,
+    onCameraError: (Throwable) -> Unit = {}
 ) {
     val barcodeScanner = remember { BarcodeScanning.getClient() }
-    val executor       = remember { Executors.newSingleThreadExecutor() }
+    val executor = remember { Executors.newSingleThreadExecutor() }
+    val latestOnBarcodeScanned by rememberUpdatedState(onBarcodeScanned)
+    val latestOnCameraError by rememberUpdatedState(onCameraError)
 
     // Thread-safe confirmation state — written from the analyser executor thread.
-    val candidateValue    = remember { AtomicReference("") }
-    val candidateFirstMs  = remember { AtomicLong(0L) }
+    val candidateValue = remember { AtomicReference("") }
+    val candidateFirstMs = remember { AtomicLong(0L) }
     // Prevent firing multiple times for the same confirmed barcode.
-    val lastFiredValue    = remember { AtomicReference("") }
+    val lastFiredValue = remember { AtomicReference("") }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(cameraController, barcodeScanner, executor) {
+        cameraController.setImageAnalysisTargetSize(
+            CameraController.OutputSize(Size(1280, 720))
+        )
+        cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
+            processImageProxy(
+                scanner = barcodeScanner,
+                imageProxy = imageProxy,
+                candidateValue = candidateValue,
+                candidateFirstMs = candidateFirstMs,
+                lastFiredValue = lastFiredValue,
+                onConfirmed = { barcode -> latestOnBarcodeScanned(barcode) }
+            )
+        }
         onDispose {
+            cameraController.clearImageAnalysisAnalyzer()
+            cameraController.unbind()
             barcodeScanner.close()
             executor.shutdown()
+        }
+    }
+
+    // Bind after composition, including when ScannerView is hosted in an
+    // AlertDialog. Binding through a supplied owner avoids an attachment race.
+    LaunchedEffect(cameraController, lifecycleOwner, bindingKey) {
+        try {
+            cameraController.unbind()
+            cameraController.bindToLifecycle(lifecycleOwner)
+        } catch (error: Throwable) {
+            latestOnCameraError(error)
         }
     }
 
@@ -51,29 +95,10 @@ fun ScannerView(
             PreviewView(context).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-
-                cameraController.setImageAnalysisTargetSize(
-                    CameraController.OutputSize(Size(1280, 720))
-                )
-
-                cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
-                    processImageProxy(
-                        scanner           = barcodeScanner,
-                        imageProxy        = imageProxy,
-                        candidateValue    = candidateValue,
-                        candidateFirstMs  = candidateFirstMs,
-                        lastFiredValue    = lastFiredValue,
-                        onConfirmed       = onBarcodeScanned
-                    )
-                }
-
-                val lifecycleOwner = findViewTreeLifecycleOwner()
-                if (lifecycleOwner != null) {
-                    cameraController.bindToLifecycle(lifecycleOwner)
-                }
-                this.controller = cameraController
+                controller = cameraController
             }
         },
+        update = { preview -> preview.controller = cameraController },
         modifier = modifier.clipToBounds()
     )
 }
@@ -87,14 +112,17 @@ private fun processImageProxy(
     lastFiredValue: AtomicReference<String>,
     onConfirmed: (com.google.mlkit.vision.barcode.common.Barcode) -> Unit
 ) {
-    val mediaImage = imageProxy.image ?: run { imageProxy.close(); return }
+    val mediaImage = imageProxy.image ?: run {
+        imageProxy.close()
+        return
+    }
     val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
     scanner.process(inputImage)
         .addOnSuccessListener { barcodes ->
             val barcode = barcodes.firstOrNull() ?: run {
                 // Nothing detected this frame — reset candidate so a new scan
-                // starts fresh (avoids counting gaps toward the 1-second window).
+                // starts fresh (avoids counting gaps toward the confirmation window).
                 candidateValue.set("")
                 candidateFirstMs.set(0L)
                 return@addOnSuccessListener
@@ -104,23 +132,16 @@ private fun processImageProxy(
             val now = System.currentTimeMillis()
 
             if (raw == candidateValue.get()) {
-                // Same barcode as last frame — check if we've held it long enough.
                 val elapsed = now - candidateFirstMs.get()
                 if (elapsed >= CONFIRM_DURATION_MS && raw != lastFiredValue.get()) {
-                    // Confirmed — fire exactly once, then reset so the user has
-                    // to move the camera away before the same barcode fires again.
                     lastFiredValue.set(raw)
                     candidateValue.set("")
                     candidateFirstMs.set(0L)
                     onConfirmed(barcode)
                 }
-                // else: still accumulating time — do nothing this frame
             } else {
-                // Different barcode (or first frame) — start a new confirmation window.
                 candidateValue.set(raw)
                 candidateFirstMs.set(now)
-                // Allow the new barcode to fire even if the old one was the same string
-                // (e.g. user scans same item twice deliberately after putting it away).
                 if (raw != lastFiredValue.get()) {
                     lastFiredValue.set("")
                 }

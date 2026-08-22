@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,10 +45,14 @@ fun PriceTagPairingQrScannerDialog(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var cameraError by remember { mutableStateOf(false) }
+    var bindAttempt by remember { mutableIntStateOf(0) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasCameraPermission = granted
+        cameraError = false
+        if (granted) bindAttempt++
     }
 
     LaunchedEffect(Unit) {
@@ -59,24 +64,36 @@ fun PriceTagPairingQrScannerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.price_tag_scan_qr_title)) },
         text = {
-            if (hasCameraPermission) {
-                Box(Modifier.height(320.dp)) {
-                    ScannerView(
-                        cameraController = controller,
-                        onBarcodeScanned = { barcode ->
-                            barcode.rawValue?.let(onPayloadScanned)
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+            when {
+                !hasCameraPermission -> Text(stringResource(R.string.price_tag_camera_permission))
+                cameraError -> Text(stringResource(R.string.price_tag_camera_preview_error))
+                else -> {
+                    Box(Modifier.height(320.dp)) {
+                        ScannerView(
+                            cameraController = controller,
+                            onBarcodeScanned = { barcode ->
+                                barcode.rawValue?.let(onPayloadScanned)
+                            },
+                            bindingKey = bindAttempt,
+                            onCameraError = { cameraError = true },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
-            } else {
-                Text(stringResource(R.string.price_tag_camera_permission))
             }
         },
         confirmButton = {
-            if (!hasCameraPermission) {
-                Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                    Text(stringResource(R.string.price_tag_allow_camera))
+            when {
+                !hasCameraPermission -> {
+                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                        Text(stringResource(R.string.price_tag_allow_camera))
+                    }
+                }
+                cameraError -> {
+                    Button(onClick = {
+                        cameraError = false
+                        bindAttempt++
+                    }) { Text(stringResource(R.string.retry)) }
                 }
             }
         },
