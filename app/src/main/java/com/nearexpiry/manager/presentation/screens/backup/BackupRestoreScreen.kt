@@ -29,6 +29,7 @@ import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
 import com.nearexpiry.manager.presentation.components.GlassSectionCard
+import com.nearexpiry.manager.presentation.components.PriceTagPairingQrScannerDialog
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.utils.GoogleDriveBackupManager
@@ -406,7 +407,58 @@ fun BackupRestoreScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = when (uiState.priceTagConnectionState) {
+                            BackupRestoreViewModel.PriceTagConnectionState.NOT_PAIRED ->
+                                stringResource(R.string.price_tag_connection_not_paired)
+                            BackupRestoreViewModel.PriceTagConnectionState.QR_SCAN_READY ->
+                                stringResource(R.string.price_tag_connection_qr_ready)
+                            BackupRestoreViewModel.PriceTagConnectionState.CONFIRMING_PC ->
+                                stringResource(R.string.price_tag_connection_confirming)
+                            BackupRestoreViewModel.PriceTagConnectionState.PAIRING ->
+                                stringResource(R.string.price_tag_connection_pairing)
+                            BackupRestoreViewModel.PriceTagConnectionState.PAIRED ->
+                                stringResource(
+                                    R.string.price_tag_connection_paired_format,
+                                    uiState.pairedPriceTagPcName
+                                )
+                            BackupRestoreViewModel.PriceTagConnectionState.TESTING ->
+                                stringResource(R.string.price_tag_connection_testing)
+                            BackupRestoreViewModel.PriceTagConnectionState.CONNECTION_FAILED ->
+                                stringResource(R.string.price_tag_connection_failed)
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (uiState.priceTagConnectionState == BackupRestoreViewModel.PriceTagConnectionState.CONNECTION_FAILED)
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
                     Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
+                        label = stringResource(R.string.pair_price_tag_pc),
+                        onClick = { viewModel.preparePriceTagQrScan() },
+                        enabled = uiState.priceTagConnectionState != BackupRestoreViewModel.PriceTagConnectionState.PAIRING &&
+                            uiState.priceTagConnectionState != BackupRestoreViewModel.PriceTagConnectionState.TESTING,
+                        tone = GlassActionTone.Neutral
+                    )
+                    if (uiState.pairedPriceTagPcName.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.price_tag_test_connection),
+                            onClick = { viewModel.testPairedPriceTagPc() },
+                            enabled = uiState.priceTagConnectionState != BackupRestoreViewModel.PriceTagConnectionState.TESTING &&
+                                uiState.priceTagConnectionState != BackupRestoreViewModel.PriceTagConnectionState.PAIRING,
+                            tone = GlassActionTone.Neutral
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.price_tag_forget_pc),
+                            onClick = { viewModel.forgetPairedPriceTagPc() },
+                            enabled = uiState.priceTagConnectionState != BackupRestoreViewModel.PriceTagConnectionState.PAIRING,
+                            tone = GlassActionTone.Destructive
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
                     GlassActionButton(
                         label = stringResource(R.string.update_catalog),
                         onClick = {
@@ -570,6 +622,42 @@ fun BackupRestoreScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteRecheckDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (uiState.priceTagConnectionState == BackupRestoreViewModel.PriceTagConnectionState.QR_SCAN_READY) {
+        PriceTagPairingQrScannerDialog(
+            onPayloadScanned = { payload -> viewModel.handlePriceTagQrScanned(payload) },
+            onDismiss = { viewModel.dismissPriceTagPairing() }
+        )
+    }
+
+    uiState.pendingPriceTagPairing?.takeIf {
+        uiState.priceTagConnectionState == BackupRestoreViewModel.PriceTagConnectionState.CONFIRMING_PC
+    }?.let { pairing ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissPriceTagPairing() },
+            title = { Text(stringResource(R.string.price_tag_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.price_tag_confirm_message,
+                        pairing.pcName,
+                        pairing.host,
+                        pairing.port
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmPriceTagPairing() }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissPriceTagPairing() }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

@@ -7,34 +7,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
- * Speaks the LAN wire-protocol used by Price_Tag_Final.py, but only the two
- * parts Near Expiry needs — PC discovery and catalog pull. (The CSV-push /
- * print parts from the Barcode-To-CSV app are intentionally omitted.)
- *
- *  DISCOVERY (UDP port 8765):
- *    Phone broadcasts  "PTAGWHO1"
- *    PC replies        JSON {"name":"…","ip":"…","port":N}
- *
- *  CATALOG PULL (TCP port from discovery reply):
- *    Phone → PC : "PTAGGDB1" (8 bytes)
- *    PC → Phone : LEN (4 bytes big-endian) + products.db bytes (LEN bytes)
- *
- * The PC generates the .db from the current master Excel file (cached;
- * regenerated only when the master changes) and streams it back.
+ * Speaks the LAN wire-protocol used by the Price Tag PC application. An
+ * unpaired installation retains the original discovery and request framing.
+ * Once a PC has been paired, callers provide [deviceToken] and every TCP
+ * request receives the PTAGAUTH preamble before its existing request magic.
  */
 object LocalFileServer {
 
     const val DISCOVERY_PORT = 8765
-    const val TCP_PORT       = 8765
-    private val MAGIC_GDB     = "PTAGGDB1".toByteArray(Charsets.US_ASCII)
-    private val MAGIC_XLSX    = "PTAGXLSX".toByteArray(Charsets.US_ASCII)
+    const val TCP_PORT = 8765
+    private const val CONNECT_TIMEOUT_MS = 10_000
+    private val MAGIC_GDB = "PTAGGDB1".toByteArray(Charsets.US_ASCII)
+    private val MAGIC_XLSX = "PTAGXLSX".toByteArray(Charsets.US_ASCII)
+    private val MAGIC_PNG = "PTAGPNG1".toByteArray(Charsets.US_ASCII)
     private val DISCOVERY_REQ = "PTAGWHO1".toByteArray(Charsets.US_ASCII)
 
     data class PcInfo(val name: String, val ip: String, val port: Int) {
@@ -51,7 +45,7 @@ object LocalFileServer {
         return Formatter.formatIpAddress(ip)
     }
 
-    /** Broadcasts a discovery request and collects all PCs that answer. */
+    /** Broadcasts a legacy discovery request and collects PCs that answer. */
     suspend fun discoverPcs(timeoutMs: Int = 2500): List<PcInfo> = withContext(Dispatchers.IO) {
         val results = mutableListOf<PcInfo>()
         try {
@@ -75,124 +69,152 @@ object LocalFileServer {
                         results.add(
                             PcInfo(
                                 name = json.optString("name", "PC"),
-                                ip   = json.optString("ip", reply.address.hostAddress ?: ""),
+                                ip = json.optString("ip", reply.address.hostAddress ?: ""),
                                 port = json.optInt("port", TCP_PORT)
                             )
                         )
-                    } catch (_: IOException) { break }
+                    } catch (_: IOException) {
+                        break
+                    }
                 }
             }
-        } catch (_: Exception) {}
-        // De-duplicate by ip:port in case multiple broadcasts echo back.
+        } catch (_: Exception) {
+            // Discovery is intentionally best-effort. The caller shows its own
+            // generic connection state without exposing network internals.
+        }
         results.distinctBy { "${it.ip}:${it.port}" }
     }
 
     /**
-     * Pulls the product catalog (.db) from [pc] over the PTAGGDB1 protocol.
-     * Returns the raw bytes of the .db file, or throws on error.
+     * Pulls the product catalog (.db) using the PTAGGDB1 protocol. When
+     * [deviceToken] is supplied, PTAGAUTH + token precedes PTAGGDB1; when it is
+     * null, the exact pre-pairing legacy frame is retained.
      */
     suspend fun pullCatalogDb(
         pc: PcInfo,
+        deviceToken: String? = null,
         onProgress: (bytesReceived: Long, totalBytes: Long) -> Unit = { _, _ -> }
     ): ByteArray = withContext(Dispatchers.IO) {
-        Socket(pc.ip, pc.port).use { sock ->
-            sock.soTimeout = 300_000   // 5 min — PC may need to regenerate the DB
+        connectedSocket(pc).use { sock ->
+            sock.soTimeout = 300_000 // The PC may regenerate its catalog database.
+            val output = DataOutputStream(sock.getOutputStream())
+            val input = sock.getInputStream()
 
-            val out = sock.getOutputStream()
-            val inp = sock.getInputStream()
+            writeRequestStart(output, deviceToken, MAGIC_GDB)
+            output.flush()
 
-            // 1. Send magic
-            out.write(MAGIC_GDB)
-            out.flush()
-
-            // 2. Receive LEN (4 bytes big-endian)
             val lenBytes = ByteArray(4)
             var read = 0
             while (read < 4) {
-                val n = inp.read(lenBytes, read, 4 - read)
-                if (n < 0) throw IOException("Connection closed before length received")
+                val n = input.read(lenBytes, read, 4 - read)
+                if (n < 0) throw IOException("Connection closed before catalog length received")
                 read += n
             }
             val totalLen = ((lenBytes[0].toInt() and 0xFF) shl 24) or
-                           ((lenBytes[1].toInt() and 0xFF) shl 16) or
-                           ((lenBytes[2].toInt() and 0xFF) shl 8) or
-                            (lenBytes[3].toInt() and 0xFF)
-
+                ((lenBytes[1].toInt() and 0xFF) shl 16) or
+                ((lenBytes[2].toInt() and 0xFF) shl 8) or
+                (lenBytes[3].toInt() and 0xFF)
             if (totalLen <= 0 || totalLen > 100 * 1024 * 1024) {
-                throw IOException("Invalid catalog size from PC: $totalLen bytes")
+                throw IOException("Invalid catalog size received from PC")
             }
 
-            // 3. Receive .db bytes
-            val buf = ByteArray(65536)
-            val baos = ByteArrayOutputStream(totalLen)
+            val buffer = ByteArray(65_536)
+            val bytes = ByteArrayOutputStream(totalLen)
             var received = 0L
             while (received < totalLen) {
-                val toRead = minOf(buf.size.toLong(), totalLen - received).toInt()
-                val n = inp.read(buf, 0, toRead)
-                if (n < 0) throw IOException("Connection dropped after $received / $totalLen bytes")
-                baos.write(buf, 0, n)
+                val toRead = minOf(buffer.size.toLong(), totalLen - received).toInt()
+                val n = input.read(buffer, 0, toRead)
+                if (n < 0) throw IOException("Connection dropped while receiving the catalog")
+                bytes.write(buffer, 0, n)
                 received += n
                 onProgress(received, totalLen.toLong())
             }
-            baos.toByteArray()
+            bytes.toByteArray()
         }
     }
 
     /**
-     * Sends an .xlsx report file to [pc] using the PTAGXLSX protocol:
-     *   Phone → PC : "PTAGXLSX" + nameLen(4 BE) + nameBytes(UTF-8) +
-     *                fileLen(4 BE) + fileBytes
-     *   PC → Phone : "OK" (2 bytes) on success
-     *
-     * The PC saves it to its "Near Expiry Reports" folder. Throws on failure.
+     * Sends an .xlsx report using PTAGXLSX. A paired request is framed as
+     * PTAGAUTH + token + PTAGXLSX + the unchanged existing XLSX payload.
      */
     suspend fun sendXlsxToPc(
         pc: PcInfo,
         fileName: String,
         fileBytes: ByteArray,
+        deviceToken: String? = null,
         onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }
     ) = withContext(Dispatchers.IO) {
-        Socket(pc.ip, pc.port).use { sock ->
+        connectedSocket(pc).use { sock ->
             sock.soTimeout = 60_000
-            val out = sock.getOutputStream()
-            val inp = sock.getInputStream()
+            val output = DataOutputStream(sock.getOutputStream())
+            val input = sock.getInputStream()
 
             val nameBytes = fileName.toByteArray(Charsets.UTF_8)
-            out.write(MAGIC_XLSX)
-            out.write(intToBE(nameBytes.size))
-            out.write(nameBytes)
-            out.write(intToBE(fileBytes.size))
+            writeRequestStart(output, deviceToken, MAGIC_XLSX)
+            output.write(intToBE(nameBytes.size))
+            output.write(nameBytes)
+            output.write(intToBE(fileBytes.size))
 
-            // Stream the file in chunks with progress.
             val total = fileBytes.size.toLong()
             var sent = 0L
-            val chunk = 65536
+            val chunk = 65_536
             while (sent < total) {
                 val end = minOf(sent + chunk, total).toInt()
-                out.write(fileBytes, sent.toInt(), end - sent.toInt())
+                output.write(fileBytes, sent.toInt(), end - sent.toInt())
                 sent = end.toLong()
                 onProgress(sent, total)
             }
-            out.flush()
+            output.flush()
 
-            // Await "OK".
             val ack = ByteArray(2)
             var read = 0
             while (read < 2) {
-                val n = inp.read(ack, read, 2 - read)
+                val n = input.read(ack, read, 2 - read)
                 if (n < 0) break
                 read += n
             }
             if (read < 2 || ack[0] != 'O'.code.toByte() || ack[1] != 'K'.code.toByte()) {
-                throw IOException("PC did not confirm receipt")
+                throw IOException("The PC did not confirm the report transfer")
             }
         }
     }
 
-    private fun intToBE(v: Int): ByteArray = byteArrayOf(
-        ((v ushr 24) and 0xFF).toByte(),
-        ((v ushr 16) and 0xFF).toByte(),
-        ((v ushr 8) and 0xFF).toByte(),
-        (v and 0xFF).toByte()
+    /** Sends the existing PTAGPNG1 connection test, with PTAGAUTH when paired. */
+    suspend fun testConnection(pc: PcInfo, deviceToken: String? = null) = withContext(Dispatchers.IO) {
+        connectedSocket(pc).use { sock ->
+            sock.soTimeout = 10_000
+            val output = DataOutputStream(sock.getOutputStream())
+            writeRequestStart(output, deviceToken, MAGIC_PNG)
+            output.flush()
+
+            // PTAGPNG1 response bytes are owned by the existing PC protocol.
+            // A response of any kind proves the authenticated request reached
+            // the paired PC; EOF is treated as a rejected or failed connection.
+            if (sock.getInputStream().read() < 0) {
+                throw IOException("The PC did not answer the connection test")
+            }
+        }
+    }
+
+    private fun connectedSocket(pc: PcInfo): Socket = Socket().apply {
+        connect(InetSocketAddress(pc.ip, pc.port), CONNECT_TIMEOUT_MS)
+    }
+
+    private fun writeRequestStart(
+        output: DataOutputStream,
+        deviceToken: String?,
+        requestMagic: ByteArray
+    ) {
+        if (deviceToken != null) {
+            PriceTagProtocol.writeAuthPreamble(output, deviceToken)
+        }
+        output.write(requestMagic)
+    }
+
+    private fun intToBE(value: Int): ByteArray = byteArrayOf(
+        ((value ushr 24) and 0xFF).toByte(),
+        ((value ushr 16) and 0xFF).toByte(),
+        ((value ushr 8) and 0xFF).toByte(),
+        (value and 0xFF).toByte()
     )
 }

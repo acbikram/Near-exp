@@ -166,6 +166,21 @@
     <string name="catalog_status_empty">الكتالوج فارغ — استورد ملفاً أو اسحب من الكمبيوتر</string>
     <string name="wifi_searching">جاري البحث عن الكمبيوتر…</string>
     <string name="wifi_downloading">جاري التنزيل…</string>
+    <string name="pair_price_tag_pc">إقران مع كمبيوتر Price Tag</string>
+    <string name="price_tag_connection_not_paired">غير مقترن</string>
+    <string name="price_tag_connection_qr_ready">ماسح رمز QR جاهز</string>
+    <string name="price_tag_connection_confirming">تأكيد الكمبيوتر</string>
+    <string name="price_tag_connection_pairing">جارٍ الإقران</string>
+    <string name="price_tag_connection_paired_format">مقترن مع %1$s</string>
+    <string name="price_tag_connection_testing">جارٍ الاختبار</string>
+    <string name="price_tag_connection_failed">فشل الاتصال</string>
+    <string name="price_tag_scan_qr_title">امسح رمز QR لكمبيوتر Price Tag</string>
+    <string name="price_tag_camera_permission">يُطلب إذن الكاميرا فقط لمسح رمز QR الخاص بإقران كمبيوتر Price Tag.</string>
+    <string name="price_tag_allow_camera">السماح للكاميرا</string>
+    <string name="price_tag_confirm_title">تأكيد كمبيوتر Price Tag</string>
+    <string name="price_tag_confirm_message">هل تريد الإقران مع %1$s على %2$s:%3$d؟</string>
+    <string name="price_tag_test_connection">اختبار الاتصال</string>
+    <string name="price_tag_forget_pc">نسيان هذا الكمبيوتر</string>
 
     <!-- ── شاشة التفاصيل ──────────────────────────────────────────────── -->
     <string name="item_details">تفاصيل الصنف</string>

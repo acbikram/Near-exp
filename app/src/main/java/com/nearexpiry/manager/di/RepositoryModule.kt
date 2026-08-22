@@ -6,6 +6,10 @@ import com.nearexpiry.manager.data.repository.ProjectRepositoryImpl
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProductCatalogRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
+import com.nearexpiry.manager.utils.AndroidPriceTagDeviceIdProvider
+import com.nearexpiry.manager.utils.EncryptedPriceTagPairingStore
+import com.nearexpiry.manager.utils.PriceTagDeviceIdProvider
+import com.nearexpiry.manager.utils.PriceTagPairingStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -27,4 +31,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindProjectRepository(impl: ProjectRepositoryImpl): ProjectRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPriceTagPairingStore(impl: EncryptedPriceTagPairingStore): PriceTagPairingStore
+
+    @Binds
+    @Singleton
+    abstract fun bindPriceTagDeviceIdProvider(impl: AndroidPriceTagDeviceIdProvider): PriceTagDeviceIdProvider
 }

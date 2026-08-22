@@ -25,6 +25,8 @@ import com.nearexpiry.manager.utils.RecheckExcelReader
 import com.nearexpiry.manager.utils.RecheckTemplateStore
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.GoogleDriveBackupManager
+import com.nearexpiry.manager.utils.PriceTagPairingManager
+import com.nearexpiry.manager.utils.PriceTagPairingPayload
 import com.nearexpiry.manager.notifications.GoogleDriveBackupUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,11 +51,23 @@ class BackupRestoreViewModel @Inject constructor(
     private val recheckTemplateStore: RecheckTemplateStore,
     private val preferencesManager: PreferencesManager,
     private val googleDriveBackupManager: GoogleDriveBackupManager,
+    private val priceTagPairingManager: PriceTagPairingManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     /** WiFi catalog-pull progress states for the UI. */
     enum class WifiCatalogState { IDLE, DISCOVERING, DOWNLOADING, SUCCESS, ERROR }
+
+    /** Only the user-facing states permitted for the Price Tag PC connection. */
+    enum class PriceTagConnectionState {
+        NOT_PAIRED,
+        QR_SCAN_READY,
+        CONFIRMING_PC,
+        PAIRING,
+        PAIRED,
+        TESTING,
+        CONNECTION_FAILED
+    }
 
     data class BackupUiState(
         val isLoading: Boolean = false,
@@ -96,6 +110,11 @@ class BackupRestoreViewModel @Inject constructor(
         val wifiState: WifiCatalogState = WifiCatalogState.IDLE,
         val wifiStatus: String = "",
         val wifiProgress: Float = 0f,
+        /** Secure pairing state for the optional Price Tag PC connection. */
+        val priceTagConnectionState: PriceTagConnectionState = PriceTagConnectionState.NOT_PAIRED,
+        val pairedPriceTagPcName: String = "",
+        /** Held only in ViewModel memory until the user confirms pairing. */
+        val pendingPriceTagPairing: PriceTagPairingPayload? = null,
         /** Current catalog product count, for the status indicator. */
         val catalogCount: Int = 0,
         /** Global Stock Recheck workbook metadata; its codes live in Room. */
@@ -120,6 +139,7 @@ class BackupRestoreViewModel @Inject constructor(
         refreshCatalogCount()
         refreshRecheckStatus()
         refreshGoogleDriveStatus()
+        refreshPriceTagConnection()
     }
 
     private fun refreshRecheckStatus() {
@@ -141,6 +161,140 @@ class BackupRestoreViewModel @Inject constructor(
                     recheckSourceCodeRowCount = workbookStatus.sourceCodeRowCount,
                     recheckDamageExpiryItemCount = workbookStatus.damageExpiryItemCount,
                     recheckDamageExpiryTotal = workbookStatus.damageExpiryTotal
+                )
+            }
+        }
+    }
+
+    private fun refreshPriceTagConnection() {
+        viewModelScope.launch {
+            val paired = runCatching { priceTagPairingManager.getPairedPc() }.getOrNull()
+            _uiState.update {
+                it.copy(
+                    priceTagConnectionState = if (paired == null) {
+                        PriceTagConnectionState.NOT_PAIRED
+                    } else {
+                        PriceTagConnectionState.PAIRED
+                    },
+                    pairedPriceTagPcName = paired?.pcName.orEmpty(),
+                    pendingPriceTagPairing = null
+                )
+            }
+        }
+    }
+
+    /** Called only when the user selects the visible Pair action. */
+    fun preparePriceTagQrScan() {
+        _uiState.update {
+            it.copy(
+                priceTagConnectionState = PriceTagConnectionState.QR_SCAN_READY,
+                pendingPriceTagPairing = null,
+                error = null
+            )
+        }
+    }
+
+    /** Validates the scanned QR but does not pair until the confirmation action. */
+    fun handlePriceTagQrScanned(rawPayload: String) {
+        viewModelScope.launch {
+            val payload = com.nearexpiry.manager.utils.PriceTagProtocol.parsePairingQr(rawPayload).getOrElse {
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.CONNECTION_FAILED,
+                        pendingPriceTagPairing = null,
+                        error = "This QR code cannot be used for pairing. Please scan a new Price Tag PC code."
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    priceTagConnectionState = PriceTagConnectionState.CONFIRMING_PC,
+                    pendingPriceTagPairing = payload,
+                    error = null
+                )
+            }
+        }
+    }
+
+    fun dismissPriceTagPairing() {
+        refreshPriceTagConnection()
+    }
+
+    /** Performs the one-time socket exchange only after the user confirms the PC details. */
+    fun confirmPriceTagPairing() {
+        val payload = _uiState.value.pendingPriceTagPairing ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(priceTagConnectionState = PriceTagConnectionState.PAIRING, error = null) }
+            try {
+                val paired = priceTagPairingManager.pair(payload)
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.PAIRED,
+                        pairedPriceTagPcName = paired.pcName,
+                        pendingPriceTagPairing = null
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.CONNECTION_FAILED,
+                        pendingPriceTagPairing = null,
+                        error = "Pairing could not be completed. Check the PC is available, then scan a fresh QR code."
+                    )
+                }
+            }
+        }
+    }
+
+    fun testPairedPriceTagPc() {
+        viewModelScope.launch {
+            val paired = priceTagPairingManager.getPairedPc()
+            if (paired == null) {
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.NOT_PAIRED,
+                        pairedPriceTagPcName = ""
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    priceTagConnectionState = PriceTagConnectionState.TESTING,
+                    pairedPriceTagPcName = paired.pcName,
+                    error = null
+                )
+            }
+            try {
+                priceTagPairingManager.testConnection(paired)
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.PAIRED,
+                        pairedPriceTagPcName = paired.pcName
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update {
+                    it.copy(
+                        priceTagConnectionState = PriceTagConnectionState.CONNECTION_FAILED,
+                        pairedPriceTagPcName = paired.pcName,
+                        error = "Connection failed. Ensure the paired Price Tag PC is open and reachable."
+                    )
+                }
+            }
+        }
+    }
+
+    fun forgetPairedPriceTagPc() {
+        viewModelScope.launch {
+            priceTagPairingManager.forgetPairedPc()
+            _uiState.update {
+                it.copy(
+                    priceTagConnectionState = PriceTagConnectionState.NOT_PAIRED,
+                    pairedPriceTagPcName = "",
+                    pendingPriceTagPairing = null,
+                    error = null
                 )
             }
         }
@@ -864,22 +1018,25 @@ class BackupRestoreViewModel @Inject constructor(
             _uiState.update {
                 it.copy(wifiState = WifiCatalogState.DISCOVERING, wifiProgress = 0f, wifiStatus = "")
             }
-            val pcs = LocalFileServer.discoverPcs()
-            if (pcs.isEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        wifiState = WifiCatalogState.ERROR,
-                        wifiStatus = "No PC found. Make sure the Price Tag app is open with WiFi receiver on, and you're on the same WiFi."
-                    )
+            val pairedPc = priceTagPairingManager.getPairedPc()
+            val pc = pairedPc?.toPcInfo() ?: run {
+                val pcs = LocalFileServer.discoverPcs()
+                if (pcs.isEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            wifiState = WifiCatalogState.ERROR,
+                            wifiStatus = "No PC found. Make sure the Price Tag app is open with WiFi receiver on, and you're on the same WiFi."
+                        )
+                    }
+                    return@launch
                 }
-                return@launch
+                pcs.first()
             }
-            val pc = pcs.first()
             _uiState.update {
                 it.copy(wifiState = WifiCatalogState.DOWNLOADING, wifiStatus = "Downloading from ${pc.name}…")
             }
             try {
-                val dbBytes = LocalFileServer.pullCatalogDb(pc) { received, total ->
+                val dbBytes = LocalFileServer.pullCatalogDb(pc, pairedPc?.deviceToken) { received, total ->
                     val pct = if (total > 0) received.toFloat() / total else 0f
                     val mb = received / 1_048_576.0
                     _uiState.update {

@@ -166,6 +166,21 @@
     <string name="catalog_status_empty">Catalog is empty — import a file or pull from PC</string>
     <string name="wifi_searching">Searching for PC…</string>
     <string name="wifi_downloading">Downloading…</string>
+    <string name="pair_price_tag_pc">Pair with Price Tag PC</string>
+    <string name="price_tag_connection_not_paired">Not paired</string>
+    <string name="price_tag_connection_qr_ready">QR scan ready</string>
+    <string name="price_tag_connection_confirming">Confirming PC</string>
+    <string name="price_tag_connection_pairing">Pairing</string>
+    <string name="price_tag_connection_paired_format">Paired with %1$s</string>
+    <string name="price_tag_connection_testing">Testing</string>
+    <string name="price_tag_connection_failed">Connection failed</string>
+    <string name="price_tag_scan_qr_title">Scan Price Tag PC QR</string>
+    <string name="price_tag_camera_permission">Camera permission is required only to scan the Price Tag PC pairing QR code.</string>
+    <string name="price_tag_allow_camera">Allow camera</string>
+    <string name="price_tag_confirm_title">Confirm Price Tag PC</string>
+    <string name="price_tag_confirm_message">Pair with %1$s at %2$s:%3$d?</string>
+    <string name="price_tag_test_connection">Test Connection</string>
+    <string name="price_tag_forget_pc">Forget this PC</string>
 
     <!-- ── Detail screen ──────────────────────────────────────────────── -->
     <string name="item_details">Item Details</string>

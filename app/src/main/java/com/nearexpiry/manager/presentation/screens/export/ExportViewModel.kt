@@ -18,6 +18,7 @@ import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.LocalFileServer
 import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.PriceTagPairingManager
 import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.RecheckExcelReader
 import com.nearexpiry.manager.utils.RecheckTemplateStore
@@ -62,7 +63,8 @@ class ExportViewModel @Inject constructor(
     private val branchDirectory: BranchDirectory,
     private val preferencesManager: PreferencesManager,
     private val recheckCodeStore: RecheckCodeStore,
-    private val recheckTemplateStore: RecheckTemplateStore
+    private val recheckTemplateStore: RecheckTemplateStore,
+    private val priceTagPairingManager: PriceTagPairingManager
 ) : ViewModel() {
 
     data class ExportUiState(
@@ -578,16 +580,19 @@ class ExportViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(sendToPcState = SendToPcState.SEARCHING, sendToPcMessage = "") }
-            val pcs = LocalFileServer.discoverPcs()
-            if (pcs.isEmpty()) {
-                _uiState.update { it.copy(sendToPcState = SendToPcState.NOT_CONNECTED) }
-                return@launch
+            val pairedPc = priceTagPairingManager.getPairedPc()
+            val pc = pairedPc?.toPcInfo() ?: run {
+                val pcs = LocalFileServer.discoverPcs()
+                if (pcs.isEmpty()) {
+                    _uiState.update { it.copy(sendToPcState = SendToPcState.NOT_CONNECTED) }
+                    return@launch
+                }
+                pcs.first()
             }
-            val pc = pcs.first()
             _uiState.update { it.copy(sendToPcState = SendToPcState.SENDING, sendToPcMessage = "Sending to ${pc.name}…") }
             try {
                 val bytes = withContext(Dispatchers.IO) { File(path).readBytes() }
-                LocalFileServer.sendXlsxToPc(pc, name, bytes)
+                LocalFileServer.sendXlsxToPc(pc, name, bytes, pairedPc?.deviceToken)
                 _uiState.update { it.copy(sendToPcState = SendToPcState.SUCCESS, sendToPcMessage = "Sent to ${pc.name}") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(sendToPcState = SendToPcState.ERROR, sendToPcMessage = e.message ?: "Send failed") }

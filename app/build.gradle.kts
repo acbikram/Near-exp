@@ -14,8 +14,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 119
-        versionName = "3.08"
+        versionCode = 120
+        versionName = "3.09"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -134,6 +134,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.6.0")
 
     implementation("androidx.datastore:datastore-preferences:1.1.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
