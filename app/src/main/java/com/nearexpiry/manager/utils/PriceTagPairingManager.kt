@@ -166,14 +166,16 @@ object PriceTagProtocol {
         nowEpochSeconds: Long = System.currentTimeMillis() / 1_000L
     ): Result<PriceTagPairingPayload> = runCatching {
         val json = Json.parseToJsonElement(rawPayload).jsonObject
-        require(json.intValue("v") == PROTOCOL_VERSION) { "This QR code is not supported." }
-        require(json.stringValue("type") == QR_TYPE) { "This QR code is not a Price Tag PC pairing code." }
+        require(json["v"]?.jsonPrimitive?.intOrNull == PROTOCOL_VERSION) { "This QR code is not supported." }
+        require(json["type"]?.jsonPrimitive?.contentOrNull == QR_TYPE) {
+            "This QR code is not a Price Tag PC pairing code."
+        }
 
-        val host = json.stringValue("host").trim()
-        val code = json.stringValue("code")
-        val port = json.intValue("port")
-        val expiresAt = json.longValue("expiresAt")
-        val pcName = json.stringValue("pcName").trim().ifBlank { "Price Tag PC" }
+        val host = json["host"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+        val code = json["code"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val port = json["port"]?.jsonPrimitive?.intOrNull ?: -1
+        val expiresAt = json["expiresAt"]?.jsonPrimitive?.longOrNull ?: -1L
+        val pcName = json["pcName"]?.jsonPrimitive?.contentOrNull.orEmpty().trim().ifBlank { "Price Tag PC" }
 
         require(host.isNotEmpty() && host.none { it.isISOControl() || it.isWhitespace() }) {
             "The QR code has no valid PC address."
@@ -304,12 +306,12 @@ class PriceTagPairingManager @Inject constructor(
         } catch (_: Exception) {
             throw IOException("The PC returned an invalid pairing response.")
         }
-        if (json.stringValue("type") != "paired" ||
-            json.intValue("protocol") != PriceTagProtocol.PROTOCOL_VERSION
+        if (json["type"]?.jsonPrimitive?.contentOrNull != "paired" ||
+            json["protocol"]?.jsonPrimitive?.intOrNull != PriceTagProtocol.PROTOCOL_VERSION
         ) {
             throw IOException("The PC rejected the pairing request. Please scan a fresh QR code and try again.")
         }
-        val token = json.stringValue("deviceToken")
+        val token = json["deviceToken"]?.jsonPrimitive?.contentOrNull.orEmpty()
         if (token.isBlank() || token.toByteArray(StandardCharsets.UTF_8).size > 8_192) {
             throw IOException("The PC returned an invalid pairing credential.")
         }
@@ -317,7 +319,7 @@ class PriceTagPairingManager @Inject constructor(
             host = payload.host,
             port = payload.port,
             deviceToken = token,
-            pcName = json.stringValue("pcName").trim().ifBlank { payload.pcName },
+            pcName = json["pcName"]?.jsonPrimitive?.contentOrNull.orEmpty().trim().ifBlank { payload.pcName },
             protocol = PriceTagProtocol.PROTOCOL_VERSION,
             pairedAtMillis = System.currentTimeMillis()
         )
@@ -327,12 +329,4 @@ class PriceTagPairingManager @Inject constructor(
         pairedPcStore.save(pairedPc)
     }
 
-    private fun kotlinx.serialization.json.JsonObject.stringValue(name: String): String =
-        this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
-
-    private fun kotlinx.serialization.json.JsonObject.intValue(name: String): Int =
-        this[name]?.jsonPrimitive?.intOrNull ?: -1
-
-    private fun kotlinx.serialization.json.JsonObject.longValue(name: String): Long =
-        this[name]?.jsonPrimitive?.longOrNull ?: -1L
 }
