@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -105,7 +106,7 @@ class GoogleDriveBackupManager @Inject constructor(
         val metadata = buildJsonObject {
             put("name", name)
             put("mimeType", "application/json")
-            put("parents", kotlinx.serialization.json.buildJsonArray { add(folderId) })
+            put("parents", kotlinx.serialization.json.buildJsonArray { add(JsonPrimitive(folderId)) })
         }.toString()
         val body = ByteArrayOutputStream().apply {
             write("--$boundary\r\n".toByteArray())
@@ -227,7 +228,7 @@ class GoogleDriveBackupManager @Inject constructor(
             if (contentType != null) setRequestProperty("Content-Type", contentType)
             if (body != null) {
                 doOutput = true
-                fixedLengthStreamingMode(body.size)
+                setFixedLengthStreamingMode(body.size)
             }
         }
         try {
