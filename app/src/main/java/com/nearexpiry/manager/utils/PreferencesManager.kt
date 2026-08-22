@@ -54,6 +54,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val googleDriveAccountEmailKey = stringPreferencesKey("google_drive_account_email")
     private val googleDriveBackupEnabledKey = booleanPreferencesKey("google_drive_backup_enabled")
     private val googleDrivePendingBackupNameKey = stringPreferencesKey("google_drive_pending_backup_name")
+    private val googleDriveLastUploadErrorKey = stringPreferencesKey("google_drive_last_upload_error")
 
     /** "dark" (default), "light", or "system" — app appearance mode. */
     val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -278,11 +279,23 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         context.dataStore.edit { prefs -> prefs.remove(googleDrivePendingBackupNameKey) }
     }
 
+    suspend fun getGoogleDriveLastUploadError(): String =
+        context.dataStore.data.first()[googleDriveLastUploadErrorKey] ?: ""
+
+    suspend fun setGoogleDriveLastUploadError(error: String) {
+        context.dataStore.edit { prefs -> prefs[googleDriveLastUploadErrorKey] = error }
+    }
+
+    suspend fun clearGoogleDriveLastUploadError() {
+        context.dataStore.edit { prefs -> prefs.remove(googleDriveLastUploadErrorKey) }
+    }
+
     suspend fun clearGoogleDriveBackupSettings() {
         context.dataStore.edit { prefs ->
             prefs.remove(googleDriveAccountEmailKey)
             prefs.remove(googleDriveBackupEnabledKey)
             prefs.remove(googleDrivePendingBackupNameKey)
+            prefs.remove(googleDriveLastUploadErrorKey)
         }
     }
 

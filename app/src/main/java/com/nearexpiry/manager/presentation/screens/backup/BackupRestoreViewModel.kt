@@ -64,6 +64,8 @@ class BackupRestoreViewModel @Inject constructor(
         val googleDriveStatus: String = "",
         val googleDriveBackups: List<GoogleDriveBackupManager.DriveBackupFile> = emptyList(),
         val googleDrivePendingBackupName: String = "",
+        /** Last upload failure retained while the local backup waits for retry. */
+        val googleDriveLastUploadError: String = "",
         /** Incremented after sign-out to request the Compose account chooser. */
         val googleDriveSwitchRequest: Long = 0L,
         /** Set after a successful CSV import; null otherwise. */
@@ -153,12 +155,20 @@ class BackupRestoreViewModel @Inject constructor(
     private fun refreshGoogleDriveStatus() {
         viewModelScope.launch {
             val status = googleDriveBackupManager.status()
+            // Google Drive backup is optional by connection, not by a second
+            // toggle. Once an account is connected, noon and midnight uploads
+            // remain enabled until that account is disconnected or switched.
+            if (status.accountEmail != null && !status.backupEnabled) {
+                googleDriveBackupManager.setBackupEnabled(true)
+            }
             val pendingBackupName = preferencesManager.getGoogleDrivePendingBackupName()
+            val lastUploadError = preferencesManager.getGoogleDriveLastUploadError()
             _uiState.update {
                 it.copy(
                     googleDriveAccountEmail = status.accountEmail.orEmpty(),
-                    googleDriveBackupEnabled = status.backupEnabled && status.accountEmail != null,
+                    googleDriveBackupEnabled = status.accountEmail != null,
                     googleDrivePendingBackupName = pendingBackupName,
+                    googleDriveLastUploadError = lastUploadError,
                     googleDriveStatus = if (status.accountEmail == null) "" else appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_ready)
                 )
             }
@@ -173,13 +183,15 @@ class BackupRestoreViewModel @Inject constructor(
             try {
                 GoogleDriveBackupUploadWorker.cancelPending(appContext)
                 val email = googleDriveBackupManager.handleSignInResult(data)
+                preferencesManager.clearGoogleDriveLastUploadError()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         googleDriveAccountEmail = email,
                         googleDriveBackupEnabled = true,
                         googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_enabled),
-                        googleDrivePendingBackupName = ""
+                        googleDrivePendingBackupName = "",
+                        googleDriveLastUploadError = ""
                     )
                 }
             } catch (e: Exception) {
@@ -201,6 +213,8 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackupEnabled = false,
                         googleDriveStatus = "",
                         googleDriveBackups = emptyList(),
+                        googleDrivePendingBackupName = "",
+                        googleDriveLastUploadError = "",
                         googleDriveSwitchRequest = it.googleDriveSwitchRequest + 1L
                     )
                 }
@@ -223,35 +237,12 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackupEnabled = false,
                         googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_disconnected),
                         googleDriveBackups = emptyList(),
-                        googleDrivePendingBackupName = ""
+                        googleDrivePendingBackupName = "",
+                        googleDriveLastUploadError = ""
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to disconnect Google Drive") }
-            }
-        }
-    }
-
-    fun setGoogleDriveBackupEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            try {
-                googleDriveBackupManager.setBackupEnabled(enabled)
-                if (!enabled) {
-                    GoogleDriveBackupUploadWorker.cancelPending(appContext)
-                    preferencesManager.clearGoogleDrivePendingBackup()
-                }
-                _uiState.update {
-                    it.copy(
-                        googleDriveBackupEnabled = enabled,
-                        googleDriveStatus = appContext.getString(
-                            if (enabled) com.nearexpiry.manager.R.string.google_drive_status_enabled
-                            else com.nearexpiry.manager.R.string.google_drive_status_paused
-                        ),
-                        googleDrivePendingBackupName = if (enabled) it.googleDrivePendingBackupName else ""
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Unable to update Google Drive backup") }
             }
         }
     }
@@ -543,21 +534,32 @@ class BackupRestoreViewModel @Inject constructor(
             try {
                 val name = AutoBackup.run(context)
                 var status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_internal_done)
+                var pendingBackupName = _uiState.value.googleDrivePendingBackupName
+                var lastUploadError = _uiState.value.googleDriveLastUploadError
                 if (uploadToGoogleDrive) {
                     if (!googleDriveBackupManager.isConnected()) {
                         throw IllegalStateException("Connect Google Drive before selecting it for Backup Now")
                     }
                     googleDriveBackupManager.setBackupEnabled(true)
                     preferencesManager.setGoogleDrivePendingBackupName(name)
-                    GoogleDriveBackupUploadWorker.enqueue(context, name)
-                    status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_upload_queued)
+                    val upload = GoogleDriveBackupUploadWorker.uploadImmediatelyOrQueue(context, name)
+                    if (upload.uploaded) {
+                        status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_uploaded)
+                        pendingBackupName = ""
+                        lastUploadError = ""
+                    } else {
+                        status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_upload_queued)
+                        pendingBackupName = name
+                        lastUploadError = upload.error.orEmpty()
+                    }
                 }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         internalBackupName = name,
                         googleDriveBackupEnabled = if (uploadToGoogleDrive) true else it.googleDriveBackupEnabled,
-                        googleDrivePendingBackupName = if (uploadToGoogleDrive) name else it.googleDrivePendingBackupName,
+                        googleDrivePendingBackupName = pendingBackupName,
+                        googleDriveLastUploadError = lastUploadError,
                         googleDriveStatus = status
                     )
                 }
@@ -569,6 +571,7 @@ class BackupRestoreViewModel @Inject constructor(
 
     // Retained for callers from older screen states; new UI uses Backup Now.
     fun backupNowToInternal(context: Context) = backupNow(context, uploadToGoogleDrive = false)
+    fun backupNowToGoogleDrive(context: Context) = backupNow(context, uploadToGoogleDrive = true)
 
     fun clearInternalBackupName() {
         _uiState.update { it.copy(internalBackupName = null) }

@@ -439,5 +439,13 @@
     <string name="google_drive_status_restored">Google Drive backup restored; local safety backup created</string>
     <string name="google_drive_status_internal_done">Internal backup completed</string>
     <string name="google_drive_status_upload_queued">Internal backup completed; Google Drive upload queued</string>
+    <string name="google_drive_status_uploaded">Internal and Google Drive backup completed</string>
     <string name="google_drive_upload_pending_format">Google Drive upload pending: %1$s. It will upload automatically when internet is available.</string>
+    <string name="google_drive_upload_error_format">Last Google Drive upload attempt: %1$s</string>
+    <string name="backup_restore_section_hint">Create backups, restore data, and view the automatic schedule</string>
+    <string name="google_drive_section_disconnected">Optional secure backup to your own Google Drive</string>
+    <string name="google_drive_section_connected">Connected and automatically uploading noon and midnight backups</string>
+    <string name="google_drive_auto_enabled">Automatic Google Drive upload is on for noon and midnight backups.</string>
+    <string name="catalog_section">Catalog</string>
+    <string name="catalog_section_hint">Product catalog, PC transfer, and Stock Recheck File</string>
 </resources>

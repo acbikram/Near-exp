@@ -439,5 +439,13 @@
     <string name="google_drive_status_restored">تمت استعادة نسخة Google Drive وإنشاء نسخة أمان داخلية</string>
     <string name="google_drive_status_internal_done">اكتمل النسخ الاحتياطي الداخلي</string>
     <string name="google_drive_status_upload_queued">اكتمل النسخ الاحتياطي الداخلي؛ تمت جدولة الرفع إلى Google Drive</string>
+    <string name="google_drive_status_uploaded">اكتمل النسخ الاحتياطي الداخلي والرفع إلى Google Drive</string>
     <string name="google_drive_upload_pending_format">رفع Google Drive قيد الانتظار: %1$s. سيتم الرفع تلقائياً عند توفر الإنترنت.</string>
+    <string name="google_drive_upload_error_format">آخر محاولة رفع إلى Google Drive: %1$s</string>
+    <string name="backup_restore_section_hint">أنشئ نسخاً احتياطية واستعد البيانات واعرض الجدول التلقائي</string>
+    <string name="google_drive_section_disconnected">نسخ احتياطي اختياري وآمن إلى Google Drive الخاص بك</string>
+    <string name="google_drive_section_connected">متصل ويرفع نسخ الظهر ومنتصف الليل تلقائياً</string>
+    <string name="google_drive_auto_enabled">الرفع التلقائي إلى Google Drive مفعّل لنسخ الظهر ومنتصف الليل.</string>
+    <string name="catalog_section">الكتالوج</string>
+    <string name="catalog_section_hint">كتالوج المنتجات والنقل من الكمبيوتر وملف إعادة الجرد</string>
 </resources>

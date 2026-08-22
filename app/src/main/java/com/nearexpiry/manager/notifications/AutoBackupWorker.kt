@@ -29,7 +29,7 @@ class AutoBackupWorker(
             val preferences = PreferencesManager(applicationContext)
             if (preferences.isGoogleDriveBackupEnabled()) {
                 preferences.setGoogleDrivePendingBackupName(name)
-                GoogleDriveBackupUploadWorker.enqueue(applicationContext, name)
+                GoogleDriveBackupUploadWorker.uploadImmediatelyOrQueue(applicationContext, name)
             }
             // Preserve the existing notification scheduling watchdog.
             ExpiryNotificationWorker.ensureScheduled(applicationContext)

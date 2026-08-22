@@ -17,10 +17,9 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /**
- * Uploads an already-created local backup after the network is available. This
- * keeps the internal backup safe even when the noon or midnight Drive attempt
- * is offline, and WorkManager runs the queued upload as soon as connectivity
- * returns.
+ * Uploads an already-created local backup. A manual Drive backup attempts an
+ * immediate upload first; this worker remains the durable network-constrained
+ * fallback for offline and transient Google Drive failures.
  */
 class GoogleDriveBackupUploadWorker(
     appContext: Context,
@@ -29,25 +28,51 @@ class GoogleDriveBackupUploadWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val name = inputData.getString(KEY_BACKUP_NAME) ?: return@withContext Result.failure()
-        try {
-            val preferences = PreferencesManager(applicationContext)
-            if (!preferences.isGoogleDriveBackupEnabled()) return@withContext Result.success()
-            val bytes = AutoBackup.readBackup(applicationContext, name) ?: return@withContext Result.failure()
-            GoogleDriveBackupManager(applicationContext, preferences).uploadBackup(name, bytes)
-            preferences.clearGoogleDrivePendingBackupIfMatches(name)
-            Result.success()
-        } catch (_: Exception) {
-            // OAuth/network/server failures are usually transient. Retain the
-            // name for UI feedback while WorkManager retries with backoff.
-            PreferencesManager(applicationContext).setGoogleDrivePendingBackupName(name)
-            Result.retry()
-        }
+        val attempt = attemptUpload(applicationContext, name)
+        if (attempt.uploaded) Result.success() else Result.retry()
     }
 
     companion object {
+        data class UploadAttempt(
+            val uploaded: Boolean,
+            val error: String? = null
+        )
+
         private const val KEY_BACKUP_NAME = "backup_name"
         private const val WORK_PREFIX = "google_drive_backup_"
         private const val WORK_TAG = "google_drive_backup_upload"
+
+        /**
+         * Runs a single Drive attempt immediately. If it cannot finish, the
+         * same local filename is retained and handed to WorkManager so Android
+         * retries when a usable Wi-Fi or mobile-data connection is available.
+         */
+        suspend fun uploadImmediatelyOrQueue(context: Context, backupName: String): UploadAttempt {
+            val attempt = attemptUpload(context.applicationContext, backupName)
+            if (!attempt.uploaded) enqueue(context.applicationContext, backupName)
+            return attempt
+        }
+
+        private suspend fun attemptUpload(context: Context, backupName: String): UploadAttempt =
+            withContext(Dispatchers.IO) {
+                val preferences = PreferencesManager(context)
+                if (!preferences.isGoogleDriveBackupEnabled()) {
+                    return@withContext UploadAttempt(uploaded = true)
+                }
+                try {
+                    val bytes = AutoBackup.readBackup(context, backupName)
+                        ?: throw IllegalStateException("The local backup file is unavailable")
+                    GoogleDriveBackupManager(context, preferences).uploadBackup(backupName, bytes)
+                    preferences.clearGoogleDrivePendingBackupIfMatches(backupName)
+                    preferences.clearGoogleDriveLastUploadError()
+                    UploadAttempt(uploaded = true)
+                } catch (e: Exception) {
+                    val error = e.message?.take(220) ?: "Google Drive upload could not be completed"
+                    preferences.setGoogleDrivePendingBackupName(backupName)
+                    preferences.setGoogleDriveLastUploadError(error)
+                    UploadAttempt(uploaded = false, error = error)
+                }
+            }
 
         fun enqueue(context: Context, backupName: String) {
             val request = OneTimeWorkRequestBuilder<GoogleDriveBackupUploadWorker>()

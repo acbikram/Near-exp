@@ -5,20 +5,30 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
+import com.nearexpiry.manager.presentation.components.GlassSectionCard
+import com.nearexpiry.manager.presentation.theme.CyanAccent
+import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.launch
 
@@ -49,6 +59,12 @@ fun BackupRestoreScreen(
     }
     var showBackupDestinationDialog by remember { mutableStateOf(false) }
     var showGoogleDriveRestoreDialog by remember { mutableStateOf(false) }
+    var backupRestoreExpanded by rememberSaveable { mutableStateOf(false) }
+    var googleDriveExpanded by rememberSaveable { mutableStateOf(false) }
+    var catalogExpanded by rememberSaveable { mutableStateOf(false) }
+    val backupRestoreHeaderInteraction = remember { MutableInteractionSource() }
+    val googleDriveHeaderInteraction = remember { MutableInteractionSource() }
+    val catalogHeaderInteraction = remember { MutableInteractionSource() }
     LaunchedEffect(uiState.googleDriveSwitchRequest) {
         if (uiState.googleDriveSwitchRequest > 0L) {
             googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
@@ -103,212 +119,299 @@ fun BackupRestoreScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                GlassActionButton(
-                    label = stringResource(R.string.backup_database),
-                    onClick = { backupLauncher.launch("NearExpiry_backup_${System.currentTimeMillis()}.json") },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-                GlassActionButton(
-                    label = stringResource(R.string.backup_all_projects),
-                    onClick = { backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json") },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-                GlassActionButton(
-                    label = stringResource(R.string.backup_now),
-                    onClick = { showBackupDestinationDialog = true },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-                Text(
-                    stringResource(R.string.auto_backup_twice_daily_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                GlassActionButton(
-                    label = stringResource(R.string.restore_database),
-                    onClick = { restoreLauncher.launch(arrayOf("*/*")) },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
-                Text(
-                    stringResource(R.string.google_drive_backup),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                if (uiState.googleDriveAccountEmail.isBlank()) {
-                    Text(
-                        stringResource(R.string.google_drive_connect_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    GlassActionButton(
-                        label = stringResource(R.string.google_drive_connect),
-                        onClick = { googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent()) },
-                        enabled = !uiState.isLoading,
-                        tone = GlassActionTone.Neutral
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.google_drive_connected_format, uiState.googleDriveAccountEmail),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(stringResource(R.string.google_drive_auto_upload))
-                        Switch(
-                            checked = uiState.googleDriveBackupEnabled,
-                            onCheckedChange = { viewModel.setGoogleDriveBackupEnabled(it) },
-                            enabled = !uiState.isLoading
-                        )
+                BackupExpandableSection(
+                    title = stringResource(R.string.backup_restore),
+                    summary = stringResource(R.string.backup_restore_section_hint),
+                    expanded = backupRestoreExpanded,
+                    interactionSource = backupRestoreHeaderInteraction,
+                    onToggle = {
+                        backupRestoreExpanded = !backupRestoreExpanded
+                        if (backupRestoreExpanded) {
+                            googleDriveExpanded = false
+                            catalogExpanded = false
+                        }
                     }
+                ) {
                     GlassActionButton(
-                        label = stringResource(R.string.google_drive_restore),
+                        label = stringResource(R.string.backup_database),
                         onClick = {
-                            viewModel.loadGoogleDriveBackups()
-                            showGoogleDriveRestoreDialog = true
+                            backupRestoreExpanded = false
+                            backupLauncher.launch("NearExpiry_backup_${System.currentTimeMillis()}.json")
                         },
                         enabled = !uiState.isLoading,
                         tone = GlassActionTone.Neutral
                     )
+                    Spacer(Modifier.height(8.dp))
                     GlassActionButton(
-                        label = stringResource(R.string.google_drive_switch),
-                        onClick = { viewModel.switchGoogleDriveAccount() },
+                        label = stringResource(R.string.backup_all_projects),
+                        onClick = {
+                            backupRestoreExpanded = false
+                            backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json")
+                        },
                         enabled = !uiState.isLoading,
                         tone = GlassActionTone.Neutral
                     )
+                    Spacer(Modifier.height(8.dp))
                     GlassActionButton(
-                        label = stringResource(R.string.google_drive_disconnect),
-                        onClick = { viewModel.disconnectGoogleDrive() },
+                        label = stringResource(R.string.backup_now),
+                        onClick = {
+                            backupRestoreExpanded = false
+                            showBackupDestinationDialog = true
+                        },
                         enabled = !uiState.isLoading,
                         tone = GlassActionTone.Neutral
                     )
-                }
-                if (uiState.googleDriveStatus.isNotBlank()) {
+                    Spacer(Modifier.height(10.dp))
                     Text(
-                        uiState.googleDriveStatus,
+                        stringResource(R.string.auto_backup_twice_daily_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                if (uiState.googleDrivePendingBackupName.isNotBlank()) {
-                    Text(
-                        stringResource(R.string.google_drive_upload_pending_format, uiState.googleDrivePendingBackupName),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
+                    Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
+                        label = stringResource(R.string.restore_database),
+                        onClick = {
+                            backupRestoreExpanded = false
+                            restoreLauncher.launch(arrayOf("*/*"))
+                        },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
                     )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // ── Catalog status indicator ─────────────────────────────────
-                Text(
-                    text = if (uiState.catalogCount > 0)
-                        stringResource(R.string.catalog_status_count, uiState.catalogCount)
-                    else
-                        stringResource(R.string.catalog_status_empty),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (uiState.catalogCount > 0)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.error
-                )
-
-                Text(
-                    stringResource(R.string.update_catalog_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                GlassActionButton(
-                    label = stringResource(R.string.update_catalog),
-                    onClick = { catalogUpdateLauncher.launch(arrayOf("*/*")) },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-
-                // ── Get latest catalog from PC over WiFi ─────────────────────
-                val wifiBusy = uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DISCOVERING ||
-                    uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING
-                GlassActionButton(
-                    label = when (uiState.wifiState) {
-                        BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
-                        BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
-                        else -> stringResource(R.string.get_catalog_wifi)
+                BackupExpandableSection(
+                    title = stringResource(R.string.google_drive_backup),
+                    summary = if (uiState.googleDriveAccountEmail.isBlank()) {
+                        stringResource(R.string.google_drive_section_disconnected)
+                    } else {
+                        stringResource(R.string.google_drive_section_connected)
                     },
-                    onClick = { viewModel.pullCatalogFromPc() },
-                    enabled = !uiState.isLoading && !wifiBusy,
-                    tone = GlassActionTone.Neutral
-                )
-                if (wifiBusy) {
-                    if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING && uiState.wifiProgress > 0f) {
-                        LinearProgressIndicator(
-                            progress = { uiState.wifiProgress },
-                            modifier = Modifier.fillMaxWidth()
+                    expanded = googleDriveExpanded,
+                    interactionSource = googleDriveHeaderInteraction,
+                    onToggle = {
+                        googleDriveExpanded = !googleDriveExpanded
+                        if (googleDriveExpanded) {
+                            backupRestoreExpanded = false
+                            catalogExpanded = false
+                        }
+                    }
+                ) {
+                    if (uiState.googleDriveAccountEmail.isBlank()) {
+                        Text(
+                            stringResource(R.string.google_drive_connect_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.google_drive_connect),
+                            onClick = {
+                                googleDriveExpanded = false
+                                googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
                         )
                     } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(
+                            text = stringResource(R.string.google_drive_connected_format, uiState.googleDriveAccountEmail),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.google_drive_auto_enabled),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.backup_now),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.backupNowToGoogleDrive(context)
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.google_drive_restore),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.loadGoogleDriveBackups()
+                                showGoogleDriveRestoreDialog = true
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.google_drive_switch),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.switchGoogleDriveAccount()
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.google_drive_disconnect),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.disconnectGoogleDrive()
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
+                        )
+                    }
+                    if (uiState.googleDriveStatus.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            uiState.googleDriveStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (uiState.googleDrivePendingBackupName.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.google_drive_upload_pending_format, uiState.googleDrivePendingBackupName),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    if (uiState.googleDriveLastUploadError.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.google_drive_upload_error_format, uiState.googleDriveLastUploadError),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
-                if (uiState.wifiStatus.isNotBlank()) {
-                    Text(
-                        uiState.wifiStatus,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.ERROR)
-                            MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                // ── Global Stock Recheck File ──────────────────────────────
-                // The Catalog File validates every app project. This separate
-                // list is applied only to valid catalog scans in Stock/Recheck
-                // projects to decide whether a quantity check is required.
-                Spacer(Modifier.height(4.dp))
-                GlassActionButton(
-                    label = stringResource(R.string.stock_recheck_file_excel),
-                    onClick = {
-                        recheckExcelLauncher.launch(
-                            arrayOf(
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                "application/vnd.ms-excel",
-                                "application/octet-stream"
-                            )
-                        )
-                    },
-                    enabled = !uiState.isLoading,
-                    tone = GlassActionTone.Neutral
-                )
-                Text(
-                    text = if (uiState.recheckCodeCount > 0) {
-                        stringResource(
-                            R.string.recheck_file_selected_format,
-                            uiState.recheckFileName.ifBlank { stringResource(R.string.recheck_excel_default_name) },
-                            uiState.recheckCodeCount,
-                            uiState.recheckSourceCodeRowCount
-                        )
-                    } else {
-                        stringResource(R.string.recheck_file_select_description)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (uiState.recheckDamageExpiryItemCount > 0) {
-                    Spacer(Modifier.height(2.dp))
+                val wifiBusy = uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DISCOVERING ||
+                    uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING
+                BackupExpandableSection(
+                    title = stringResource(R.string.catalog_section),
+                    summary = stringResource(R.string.catalog_section_hint),
+                    expanded = catalogExpanded,
+                    interactionSource = catalogHeaderInteraction,
+                    onToggle = {
+                        catalogExpanded = !catalogExpanded
+                        if (catalogExpanded) {
+                            backupRestoreExpanded = false
+                            googleDriveExpanded = false
+                        }
+                    }
+                ) {
                     Text(
-                        text = stringResource(
-                            R.string.recheck_damage_expiry_summary,
-                            uiState.recheckDamageExpiryItemCount,
-                            QuantityFormatter.format(uiState.recheckDamageExpiryTotal)
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
+                        text = if (uiState.catalogCount > 0)
+                            stringResource(R.string.catalog_status_count, uiState.catalogCount)
+                        else
+                            stringResource(R.string.catalog_status_empty),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (uiState.catalogCount > 0)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.error
                     )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.update_catalog_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
+                        label = stringResource(R.string.update_catalog),
+                        onClick = {
+                            catalogExpanded = false
+                            catalogUpdateLauncher.launch(arrayOf("*/*"))
+                        },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
+                        label = when (uiState.wifiState) {
+                            BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
+                            BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
+                            else -> stringResource(R.string.get_catalog_wifi)
+                        },
+                        onClick = {
+                            catalogExpanded = false
+                            viewModel.pullCatalogFromPc()
+                        },
+                        enabled = !uiState.isLoading && !wifiBusy,
+                        tone = GlassActionTone.Neutral
+                    )
+                    if (wifiBusy) {
+                        Spacer(Modifier.height(8.dp))
+                        if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.DOWNLOADING && uiState.wifiProgress > 0f) {
+                            LinearProgressIndicator(
+                                progress = { uiState.wifiProgress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                    if (uiState.wifiStatus.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            uiState.wifiStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (uiState.wifiState == BackupRestoreViewModel.WifiCatalogState.ERROR)
+                                MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
+                        label = stringResource(R.string.stock_recheck_file_excel),
+                        onClick = {
+                            catalogExpanded = false
+                            recheckExcelLauncher.launch(
+                                arrayOf(
+                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "application/vnd.ms-excel",
+                                    "application/octet-stream"
+                                )
+                            )
+                        },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = if (uiState.recheckCodeCount > 0) {
+                            stringResource(
+                                R.string.recheck_file_selected_format,
+                                uiState.recheckFileName.ifBlank { stringResource(R.string.recheck_excel_default_name) },
+                                uiState.recheckCodeCount,
+                                uiState.recheckSourceCodeRowCount
+                            )
+                        } else {
+                            stringResource(R.string.recheck_file_select_description)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (uiState.recheckDamageExpiryItemCount > 0) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.recheck_damage_expiry_summary,
+                                uiState.recheckDamageExpiryItemCount,
+                                QuantityFormatter.format(uiState.recheckDamageExpiryTotal)
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
                 }
             }
 
@@ -527,6 +630,58 @@ fun BackupRestoreScreen(
                 }
                 snackbarHostState.showSnackbar(text)
                 viewModel.clearRestoreResult()
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackupExpandableSection(
+    title: String,
+    summary: String,
+    expanded: Boolean,
+    interactionSource: MutableInteractionSource,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    GlassSectionCard(
+        selected = expanded,
+        interactionSource = interactionSource
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onToggle
+                    )
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = CyanAccent,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                    )
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = CyanAccent
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.height(12.dp))
+                content()
             }
         }
     }
