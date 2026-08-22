@@ -1,6 +1,7 @@
 package com.nearexpiry.manager.presentation.screens.backup
 
 import android.content.Context
+import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -29,8 +30,12 @@ import com.nearexpiry.manager.presentation.components.GlassActionTone
 import com.nearexpiry.manager.presentation.components.GlassSectionCard
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
+import com.nearexpiry.manager.utils.GoogleDriveBackupManager
 import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +64,8 @@ fun BackupRestoreScreen(
     }
     var showBackupDestinationDialog by remember { mutableStateOf(false) }
     var showGoogleDriveRestoreDialog by remember { mutableStateOf(false) }
+    var showDeleteRecheckDialog by remember { mutableStateOf(false) }
+    var selectedGoogleDriveBackup by remember { mutableStateOf<GoogleDriveBackupManager.DriveBackupFile?>(null) }
     var backupRestoreExpanded by rememberSaveable { mutableStateOf(false) }
     var googleDriveExpanded by rememberSaveable { mutableStateOf(false) }
     var catalogExpanded by rememberSaveable { mutableStateOf(false) }
@@ -179,12 +186,23 @@ fun BackupRestoreScreen(
                     )
                 }
 
+                val googleDriveHealth = when {
+                    uiState.googleDriveUploadInProgress -> stringResource(R.string.google_drive_health_uploading)
+                    uiState.googleDriveLastUploadError.isNotBlank() -> stringResource(R.string.google_drive_health_attention)
+                    uiState.googleDrivePendingBackupName.isNotBlank() -> stringResource(R.string.google_drive_health_waiting)
+                    uiState.googleDriveLastSuccessTime > 0L -> stringResource(R.string.google_drive_health_up_to_date)
+                    else -> stringResource(R.string.google_drive_health_no_backup)
+                }
                 BackupExpandableSection(
                     title = stringResource(R.string.google_drive_backup),
                     summary = if (uiState.googleDriveAccountEmail.isBlank()) {
                         stringResource(R.string.google_drive_section_disconnected)
                     } else {
-                        stringResource(R.string.google_drive_section_connected)
+                        stringResource(
+                            R.string.google_drive_section_summary_format,
+                            uiState.googleDriveAccountEmail,
+                            googleDriveHealth
+                        )
                     },
                     expanded = googleDriveExpanded,
                     interactionSource = googleDriveHeaderInteraction,
@@ -224,6 +242,30 @@ fun BackupRestoreScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            googleDriveHealth,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = when {
+                                uiState.googleDriveUploadInProgress -> MaterialTheme.colorScheme.primary
+                                uiState.googleDriveLastUploadError.isNotBlank() -> MaterialTheme.colorScheme.error
+                                uiState.googleDrivePendingBackupName.isNotBlank() -> MaterialTheme.colorScheme.tertiary
+                                uiState.googleDriveLastSuccessTime > 0L -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                        if (uiState.googleDriveLastSuccessTime > 0L) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                stringResource(
+                                    R.string.google_drive_last_success_format,
+                                    uiState.googleDriveLastSuccessName.removePrefix("NearExpiry_auto_backup_").removeSuffix(".json"),
+                                    formatDriveTimestamp(uiState.googleDriveLastSuccessTime)
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                         GlassActionButton(
                             label = stringResource(R.string.backup_now),
@@ -288,6 +330,18 @@ fun BackupRestoreScreen(
                             stringResource(R.string.google_drive_upload_error_format, uiState.googleDriveLastUploadError),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (uiState.googleDrivePendingBackupName.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.retry),
+                            onClick = {
+                                googleDriveExpanded = false
+                                viewModel.retryGoogleDriveUpload()
+                            },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Neutral
                         )
                     }
                 }
@@ -400,6 +454,15 @@ fun BackupRestoreScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (uiState.recheckCodeCount > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        GlassActionButton(
+                            label = stringResource(R.string.recheck_file_delete),
+                            onClick = { showDeleteRecheckDialog = true },
+                            enabled = !uiState.isLoading,
+                            tone = GlassActionTone.Destructive
+                        )
+                    }
                     if (uiState.recheckDamageExpiryItemCount > 0) {
                         Spacer(Modifier.height(2.dp))
                         Text(
@@ -465,6 +528,26 @@ fun BackupRestoreScreen(
         }
     }
 
+    if (showDeleteRecheckDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteRecheckDialog = false },
+            title = { Text(stringResource(R.string.recheck_file_delete_title)) },
+            text = { Text(stringResource(R.string.recheck_file_delete_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteRecheckDialog = false
+                    catalogExpanded = false
+                    viewModel.deleteRecheckFile()
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteRecheckDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
     if (showBackupDestinationDialog) {
         var uploadToDrive by remember(uiState.googleDriveAccountEmail, uiState.googleDriveBackupEnabled) {
             mutableStateOf(uiState.googleDriveAccountEmail.isNotBlank() && uiState.googleDriveBackupEnabled)
@@ -519,13 +602,21 @@ fun BackupRestoreScreen(
                     }
                     uiState.googleDriveBackups.forEach { backup ->
                         OutlinedButton(
-                            onClick = {
-                                showGoogleDriveRestoreDialog = false
-                                viewModel.restoreFromGoogleDrive(backup.id)
-                            },
+                            onClick = { selectedGoogleDriveBackup = backup },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(backup.name.removePrefix("NearExpiry_auto_backup_").removeSuffix(".json"))
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(backup.name.removePrefix("NearExpiry_auto_backup_").removeSuffix(".json"))
+                                Text(
+                                    stringResource(
+                                        R.string.google_drive_restore_detail_format,
+                                        formatDriveCreatedTime(backup.createdTime),
+                                        Formatter.formatFileSize(context, backup.sizeBytes)
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -534,6 +625,43 @@ fun BackupRestoreScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showGoogleDriveRestoreDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    selectedGoogleDriveBackup?.let { backup ->
+        AlertDialog(
+            onDismissRequest = { selectedGoogleDriveBackup = null },
+            title = { Text(stringResource(R.string.google_drive_restore_confirm_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(backup.name.removePrefix("NearExpiry_auto_backup_").removeSuffix(".json"))
+                    Text(
+                        stringResource(
+                            R.string.google_drive_restore_detail_format,
+                            formatDriveCreatedTime(backup.createdTime),
+                            Formatter.formatFileSize(context, backup.sizeBytes)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.google_drive_restore_confirm_message),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedGoogleDriveBackup = null
+                    showGoogleDriveRestoreDialog = false
+                    viewModel.restoreFromGoogleDrive(backup.id)
+                }) { Text(stringResource(R.string.restore_database), color = CyanAccent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedGoogleDriveBackup = null }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -686,3 +814,18 @@ private fun BackupExpandableSection(
         }
     }
 }
+
+private val driveTimestampFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")
+
+private fun formatDriveTimestamp(timestampMillis: Long): String = runCatching {
+    Instant.ofEpochMilli(timestampMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(driveTimestampFormatter)
+}.getOrDefault("")
+
+private fun formatDriveCreatedTime(createdTime: String): String = runCatching {
+    Instant.parse(createdTime)
+        .atZone(ZoneId.systemDefault())
+        .format(driveTimestampFormatter)
+}.getOrDefault(createdTime.ifBlank { "—" })

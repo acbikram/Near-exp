@@ -66,6 +66,9 @@ class BackupRestoreViewModel @Inject constructor(
         val googleDrivePendingBackupName: String = "",
         /** Last upload failure retained while the local backup waits for retry. */
         val googleDriveLastUploadError: String = "",
+        val googleDriveLastSuccessName: String = "",
+        val googleDriveLastSuccessTime: Long = 0L,
+        val googleDriveUploadInProgress: Boolean = false,
         /** Incremented after sign-out to request the Compose account chooser. */
         val googleDriveSwitchRequest: Long = 0L,
         /** Set after a successful CSV import; null otherwise. */
@@ -163,12 +166,16 @@ class BackupRestoreViewModel @Inject constructor(
             }
             val pendingBackupName = preferencesManager.getGoogleDrivePendingBackupName()
             val lastUploadError = preferencesManager.getGoogleDriveLastUploadError()
+            val lastSuccessName = preferencesManager.getGoogleDriveLastSuccessName()
+            val lastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime()
             _uiState.update {
                 it.copy(
                     googleDriveAccountEmail = status.accountEmail.orEmpty(),
                     googleDriveBackupEnabled = status.accountEmail != null,
                     googleDrivePendingBackupName = pendingBackupName,
                     googleDriveLastUploadError = lastUploadError,
+                    googleDriveLastSuccessName = lastSuccessName,
+                    googleDriveLastSuccessTime = lastSuccessTime,
                     googleDriveStatus = if (status.accountEmail == null) "" else appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_ready)
                 )
             }
@@ -191,7 +198,9 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackupEnabled = true,
                         googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_enabled),
                         googleDrivePendingBackupName = "",
-                        googleDriveLastUploadError = ""
+                        googleDriveLastUploadError = "",
+                        googleDriveLastSuccessName = "",
+                        googleDriveLastSuccessTime = 0L
                     )
                 }
             } catch (e: Exception) {
@@ -238,7 +247,9 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_disconnected),
                         googleDriveBackups = emptyList(),
                         googleDrivePendingBackupName = "",
-                        googleDriveLastUploadError = ""
+                        googleDriveLastUploadError = "",
+                        googleDriveLastSuccessName = "",
+                        googleDriveLastSuccessTime = 0L
                     )
                 }
             } catch (e: Exception) {
@@ -530,7 +541,13 @@ class BackupRestoreViewModel @Inject constructor(
      */
     fun backupNow(context: Context, uploadToGoogleDrive: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    googleDriveUploadInProgress = uploadToGoogleDrive
+                )
+            }
             try {
                 val name = AutoBackup.run(context)
                 var status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_internal_done)
@@ -560,11 +577,43 @@ class BackupRestoreViewModel @Inject constructor(
                         googleDriveBackupEnabled = if (uploadToGoogleDrive) true else it.googleDriveBackupEnabled,
                         googleDrivePendingBackupName = pendingBackupName,
                         googleDriveLastUploadError = lastUploadError,
+                        googleDriveLastSuccessName = preferencesManager.getGoogleDriveLastSuccessName(),
+                        googleDriveLastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime(),
+                        googleDriveUploadInProgress = false,
                         googleDriveStatus = status
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, googleDriveUploadInProgress = false, error = e.message) }
+            }
+        }
+    }
+
+    fun retryGoogleDriveUpload() {
+        val backupName = _uiState.value.googleDrivePendingBackupName
+        if (backupName.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, googleDriveUploadInProgress = true) }
+            try {
+                val upload = GoogleDriveBackupUploadWorker.uploadImmediatelyOrQueue(appContext, backupName)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveUploadInProgress = false,
+                        googleDrivePendingBackupName = if (upload.uploaded) "" else backupName,
+                        googleDriveLastUploadError = upload.error.orEmpty(),
+                        googleDriveLastSuccessName = preferencesManager.getGoogleDriveLastSuccessName(),
+                        googleDriveLastSuccessTime = preferencesManager.getGoogleDriveLastSuccessTime(),
+                        googleDriveStatus = appContext.getString(
+                            if (upload.uploaded) com.nearexpiry.manager.R.string.google_drive_status_uploaded
+                            else com.nearexpiry.manager.R.string.google_drive_status_upload_queued
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, googleDriveUploadInProgress = false, error = e.message ?: "Google Drive retry failed")
+                }
             }
         }
     }
@@ -653,6 +702,43 @@ class BackupRestoreViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(isLoading = false, error = e.message ?: "Unable to import the Recheck Excel file")
+                }
+            }
+        }
+    }
+
+    /**
+     * Removes only the selected Stock Recheck workbook and its scan-matching
+     * index. Existing stock projects, scanned inventory, history, and exports
+     * remain untouched.
+     */
+    fun deleteRecheckFile() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, recheckImportResult = null) }
+            try {
+                val previousTemplate = recheckTemplateStore.read()
+                recheckTemplateStore.delete()
+                try {
+                    recheckCodeStore.clearSelectedFile()
+                } catch (e: Exception) {
+                    if (previousTemplate != null) recheckTemplateStore.replace(previousTemplate)
+                    throw e
+                }
+                preferencesManager.clearRecheckFileMetadata()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        recheckFileName = "",
+                        recheckCodeCount = 0,
+                        recheckSourceCodeRowCount = 0,
+                        recheckDamageExpiryItemCount = 0,
+                        recheckDamageExpiryTotal = 0.0,
+                        recheckImportResult = appContext.getString(com.nearexpiry.manager.R.string.recheck_file_deleted)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Unable to delete the Stock Recheck File")
                 }
             }
         }

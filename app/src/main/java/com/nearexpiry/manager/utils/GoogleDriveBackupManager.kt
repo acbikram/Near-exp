@@ -43,7 +43,8 @@ class GoogleDriveBackupManager @Inject constructor(
     data class DriveBackupFile(
         val id: String,
         val name: String,
-        val createdTime: String
+        val createdTime: String,
+        val sizeBytes: Long = 0L
     )
 
     data class DriveStatus(
@@ -184,7 +185,7 @@ class GoogleDriveBackupManager @Inject constructor(
         val query = "'$folderId' in parents and trashed=false"
         val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
         val response = request(
-            url = "$DRIVE_API/files?q=$encodedQuery&fields=files(id,name,createdTime)&orderBy=createdTime%20desc&pageSize=100",
+            url = "$DRIVE_API/files?q=$encodedQuery&fields=files(id,name,createdTime,size)&orderBy=createdTime%20desc&pageSize=100",
             method = "GET",
             token = token
         )
@@ -197,7 +198,8 @@ class GoogleDriveBackupManager @Inject constructor(
                 DriveBackupFile(
                     id = id,
                     name = name,
-                    createdTime = item["createdTime"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    createdTime = item["createdTime"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    sizeBytes = item["size"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L
                 )
             }
     }

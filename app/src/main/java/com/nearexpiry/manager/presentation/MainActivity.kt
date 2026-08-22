@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -22,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.nearexpiry.manager.notifications.DailyExpiryAlarmScheduler
 import com.nearexpiry.manager.presentation.components.BatteryOptimizationDialog
+import com.nearexpiry.manager.presentation.components.FirstLaunchGoogleDriveDialog
 import com.nearexpiry.manager.presentation.components.FirstLaunchLanguageDialog
 import com.nearexpiry.manager.presentation.components.FirstLaunchThemeDialog
 import com.nearexpiry.manager.presentation.components.NotificationPermissionDialog
@@ -87,7 +89,14 @@ class MainActivity : AppCompatActivity() {
 
                     val showLanguagePrompt by firstLaunchViewModel.showLanguagePrompt.collectAsState()
                     val showThemePrompt by firstLaunchViewModel.showThemePrompt.collectAsState()
+                    val showGoogleDrivePrompt by firstLaunchViewModel.showGoogleDrivePrompt.collectAsState()
+                    val googleDriveError by firstLaunchViewModel.googleDriveError.collectAsState()
                     val startupSetupPending by firstLaunchViewModel.startupSetupPending.collectAsState()
+                    val googleDriveSetupLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        firstLaunchViewModel.onGoogleDriveAddNow(result.data)
+                    }
 
                     LaunchedEffect(startupSetupPending) {
                         if (!startupSetupPending) {
@@ -105,9 +114,17 @@ class MainActivity : AppCompatActivity() {
                             initialMode = themeMode,
                             onConfirm = firstLaunchViewModel::onThemeSelected
                         )
+                    } else if (showGoogleDrivePrompt) {
+                        FirstLaunchGoogleDriveDialog(
+                            error = googleDriveError,
+                            onAddNow = {
+                                googleDriveSetupLauncher.launch(firstLaunchViewModel.googleDriveSignInIntent())
+                            },
+                            onSkip = firstLaunchViewModel::onGoogleDriveSkip
+                        )
                     }
 
-                    if (!showLanguagePrompt && !showThemePrompt && showNotifSettingsDialog.value) {
+                    if (!showLanguagePrompt && !showThemePrompt && !showGoogleDrivePrompt && showNotifSettingsDialog.value) {
                         NotificationPermissionDialog(
                             onOpenSettings = { openAppNotificationSettings() },
                             onDismiss = { showNotifSettingsDialog.value = false }
@@ -118,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                     // of the same composition as the mandatory language picker.
                     // Some EMUI builds are unstable when two modal surfaces are
                     // requested during their initial activity resume.
-                    if (!showLanguagePrompt && !showThemePrompt && showBatteryOptDialog.value) {
+                    if (!showLanguagePrompt && !showThemePrompt && !showGoogleDrivePrompt && showBatteryOptDialog.value) {
                         BatteryOptimizationDialog(
                             onAllow = { requestIgnoreBatteryOptimizations() },
                             onDismiss = {

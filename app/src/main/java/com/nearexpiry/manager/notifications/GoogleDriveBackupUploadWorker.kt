@@ -65,6 +65,7 @@ class GoogleDriveBackupUploadWorker(
                     GoogleDriveBackupManager(context, preferences).uploadBackup(backupName, bytes)
                     preferences.clearGoogleDrivePendingBackupIfMatches(backupName)
                     preferences.clearGoogleDriveLastUploadError()
+                    preferences.setGoogleDriveLastSuccess(backupName, System.currentTimeMillis())
                     UploadAttempt(uploaded = true)
                 } catch (e: Exception) {
                     val error = e.message?.take(220) ?: "Google Drive upload could not be completed"

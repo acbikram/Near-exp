@@ -69,6 +69,11 @@ class RecheckCodeStore @Inject constructor(
         return if (fallbackBarcode != null) dao.findByCode(fallbackBarcode) else null
     }
 
+    /** Removes the selected template's scan-matching index only. */
+    suspend fun clearSelectedFile() {
+        dao.clearAll()
+    }
+
     /** Replaces the complete ordered template index in one Room transaction. */
     suspend fun replaceRows(rows: Collection<RecheckExcelReader.Row>): Int {
         val unique = linkedMapOf<String, RecheckCodeEntity>()

@@ -448,4 +448,22 @@
     <string name="google_drive_auto_enabled">الرفع التلقائي إلى Google Drive مفعّل لنسخ الظهر ومنتصف الليل.</string>
     <string name="catalog_section">الكتالوج</string>
     <string name="catalog_section_hint">كتالوج المنتجات والنقل من الكمبيوتر وملف إعادة الجرد</string>
+    <string name="google_drive_first_launch_title">إعداد النسخ الاحتياطي إلى Google Drive؟</string>
+    <string name="google_drive_first_launch_description">اتصل اختيارياً بحساب Google الآن للحصول على نسخ احتياطية تلقائية عند الظهر ومنتصف الليل واستعادة من Google Drive. يمكنك الاتصال لاحقاً من النسخ الاحتياطي والاستعادة.</string>
+    <string name="google_drive_add_now">إضافة الآن</string>
+    <string name="google_drive_skip">تخطي</string>
+    <string name="recheck_file_delete">حذف ملف إعادة الجرد</string>
+    <string name="recheck_file_delete_title">حذف ملف إعادة الجرد؟</string>
+    <string name="recheck_file_delete_message">سيؤدي هذا إلى حذف قالب Excel المحفوظ ورموز إعادة الجرد المحمّلة والترتيب والأوصاف ووحدات القياس وكميات التلف/الانتهاء المرجعية. لن يتم حذف مشاريع المخزون أو العناصر الممسوحة أو السجل أو التصديرات السابقة.</string>
+    <string name="recheck_file_deleted">تم حذف ملف إعادة الجرد. اختر ملفاً آخر قبل فحص كميات وضع المخزون.</string>
+    <string name="google_drive_health_uploading">جارٍ الرفع</string>
+    <string name="google_drive_health_up_to_date">محدّث</string>
+    <string name="google_drive_health_waiting">بانتظار إعادة المحاولة التلقائية</string>
+    <string name="google_drive_health_attention">يتطلب الانتباه</string>
+    <string name="google_drive_health_no_backup">لم يتم رفع نسخة احتياطية إلى Google Drive بعد</string>
+    <string name="google_drive_last_success_format">آخر نسخة احتياطية ناجحة في Google Drive: %1$s · %2$s</string>
+    <string name="google_drive_restore_detail_format">%1$s · %2$s</string>
+    <string name="google_drive_restore_confirm_title">استعادة نسخة Google Drive هذه؟</string>
+    <string name="google_drive_restore_confirm_message">ستستبدل النسخة المحددة بيانات التطبيق ذات الصلة. سيتم إنشاء نسخة أمان داخلية جديدة لجميع المشاريع أولاً.</string>
+    <string name="google_drive_section_summary_format">%1$s · %2$s</string>
 </resources>

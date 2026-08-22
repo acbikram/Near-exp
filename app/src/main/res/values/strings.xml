@@ -448,4 +448,22 @@
     <string name="google_drive_auto_enabled">Automatic Google Drive upload is on for noon and midnight backups.</string>
     <string name="catalog_section">Catalog</string>
     <string name="catalog_section_hint">Product catalog, PC transfer, and Stock Recheck File</string>
+    <string name="google_drive_first_launch_title">Set up Google Drive Backup?</string>
+    <string name="google_drive_first_launch_description">Optionally connect your Google account now for automatic noon and midnight backups and Google Drive restore. You can also connect later from Backup &amp; Restore.</string>
+    <string name="google_drive_add_now">Add Now</string>
+    <string name="google_drive_skip">Skip</string>
+    <string name="recheck_file_delete">Delete Stock Recheck File</string>
+    <string name="recheck_file_delete_title">Delete Stock Recheck File?</string>
+    <string name="recheck_file_delete_message">This removes the saved Excel template and its loaded Recheck codes, sorting, descriptions, UOMs, and Damage/Expiry reference quantities. Your stock projects, scanned items, history, and past exports are not deleted.</string>
+    <string name="recheck_file_deleted">Stock Recheck File deleted. Select another file before Stock Mode quantity checking.</string>
+    <string name="google_drive_health_uploading">Uploading</string>
+    <string name="google_drive_health_up_to_date">Up to date</string>
+    <string name="google_drive_health_waiting">Waiting for automatic retry</string>
+    <string name="google_drive_health_attention">Needs attention</string>
+    <string name="google_drive_health_no_backup">No Google Drive backup uploaded yet</string>
+    <string name="google_drive_last_success_format">Last successful Google Drive backup: %1$s · %2$s</string>
+    <string name="google_drive_restore_detail_format">%1$s · %2$s</string>
+    <string name="google_drive_restore_confirm_title">Restore this Google Drive backup?</string>
+    <string name="google_drive_restore_confirm_message">The selected backup will replace the relevant app data. A new all-project internal safety backup will be created first.</string>
+    <string name="google_drive_section_summary_format">%1$s · %2$s</string>
 </resources>

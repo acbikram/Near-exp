@@ -41,4 +41,11 @@ class RecheckTemplateStore @Inject constructor(
     suspend fun hasTemplate(): Boolean = withContext(Dispatchers.IO) {
         templateFile.exists() && templateFile.length() > 0L
     }
+
+    /** Removes only the saved Stock Recheck Excel template. */
+    suspend fun delete() = withContext(Dispatchers.IO) {
+        if (templateFile.exists() && !templateFile.delete()) {
+            error("Unable to delete the Stock Recheck Excel file.")
+        }
+    }
 }

@@ -49,12 +49,17 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val scanModeStreakKey = longPreferencesKey("scan_mode_streak")
     private val themeModeKey = stringPreferencesKey("theme_mode")
     private val themePromptShownKey = booleanPreferencesKey("theme_prompt_shown")
+    // Set only while a new installation moves from theme selection to its
+    // optional Google Drive setup choice. Existing installations do not see it.
+    private val googleDriveOnboardingPendingKey = booleanPreferencesKey("google_drive_onboarding_pending")
     // Optional user-owned Google Drive backup state. OAuth tokens stay with
     // Google Play services; DataStore retains only display and preference data.
     private val googleDriveAccountEmailKey = stringPreferencesKey("google_drive_account_email")
     private val googleDriveBackupEnabledKey = booleanPreferencesKey("google_drive_backup_enabled")
     private val googleDrivePendingBackupNameKey = stringPreferencesKey("google_drive_pending_backup_name")
     private val googleDriveLastUploadErrorKey = stringPreferencesKey("google_drive_last_upload_error")
+    private val googleDriveLastSuccessNameKey = stringPreferencesKey("google_drive_last_success_name")
+    private val googleDriveLastSuccessTimeKey = longPreferencesKey("google_drive_last_success_time")
 
     /** "dark" (default), "light", or "system" — app appearance mode. */
     val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -126,6 +131,13 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         context.dataStore.edit {
             it[recheckFileNameKey] = fileName
             it[recheckCodeCountKey] = codeCount.toLong()
+        }
+    }
+
+    suspend fun clearRecheckFileMetadata() {
+        context.dataStore.edit {
+            it.remove(recheckFileNameKey)
+            it.remove(recheckCodeCountKey)
         }
     }
 
@@ -246,6 +258,17 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         }
     }
 
+    suspend fun isGoogleDriveOnboardingPending(): Boolean =
+        context.dataStore.data.first()[googleDriveOnboardingPendingKey] ?: false
+
+    suspend fun beginGoogleDriveOnboarding() {
+        context.dataStore.edit { prefs -> prefs[googleDriveOnboardingPendingKey] = true }
+    }
+
+    suspend fun completeGoogleDriveOnboarding() {
+        context.dataStore.edit { prefs -> prefs.remove(googleDriveOnboardingPendingKey) }
+    }
+
     suspend fun getGoogleDriveAccountEmail(): String =
         context.dataStore.data.first()[googleDriveAccountEmailKey] ?: ""
 
@@ -290,12 +313,27 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         context.dataStore.edit { prefs -> prefs.remove(googleDriveLastUploadErrorKey) }
     }
 
+    suspend fun setGoogleDriveLastSuccess(backupName: String, completedAtMillis: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[googleDriveLastSuccessNameKey] = backupName
+            prefs[googleDriveLastSuccessTimeKey] = completedAtMillis
+        }
+    }
+
+    suspend fun getGoogleDriveLastSuccessName(): String =
+        context.dataStore.data.first()[googleDriveLastSuccessNameKey] ?: ""
+
+    suspend fun getGoogleDriveLastSuccessTime(): Long =
+        context.dataStore.data.first()[googleDriveLastSuccessTimeKey] ?: 0L
+
     suspend fun clearGoogleDriveBackupSettings() {
         context.dataStore.edit { prefs ->
             prefs.remove(googleDriveAccountEmailKey)
             prefs.remove(googleDriveBackupEnabledKey)
             prefs.remove(googleDrivePendingBackupNameKey)
             prefs.remove(googleDriveLastUploadErrorKey)
+            prefs.remove(googleDriveLastSuccessNameKey)
+            prefs.remove(googleDriveLastSuccessTimeKey)
         }
     }
 
