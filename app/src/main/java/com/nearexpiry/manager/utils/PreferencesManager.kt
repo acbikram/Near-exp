@@ -49,6 +49,11 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val scanModeStreakKey = longPreferencesKey("scan_mode_streak")
     private val themeModeKey = stringPreferencesKey("theme_mode")
     private val themePromptShownKey = booleanPreferencesKey("theme_prompt_shown")
+    // Optional user-owned Google Drive backup state. OAuth tokens stay with
+    // Google Play services; DataStore retains only display and preference data.
+    private val googleDriveAccountEmailKey = stringPreferencesKey("google_drive_account_email")
+    private val googleDriveBackupEnabledKey = booleanPreferencesKey("google_drive_backup_enabled")
+    private val googleDrivePendingBackupNameKey = stringPreferencesKey("google_drive_pending_backup_name")
 
     /** "dark" (default), "light", or "system" — app appearance mode. */
     val themeModeFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -237,6 +242,47 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     suspend fun setThemePromptShown() {
         context.dataStore.edit { prefs ->
             prefs[themePromptShownKey] = true
+        }
+    }
+
+    suspend fun getGoogleDriveAccountEmail(): String =
+        context.dataStore.data.first()[googleDriveAccountEmailKey] ?: ""
+
+    suspend fun setGoogleDriveAccountEmail(email: String) {
+        context.dataStore.edit { prefs -> prefs[googleDriveAccountEmailKey] = email }
+    }
+
+    suspend fun isGoogleDriveBackupEnabled(): Boolean =
+        context.dataStore.data.first()[googleDriveBackupEnabledKey] ?: false
+
+    suspend fun setGoogleDriveBackupEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[googleDriveBackupEnabledKey] = enabled }
+    }
+
+    suspend fun getGoogleDrivePendingBackupName(): String =
+        context.dataStore.data.first()[googleDrivePendingBackupNameKey] ?: ""
+
+    suspend fun setGoogleDrivePendingBackupName(name: String) {
+        context.dataStore.edit { prefs -> prefs[googleDrivePendingBackupNameKey] = name }
+    }
+
+    suspend fun clearGoogleDrivePendingBackupIfMatches(name: String) {
+        context.dataStore.edit { prefs ->
+            if (prefs[googleDrivePendingBackupNameKey] == name) {
+                prefs.remove(googleDrivePendingBackupNameKey)
+            }
+        }
+    }
+
+    suspend fun clearGoogleDrivePendingBackup() {
+        context.dataStore.edit { prefs -> prefs.remove(googleDrivePendingBackupNameKey) }
+    }
+
+    suspend fun clearGoogleDriveBackupSettings() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(googleDriveAccountEmailKey)
+            prefs.remove(googleDriveBackupEnabledKey)
+            prefs.remove(googleDrivePendingBackupNameKey)
         }
     }
 

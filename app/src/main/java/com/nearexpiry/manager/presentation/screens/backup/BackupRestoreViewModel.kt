@@ -2,6 +2,7 @@ package com.nearexpiry.manager.presentation.screens.backup
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
@@ -22,6 +23,8 @@ import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.RecheckExcelReader
 import com.nearexpiry.manager.utils.RecheckTemplateStore
 import com.nearexpiry.manager.utils.PreferencesManager
+import com.nearexpiry.manager.utils.GoogleDriveBackupManager
+import com.nearexpiry.manager.notifications.GoogleDriveBackupUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +47,7 @@ class BackupRestoreViewModel @Inject constructor(
     private val recheckCodeStore: RecheckCodeStore,
     private val recheckTemplateStore: RecheckTemplateStore,
     private val preferencesManager: PreferencesManager,
+    private val googleDriveBackupManager: GoogleDriveBackupManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -54,6 +58,14 @@ class BackupRestoreViewModel @Inject constructor(
         val isLoading: Boolean = false,
         val error: String? = null,
         val success: Boolean = false,
+        /** Optional user-owned Google Drive connection and backup status. */
+        val googleDriveAccountEmail: String = "",
+        val googleDriveBackupEnabled: Boolean = false,
+        val googleDriveStatus: String = "",
+        val googleDriveBackups: List<GoogleDriveBackupManager.DriveBackupFile> = emptyList(),
+        val googleDrivePendingBackupName: String = "",
+        /** Incremented after sign-out to request the Compose account chooser. */
+        val googleDriveSwitchRequest: Long = 0L,
         /** Set after a successful CSV import; null otherwise. */
         // ── Universal Restore Database ──────────────────────────────────
         /** Items parsed from a CSV/XLSX restore, awaiting a project choice. */
@@ -96,6 +108,7 @@ class BackupRestoreViewModel @Inject constructor(
     init {
         refreshCatalogCount()
         refreshRecheckStatus()
+        refreshGoogleDriveStatus()
     }
 
     private fun refreshRecheckStatus() {
@@ -134,6 +147,178 @@ class BackupRestoreViewModel @Inject constructor(
                     damageExpiryItemCount = import.damageExpiryItemCount,
                     damageExpiryTotal = import.damageExpiryTotal
                 )
+        }
+    }
+
+    private fun refreshGoogleDriveStatus() {
+        viewModelScope.launch {
+            val status = googleDriveBackupManager.status()
+            val pendingBackupName = preferencesManager.getGoogleDrivePendingBackupName()
+            _uiState.update {
+                it.copy(
+                    googleDriveAccountEmail = status.accountEmail.orEmpty(),
+                    googleDriveBackupEnabled = status.backupEnabled && status.accountEmail != null,
+                    googleDrivePendingBackupName = pendingBackupName,
+                    googleDriveStatus = if (status.accountEmail == null) "" else appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_ready)
+                )
+            }
+        }
+    }
+
+    fun googleDriveSignInIntent(): Intent = googleDriveBackupManager.signInIntent()
+
+    fun handleGoogleDriveSignIn(data: Intent?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                GoogleDriveBackupUploadWorker.cancelPending(appContext)
+                val email = googleDriveBackupManager.handleSignInResult(data)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveAccountEmail = email,
+                        googleDriveBackupEnabled = true,
+                        googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_enabled),
+                        googleDrivePendingBackupName = ""
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Google Drive sign-in failed") }
+            }
+        }
+    }
+
+    fun switchGoogleDriveAccount() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                GoogleDriveBackupUploadWorker.cancelPending(appContext)
+                googleDriveBackupManager.prepareAccountSwitch()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveAccountEmail = "",
+                        googleDriveBackupEnabled = false,
+                        googleDriveStatus = "",
+                        googleDriveBackups = emptyList(),
+                        googleDriveSwitchRequest = it.googleDriveSwitchRequest + 1L
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to switch Google Drive account") }
+            }
+        }
+    }
+
+    fun disconnectGoogleDrive() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                GoogleDriveBackupUploadWorker.cancelPending(appContext)
+                googleDriveBackupManager.disconnect()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveAccountEmail = "",
+                        googleDriveBackupEnabled = false,
+                        googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_disconnected),
+                        googleDriveBackups = emptyList(),
+                        googleDrivePendingBackupName = ""
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to disconnect Google Drive") }
+            }
+        }
+    }
+
+    fun setGoogleDriveBackupEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                googleDriveBackupManager.setBackupEnabled(enabled)
+                if (!enabled) {
+                    GoogleDriveBackupUploadWorker.cancelPending(appContext)
+                    preferencesManager.clearGoogleDrivePendingBackup()
+                }
+                _uiState.update {
+                    it.copy(
+                        googleDriveBackupEnabled = enabled,
+                        googleDriveStatus = appContext.getString(
+                            if (enabled) com.nearexpiry.manager.R.string.google_drive_status_enabled
+                            else com.nearexpiry.manager.R.string.google_drive_status_paused
+                        ),
+                        googleDrivePendingBackupName = if (enabled) it.googleDrivePendingBackupName else ""
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Unable to update Google Drive backup") }
+            }
+        }
+    }
+
+    fun loadGoogleDriveBackups() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val backups = googleDriveBackupManager.listBackups()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        googleDriveBackups = backups,
+                        googleDriveStatus = if (backups.isEmpty()) {
+                            appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_none)
+                        } else {
+                            appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_found_format, backups.size)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unable to load Google Drive backups") }
+            }
+        }
+    }
+
+    fun restoreFromGoogleDrive(fileId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, success = false, restoreResult = null) }
+            try {
+                // Safety comes first. If the selected Drive file is invalid or
+                // restoration is later cancelled, the pre-restore local copy
+                // remains available in Documents/Near Expiry Backups.
+                val safetyBackup = AutoBackup.run(appContext)
+                val bytes = googleDriveBackupManager.downloadBackup(fileId)
+                if (!looksLikeJson(bytes)) error("Selected Google Drive file is not a Near Expiry backup")
+                val text = bytes.toString(Charsets.UTF_8)
+                if (JsonBackup.isAllProjectsBackup(text)) {
+                    val backup = JsonBackup.importAllProjects(text.byteInputStream())
+                    projectRepository.restoreProjectsFromBackup(
+                        backup.projects.map { bundle ->
+                            ProjectRestoreBundle(
+                                name = bundle.project.name,
+                                colorHex = bundle.project.colorHex,
+                                items = bundle.items,
+                                isStockMode = bundle.project.isStockMode
+                            )
+                        }
+                    )
+                    activeProjectManager.ensureValidActiveProject()
+                } else {
+                    val entities = JsonBackup.importFromJson(text.byteInputStream())
+                    val projectId = activeProjectManager.getActiveProjectId()
+                    repository.replaceProjectItems(projectId, entities)
+                    projectRepository.activateStockModeIfEligible(projectId)
+                }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        success = true,
+                        internalBackupName = safetyBackup,
+                        googleDriveStatus = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_restored)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Google Drive restore failed") }
+            }
         }
     }
 
@@ -347,18 +532,43 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
-    /** "Backup Now To Internal Storage" — same file the daily 12:00 backup writes. */
-    fun backupNowToInternal(context: Context) {
+    /**
+     * Backup Now always writes the local all-project snapshot first. When the
+     * user also chooses Drive, the upload is queued with a network constraint,
+     * so it proceeds over Wi-Fi or mobile data as soon as connectivity exists.
+     */
+    fun backupNow(context: Context, uploadToGoogleDrive: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val name = AutoBackup.run(context)
-                _uiState.update { it.copy(isLoading = false, internalBackupName = name) }
+                var status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_internal_done)
+                if (uploadToGoogleDrive) {
+                    if (!googleDriveBackupManager.isConnected()) {
+                        throw IllegalStateException("Connect Google Drive before selecting it for Backup Now")
+                    }
+                    googleDriveBackupManager.setBackupEnabled(true)
+                    preferencesManager.setGoogleDrivePendingBackupName(name)
+                    GoogleDriveBackupUploadWorker.enqueue(context, name)
+                    status = appContext.getString(com.nearexpiry.manager.R.string.google_drive_status_upload_queued)
+                }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        internalBackupName = name,
+                        googleDriveBackupEnabled = if (uploadToGoogleDrive) true else it.googleDriveBackupEnabled,
+                        googleDrivePendingBackupName = if (uploadToGoogleDrive) name else it.googleDrivePendingBackupName,
+                        googleDriveStatus = status
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
+
+    // Retained for callers from older screen states; new UI uses Backup Now.
+    fun backupNowToInternal(context: Context) = backupNow(context, uploadToGoogleDrive = false)
 
     fun clearInternalBackupName() {
         _uiState.update { it.copy(internalBackupName = null) }

@@ -14,8 +14,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 34
-        versionCode = 114
-        versionName = "3.03"
+        versionCode = 115
+        versionName = "3.04"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -128,6 +128,10 @@ dependencies {
     implementation("androidx.camera:camera-view:1.3.3")
 
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
+
+    // User-authorized Google Drive backups. The OAuth client is bound to this
+    // package and the release signing SHA-1 registered in Google Cloud Console.
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     implementation("androidx.datastore:datastore-preferences:1.1.0")
 

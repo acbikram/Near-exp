@@ -412,4 +412,32 @@
     <string name="recheck_excel_default_name">Excel لإعادة الفحص</string>
     <string name="recheck_file_select_description">اختر ملف Excel المستخدم لتحديد أصناف المخزون التي تحتاج إلى إعادة فحص الكمية.</string>
     <string name="default_project_name">مشروع</string>
+
+    <!-- ── النسخ الاحتياطي إلى Google Drive ───────────────────────────── -->
+    <string name="backup_now">نسخ احتياطي الآن</string>
+    <string name="auto_backup_twice_daily_hint">يتم نسخ جميع المشاريع احتياطياً تلقائياً الساعة 12:00 ظهراً والساعة 12:00 ليلاً إلى Documents/Near Expiry Backups. يتم الاحتفاظ بآخر 14 نسخة (سبعة أيام من النسخ مرتين يومياً).</string>
+    <string name="backup_internal_always_hint">يتم دائماً حفظ نسخة احتياطية كاملة لجميع المشاريع في التخزين الداخلي أولاً.</string>
+    <string name="backup_google_drive_optional">رفع هذه النسخة أيضاً إلى Google Drive</string>
+    <string name="backup_google_drive_connect_first">اتصل بـ Google Drive أولاً لإضافته إلى النسخ الاحتياطي الآن.</string>
+    <string name="google_drive_backup">النسخ الاحتياطي إلى Google Drive</string>
+    <string name="google_drive_connect_hint">اتصل اختيارياً بحساب Google الخاص بك. يتم حفظ النسخ في مجلد Near Expiry Backups الظاهر في حسابك.</string>
+    <string name="google_drive_connect">الاتصال بـ Google Drive</string>
+    <string name="google_drive_connected_format">حساب Google المتصل: %1$s</string>
+    <string name="google_drive_auto_upload">رفع نسخ الظهر ومنتصف الليل تلقائياً</string>
+    <string name="google_drive_restore">استعادة من Google Drive</string>
+    <string name="google_drive_switch">تبديل حساب Google</string>
+    <string name="google_drive_disconnect">قطع الاتصال بـ Google Drive</string>
+    <string name="google_drive_restore_pick_title">اختر نسخة احتياطية من Google Drive</string>
+    <string name="google_drive_restore_safety_hint">سيتم إنشاء نسخة احتياطية داخلية جديدة لجميع المشاريع قبل استعادة النسخة المحددة من Google Drive.</string>
+    <string name="google_drive_no_backups">لم يتم العثور على نسخ Near Expiry الاحتياطية في حساب Google Drive هذا.</string>
+    <string name="google_drive_status_ready">Google Drive جاهز</string>
+    <string name="google_drive_status_enabled">تم تفعيل النسخ الاحتياطي إلى Google Drive</string>
+    <string name="google_drive_status_paused">تم إيقاف النسخ الاحتياطي إلى Google Drive مؤقتاً</string>
+    <string name="google_drive_status_disconnected">تم قطع الاتصال بـ Google Drive</string>
+    <string name="google_drive_status_none">لم يتم العثور على نسخ احتياطية في Google Drive</string>
+    <string name="google_drive_status_found_format">تم العثور على %1$d نسخة احتياطية في Google Drive</string>
+    <string name="google_drive_status_restored">تمت استعادة نسخة Google Drive وإنشاء نسخة أمان داخلية</string>
+    <string name="google_drive_status_internal_done">اكتمل النسخ الاحتياطي الداخلي</string>
+    <string name="google_drive_status_upload_queued">اكتمل النسخ الاحتياطي الداخلي؛ تمت جدولة الرفع إلى Google Drive</string>
+    <string name="google_drive_upload_pending_format">رفع Google Drive قيد الانتظار: %1$s. سيتم الرفع تلقائياً عند توفر الإنترنت.</string>
 </resources>

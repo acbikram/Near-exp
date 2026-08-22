@@ -7,19 +7,16 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nearexpiry.manager.utils.AutoBackup
+import com.nearexpiry.manager.utils.PreferencesManager
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 /**
- * Writes the automatic daily backup (all projects → JSON in the public
- * Documents/Near Expiry Backups folder) every day around 12:00 noon. The
- * system may shift the exact run time slightly for battery; if the phone is
- * off at noon, the backup runs when it's next available.
- *
- * Not a HiltWorker — it reaches the database through the app's singleton, so
- * the default WorkerFactory can build it.
+ * Writes an all-project local JSON backup at the noon and midnight slots. Each
+ * successful local snapshot is independently queued for optional Google Drive
+ * upload; Drive availability never makes the internal backup fail.
  */
 class AutoBackupWorker(
     appContext: Context,
@@ -28,38 +25,46 @@ class AutoBackupWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            AutoBackup.run(applicationContext)
-            // Watchdog: this job is genuinely periodic (Android re-fires it
-            // regardless of what happened in a previous run), so it's a safe
-            // place to verify the daily notification chain is still alive and
-            // re-arm it if something ever wiped it (rare, but some phones
-            // purge all scheduled background work under aggressive battery
-            // saving). Cheap no-op if it's already scheduled correctly.
+            val name = AutoBackup.run(applicationContext)
+            val preferences = PreferencesManager(applicationContext)
+            if (preferences.isGoogleDriveBackupEnabled()) {
+                preferences.setGoogleDrivePendingBackupName(name)
+                GoogleDriveBackupUploadWorker.enqueue(applicationContext, name)
+            }
+            // Preserve the existing notification scheduling watchdog.
             ExpiryNotificationWorker.ensureScheduled(applicationContext)
             Result.success()
-        } catch (e: Exception) {
-            // Storage hiccup — try again on the next daily slot rather than
-            // retry-looping (the data is still safe in the app database).
+        } catch (_: Exception) {
+            // The app database remains the source of truth. A future scheduled
+            // slot will attempt the local backup again without a retry loop.
             Result.success()
         }
     }
 
     companion object {
-        private const val WORK_NAME = "daily_auto_backup"
+        private const val LEGACY_WORK_NAME = "daily_auto_backup"
+        private const val NOON_WORK_NAME = "auto_backup_noon"
+        private const val MIDNIGHT_WORK_NAME = "auto_backup_midnight"
 
-        /** Schedules the daily run, first occurrence at the next 12:00 noon. */
+        /** Schedules recurring backups at the next local noon and midnight. */
         fun schedule(context: Context) {
-            val now = LocalDateTime.now()
-            var next = now.toLocalDate().atTime(LocalTime.NOON)
-            if (!next.isAfter(now)) next = next.plusDays(1)
-            val initialDelay = Duration.between(now, next)
+            val workManager = WorkManager.getInstance(context)
+            // Remove the former one-a-day schedule when users upgrade.
+            workManager.cancelUniqueWork(LEGACY_WORK_NAME)
+            scheduleAt(context, NOON_WORK_NAME, LocalTime.NOON)
+            scheduleAt(context, MIDNIGHT_WORK_NAME, LocalTime.MIDNIGHT)
+        }
 
+        private fun scheduleAt(context: Context, workName: String, time: LocalTime) {
+            val now = LocalDateTime.now()
+            var next = now.toLocalDate().atTime(time)
+            if (!next.isAfter(now)) next = next.plusDays(1)
             val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(24, TimeUnit.HOURS)
-                .setInitialDelay(initialDelay.toMinutes(), TimeUnit.MINUTES)
+                .setInitialDelay(Duration.between(now, next).toMinutes(), TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                workName,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }

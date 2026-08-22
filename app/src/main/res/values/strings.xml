@@ -412,4 +412,32 @@
     <string name="recheck_excel_default_name">Recheck Excel</string>
     <string name="recheck_file_select_description">Select the Excel file used to decide which Stock items need quantity recheck.</string>
     <string name="default_project_name">Project</string>
+
+    <!-- ── Google Drive backup ─────────────────────────────────────────── -->
+    <string name="backup_now">Backup Now</string>
+    <string name="auto_backup_twice_daily_hint">All projects are backed up automatically at 12:00 noon and 12:00 midnight to Documents/Near Expiry Backups. The latest 14 backups are kept (seven days of twice-daily backups).</string>
+    <string name="backup_internal_always_hint">A complete all-project backup is always saved to internal storage first.</string>
+    <string name="backup_google_drive_optional">Also upload this backup to Google Drive</string>
+    <string name="backup_google_drive_connect_first">Connect Google Drive first to include it in Backup Now.</string>
+    <string name="google_drive_backup">Google Drive Backup</string>
+    <string name="google_drive_connect_hint">Optionally connect your own Google account. Backups are stored in its visible Near Expiry Backups folder.</string>
+    <string name="google_drive_connect">Connect Google Drive</string>
+    <string name="google_drive_connected_format">Connected Google account: %1$s</string>
+    <string name="google_drive_auto_upload">Automatically upload noon and midnight backups</string>
+    <string name="google_drive_restore">Restore from Google Drive</string>
+    <string name="google_drive_switch">Switch Google Account</string>
+    <string name="google_drive_disconnect">Disconnect Google Drive</string>
+    <string name="google_drive_restore_pick_title">Choose a Google Drive Backup</string>
+    <string name="google_drive_restore_safety_hint">A fresh all-project internal safety backup will be created before the selected Google Drive backup is restored.</string>
+    <string name="google_drive_no_backups">No Near Expiry backups were found in this Google Drive account.</string>
+    <string name="google_drive_status_ready">Google Drive is ready</string>
+    <string name="google_drive_status_enabled">Google Drive backup enabled</string>
+    <string name="google_drive_status_paused">Google Drive backup paused</string>
+    <string name="google_drive_status_disconnected">Google Drive disconnected</string>
+    <string name="google_drive_status_none">No Google Drive backups found</string>
+    <string name="google_drive_status_found_format">%1$d Google Drive backup(s) found</string>
+    <string name="google_drive_status_restored">Google Drive backup restored; local safety backup created</string>
+    <string name="google_drive_status_internal_done">Internal backup completed</string>
+    <string name="google_drive_status_upload_queued">Internal backup completed; Google Drive upload queued</string>
+    <string name="google_drive_upload_pending_format">Google Drive upload pending: %1$s. It will upload automatically when internet is available.</string>
 </resources>

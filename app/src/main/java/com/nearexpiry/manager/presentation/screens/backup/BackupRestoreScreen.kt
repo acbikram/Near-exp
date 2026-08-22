@@ -42,6 +42,19 @@ fun BackupRestoreScreen(
         }
     }
 
+    val googleDriveSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.handleGoogleDriveSignIn(result.data)
+    }
+    var showBackupDestinationDialog by remember { mutableStateOf(false) }
+    var showGoogleDriveRestoreDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.googleDriveSwitchRequest) {
+        if (uiState.googleDriveSwitchRequest > 0L) {
+            googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
+        }
+    }
+
     val backupAllLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -103,13 +116,13 @@ fun BackupRestoreScreen(
                     tone = GlassActionTone.Neutral
                 )
                 GlassActionButton(
-                    label = stringResource(R.string.backup_now_internal),
-                    onClick = { viewModel.backupNowToInternal(context) },
+                    label = stringResource(R.string.backup_now),
+                    onClick = { showBackupDestinationDialog = true },
                     enabled = !uiState.isLoading,
                     tone = GlassActionTone.Neutral
                 )
                 Text(
-                    stringResource(R.string.auto_backup_hint),
+                    stringResource(R.string.auto_backup_twice_daily_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -119,6 +132,78 @@ fun BackupRestoreScreen(
                     enabled = !uiState.isLoading,
                     tone = GlassActionTone.Neutral
                 )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                Text(
+                    stringResource(R.string.google_drive_backup),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (uiState.googleDriveAccountEmail.isBlank()) {
+                    Text(
+                        stringResource(R.string.google_drive_connect_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    GlassActionButton(
+                        label = stringResource(R.string.google_drive_connect),
+                        onClick = { googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent()) },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.google_drive_connected_format, uiState.googleDriveAccountEmail),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(stringResource(R.string.google_drive_auto_upload))
+                        Switch(
+                            checked = uiState.googleDriveBackupEnabled,
+                            onCheckedChange = { viewModel.setGoogleDriveBackupEnabled(it) },
+                            enabled = !uiState.isLoading
+                        )
+                    }
+                    GlassActionButton(
+                        label = stringResource(R.string.google_drive_restore),
+                        onClick = {
+                            viewModel.loadGoogleDriveBackups()
+                            showGoogleDriveRestoreDialog = true
+                        },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                    GlassActionButton(
+                        label = stringResource(R.string.google_drive_switch),
+                        onClick = { viewModel.switchGoogleDriveAccount() },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                    GlassActionButton(
+                        label = stringResource(R.string.google_drive_disconnect),
+                        onClick = { viewModel.disconnectGoogleDrive() },
+                        enabled = !uiState.isLoading,
+                        tone = GlassActionTone.Neutral
+                    )
+                }
+                if (uiState.googleDriveStatus.isNotBlank()) {
+                    Text(
+                        uiState.googleDriveStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (uiState.googleDrivePendingBackupName.isNotBlank()) {
+                    Text(
+                        stringResource(R.string.google_drive_upload_pending_format, uiState.googleDrivePendingBackupName),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -275,6 +360,81 @@ fun BackupRestoreScreen(
                 viewModel.resetSuccess()
             }
         }
+    }
+
+    if (showBackupDestinationDialog) {
+        var uploadToDrive by remember(uiState.googleDriveAccountEmail, uiState.googleDriveBackupEnabled) {
+            mutableStateOf(uiState.googleDriveAccountEmail.isNotBlank() && uiState.googleDriveBackupEnabled)
+        }
+        AlertDialog(
+            onDismissRequest = { showBackupDestinationDialog = false },
+            title = { Text(stringResource(R.string.backup_now)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.backup_internal_always_hint))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = uploadToDrive,
+                            onCheckedChange = { uploadToDrive = it },
+                            enabled = uiState.googleDriveAccountEmail.isNotBlank()
+                        )
+                        Text(
+                            if (uiState.googleDriveAccountEmail.isNotBlank())
+                                stringResource(R.string.backup_google_drive_optional)
+                            else stringResource(R.string.backup_google_drive_connect_first)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.backupNow(context, uploadToDrive)
+                    showBackupDestinationDialog = false
+                }) { Text(stringResource(R.string.backup_now)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBackupDestinationDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showGoogleDriveRestoreDialog) {
+        AlertDialog(
+            onDismissRequest = { showGoogleDriveRestoreDialog = false },
+            title = { Text(stringResource(R.string.google_drive_restore_pick_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        stringResource(R.string.google_drive_restore_safety_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (!uiState.isLoading && uiState.googleDriveBackups.isEmpty()) {
+                        Text(stringResource(R.string.google_drive_no_backups))
+                    }
+                    uiState.googleDriveBackups.forEach { backup ->
+                        OutlinedButton(
+                            onClick = {
+                                showGoogleDriveRestoreDialog = false
+                                viewModel.restoreFromGoogleDrive(backup.id)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(backup.name.removePrefix("NearExpiry_auto_backup_").removeSuffix(".json"))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showGoogleDriveRestoreDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 
     // ── Universal Restore: project picker + result ─────────────────────────
