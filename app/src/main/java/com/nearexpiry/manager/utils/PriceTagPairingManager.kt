@@ -7,7 +7,12 @@ import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.IOException
@@ -160,15 +165,15 @@ object PriceTagProtocol {
         rawPayload: String,
         nowEpochSeconds: Long = System.currentTimeMillis() / 1_000L
     ): Result<PriceTagPairingPayload> = runCatching {
-        val json = JSONObject(rawPayload)
-        require(json.optInt("v", -1) == PROTOCOL_VERSION) { "This QR code is not supported." }
-        require(json.optString("type") == QR_TYPE) { "This QR code is not a Price Tag PC pairing code." }
+        val json = Json.parseToJsonElement(rawPayload).jsonObject
+        require(json.intValue("v") == PROTOCOL_VERSION) { "This QR code is not supported." }
+        require(json.stringValue("type") == QR_TYPE) { "This QR code is not a Price Tag PC pairing code." }
 
-        val host = json.optString("host").trim()
-        val code = json.optString("code")
-        val port = json.optInt("port", -1)
-        val expiresAt = json.optLong("expiresAt", -1L)
-        val pcName = json.optString("pcName").trim().ifBlank { "Price Tag PC" }
+        val host = json.stringValue("host").trim()
+        val code = json.stringValue("code")
+        val port = json.intValue("port")
+        val expiresAt = json.longValue("expiresAt")
+        val pcName = json.stringValue("pcName").trim().ifBlank { "Price Tag PC" }
 
         require(host.isNotEmpty() && host.none { it.isISOControl() || it.isWhitespace() }) {
             "The QR code has no valid PC address."
@@ -295,16 +300,16 @@ class PriceTagPairingManager @Inject constructor(
 
     private fun parsePairingResponse(responseLine: String, payload: PriceTagPairingPayload): PairedPriceTagPc {
         val json = try {
-            JSONObject(responseLine)
+            Json.parseToJsonElement(responseLine).jsonObject
         } catch (_: Exception) {
             throw IOException("The PC returned an invalid pairing response.")
         }
-        if (json.optString("type") != "paired" ||
-            json.optInt("protocol", -1) != PriceTagProtocol.PROTOCOL_VERSION
+        if (json.stringValue("type") != "paired" ||
+            json.intValue("protocol") != PriceTagProtocol.PROTOCOL_VERSION
         ) {
             throw IOException("The PC rejected the pairing request. Please scan a fresh QR code and try again.")
         }
-        val token = json.optString("deviceToken")
+        val token = json.stringValue("deviceToken")
         if (token.isBlank() || token.toByteArray(StandardCharsets.UTF_8).size > 8_192) {
             throw IOException("The PC returned an invalid pairing credential.")
         }
@@ -312,7 +317,7 @@ class PriceTagPairingManager @Inject constructor(
             host = payload.host,
             port = payload.port,
             deviceToken = token,
-            pcName = json.optString("pcName").trim().ifBlank { payload.pcName },
+            pcName = json.stringValue("pcName").trim().ifBlank { payload.pcName },
             protocol = PriceTagProtocol.PROTOCOL_VERSION,
             pairedAtMillis = System.currentTimeMillis()
         )
@@ -321,4 +326,13 @@ class PriceTagPairingManager @Inject constructor(
     private fun persist(pairedPc: PairedPriceTagPc) {
         pairedPcStore.save(pairedPc)
     }
+
+    private fun kotlinx.serialization.json.JsonObject.stringValue(name: String): String =
+        this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
+
+    private fun kotlinx.serialization.json.JsonObject.intValue(name: String): Int =
+        this[name]?.jsonPrimitive?.intOrNull ?: -1
+
+    private fun kotlinx.serialization.json.JsonObject.longValue(name: String): Long =
+        this[name]?.jsonPrimitive?.longOrNull ?: -1L
 }
