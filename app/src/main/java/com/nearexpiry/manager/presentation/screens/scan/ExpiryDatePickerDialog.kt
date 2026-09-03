@@ -26,6 +26,7 @@ import androidx.compose.ui.window.Dialog
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.OnSurfaceWhite
+import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
 import com.nearexpiry.manager.presentation.theme.SurfaceDark
 import kotlinx.coroutines.launch
