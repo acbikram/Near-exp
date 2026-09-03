@@ -85,6 +85,7 @@ fun ExpiryDatePickerDialog(
     onDateSelected: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
     initialDate: String = "",
+    itemCode: String? = null,
     productName: String? = null,
     onlineLookupState: com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState =
         com.nearexpiry.manager.presentation.screens.scan.viewmodel.OnlineLookupState.IDLE,
@@ -153,6 +154,18 @@ fun ExpiryDatePickerDialog(
                     ),
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
+
+                // ── Scanned catalog Item Code, if available ─────────────────
+                if (!itemCode.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(R.string.item_code_format, itemCode),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = OrangeAccent,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
 
                 // ── Resolved product name (from local catalog), if any ───────
                 if (!productName.isNullOrBlank()) {
