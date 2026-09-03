@@ -87,6 +87,16 @@ object ExpiryDateUtils {
         DateTimeFormatter.ISO_LOCAL_DATE                            // 2026-09-28
     )
 
+    /**
+     * Formats the stored ISO date for Item Details and its date barcode.
+     * Month is not padded; day is always two digits: 2026-08-03 → 8/03/2026.
+     * Invalid values are returned unchanged so presentation never destroys data.
+     */
+    fun toItemDetailsDate(isoDateStr: String): String {
+        val date = parseOrNull(isoDateStr) ?: return isoDateStr
+        return date.format(DateTimeFormatter.ofPattern("M/dd/yyyy", Locale.ENGLISH))
+    }
+
     /** ISO stored date ("2026-09-28") → CSV format ("28-Sep-26"). */
     fun toCsvDate(isoDateStr: String): String {
         val date = parseOrNull(isoDateStr) ?: return isoDateStr

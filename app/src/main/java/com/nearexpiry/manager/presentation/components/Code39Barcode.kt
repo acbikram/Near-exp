@@ -58,6 +58,7 @@ fun Code39Barcode(
     modifier: Modifier = Modifier,
     narrowWidthDp: Float = 2.2f,
     heightDp: Float = 80f,
+    showText: Boolean = true,
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null
 ) {
@@ -112,15 +113,17 @@ fun Code39Barcode(
                 val narrowWidthPx = with(density) { effectiveNarrowWidthDp.dp.toPx() }
                 drawCode39(cleaned, narrowWidthPx, size)
             }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = cleaned,
-                color = Color.Black,
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.width(contentWidthDp.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            if (showText) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = cleaned,
+                    color = Color.Black,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.width(contentWidthDp.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 }

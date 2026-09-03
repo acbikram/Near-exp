@@ -86,6 +86,7 @@ fun DetailScreen(
                         val isArabic = LanguageManager.isArabic()
                         val today = java.time.LocalDate.now()
                         val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate)
+                        val displayExpiryDate = ExpiryDateUtils.toItemDetailsDate(item.expiryDate)
                         val (expiryLabel, expiryColor) = when {
                             expiry?.isBefore(today) == true -> stringResource(R.string.expired) to ErrorRed
                             expiry == today -> stringResource(R.string.expire_today) to OrangeAccent
@@ -222,16 +223,31 @@ fun DetailScreen(
                                         color = OrangeAccent
                                     )
                                     HorizontalDivider(color = CyanAccent.copy(alpha = 0.35f))
-                                    Text(
-                                        text = stringResource(R.string.item_expiry_date),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = CyanAccent
-                                    )
-                                    Text(
-                                        text = item.expiryDate,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = expiryColor
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(0.85f)) {
+                                            Text(
+                                                text = stringResource(R.string.item_expiry_date),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = CyanAccent
+                                            )
+                                            Text(
+                                                text = displayExpiryDate,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                color = expiryColor
+                                            )
+                                        }
+                                        Code39Barcode(
+                                            value = displayExpiryDate,
+                                            modifier = Modifier.weight(1.15f),
+                                            narrowWidthDp = 1.35f,
+                                            heightDp = 52f,
+                                            showText = false
+                                        )
+                                    }
                                 }
                             }
                         }

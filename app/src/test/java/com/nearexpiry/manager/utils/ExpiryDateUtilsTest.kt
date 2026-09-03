@@ -34,6 +34,19 @@ class ExpiryDateUtilsTest {
         assertNull(ExpiryDateUtils.parseOrNull("2026-13-40"))
     }
 
+    // ── Item Details presentation format ────────────────────────────────────
+
+    @Test
+    fun `item details date uses unpadded month and two digit day`() {
+        assertEquals("8/03/2026", ExpiryDateUtils.toItemDetailsDate("2026-08-03"))
+        assertEquals("9/30/2026", ExpiryDateUtils.toItemDetailsDate("2026-09-30"))
+    }
+
+    @Test
+    fun `invalid item details date is preserved`() {
+        assertEquals("not-a-date", ExpiryDateUtils.toItemDetailsDate("not-a-date"))
+    }
+
     // ── isExpiringWithin: boundaries ───────────────────────────────────────
 
     @Test
