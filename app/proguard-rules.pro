@@ -10,10 +10,23 @@
 -keep class dagger.hilt.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ActivityComponentManager { *; }
 
-# Room entities, DAOs, and database class.
+# Room entities, DAOs, generated implementations, and database metadata.
+-keep class androidx.room.** { *; }
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao interface * { *; }
+-keepclassmembers class ** {
+    @androidx.room.* <fields>;
+}
+
+# Apache POI uses reflective workbook and OOXML model access.
+-keep class org.apache.poi.** { *; }
+-dontwarn org.apache.poi.**
+-dontwarn org.apache.xmlbeans.**
+
+# Kotlin Coroutines are referenced through generated continuations and dispatchers.
+-keep class kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
 
 # Kotlin serialization.
 -keepattributes *Annotation*, InnerClasses

@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nearexpiry.manager.data.bluetooth.BluetoothTransferManager
+import com.nearexpiry.manager.data.bluetooth.ProjectTransferRepository
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
@@ -41,6 +43,8 @@ import javax.inject.Inject
 /** The "Tag/Type" values an item's [ExpiryItem.unit] can take — see ProductCatalogRepositoryImpl. */
 enum class ExportMode { BY_FILTER, SELECT_ITEMS }
 
+enum class BluetoothSyncResult { IDLE, SUCCESS, IMPORTED, FAILURE }
+
 val EXPORT_UNIT_OPTIONS = listOf("PCS", "OFR", "CTN", "KGS")
 
 /**
@@ -64,7 +68,9 @@ class ExportViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
     private val recheckCodeStore: RecheckCodeStore,
     private val recheckTemplateStore: RecheckTemplateStore,
-    private val priceTagPairingManager: PriceTagPairingManager
+    private val priceTagPairingManager: PriceTagPairingManager,
+    private val bluetoothTransferManager: BluetoothTransferManager,
+    private val projectTransferRepository: ProjectTransferRepository
 ) : ViewModel() {
 
     data class ExportUiState(
@@ -108,6 +114,13 @@ class ExportViewModel @Inject constructor(
         // ── Send to PC (WiFi) ────────────────────────────────────────────
         val sendToPcState: SendToPcState = SendToPcState.IDLE,
         val sendToPcMessage: String = "",
+        // ── Direct Bluetooth project sync ───────────────────────────────
+        val showBluetoothSyncDialog: Boolean = false,
+        val bluetoothDevices: List<BluetoothTransferManager.PairedDevice> = emptyList(),
+        val bluetoothSyncBusy: Boolean = false,
+        val bluetoothSyncResult: BluetoothSyncResult = BluetoothSyncResult.IDLE,
+        val bluetoothSyncError: String? = null,
+        val bluetoothImportedProjectName: String? = null,
 
         // ── Selective export ────────────────────────────────────────────
         val useSelectiveExport: Boolean = false,
@@ -203,6 +216,121 @@ class ExportViewModel @Inject constructor(
                     _uiState.update { state -> state.copy(stockTemplateRecordCount = count) }
                 }
             }
+        }
+    }
+
+    // ── Direct Bluetooth project sync ───────────────────────────────────────
+    fun openBluetoothSync() {
+        _uiState.update {
+            it.copy(
+                showBluetoothSyncDialog = true,
+                bluetoothDevices = bluetoothTransferManager.pairedDevices(),
+                bluetoothSyncResult = BluetoothSyncResult.IDLE,
+                bluetoothSyncError = null,
+                bluetoothImportedProjectName = null
+            )
+        }
+    }
+
+    fun closeBluetoothSync() {
+        if (!_uiState.value.bluetoothSyncBusy) {
+            _uiState.update { it.copy(showBluetoothSyncDialog = false) }
+        }
+    }
+
+    fun refreshBluetoothDevices() {
+        _uiState.update { it.copy(bluetoothDevices = bluetoothTransferManager.pairedDevices()) }
+    }
+
+    fun receiveBluetoothProject() {
+        if (_uiState.value.bluetoothSyncBusy) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    bluetoothSyncBusy = true,
+                    bluetoothSyncResult = BluetoothSyncResult.IDLE,
+                    bluetoothSyncError = null,
+                    bluetoothImportedProjectName = null
+                )
+            }
+            val result = bluetoothTransferManager.receive()
+            result.fold(
+                onSuccess = { model ->
+                    runCatching { projectTransferRepository.importAsNewProject(model) }
+                        .onSuccess {
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothSyncBusy = false,
+                                    bluetoothSyncResult = BluetoothSyncResult.IMPORTED,
+                                    bluetoothImportedProjectName = model.project.name
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothSyncBusy = false,
+                                    bluetoothSyncResult = BluetoothSyncResult.FAILURE,
+                                    bluetoothSyncError = error.message ?: "Import failed"
+                                )
+                            }
+                        }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            bluetoothSyncBusy = false,
+                            bluetoothSyncResult = BluetoothSyncResult.FAILURE,
+                            bluetoothSyncError = error.message ?: "Bluetooth receive failed"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun sendBluetoothProject(device: BluetoothTransferManager.PairedDevice) {
+        if (_uiState.value.bluetoothSyncBusy) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    bluetoothSyncBusy = true,
+                    bluetoothSyncResult = BluetoothSyncResult.IDLE,
+                    bluetoothSyncError = null,
+                    bluetoothImportedProjectName = null
+                )
+            }
+            val projectId = activeProjectManager.activeProjectIdFlow.first()
+            val model = projectTransferRepository.exportProject(projectId)
+            if (model == null) {
+                _uiState.update {
+                    it.copy(
+                        bluetoothSyncBusy = false,
+                        bluetoothSyncResult = BluetoothSyncResult.FAILURE,
+                        bluetoothSyncError = "The active project could not be found"
+                    )
+                }
+                return@launch
+            }
+            bluetoothTransferManager.send(device.address, model).fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            bluetoothSyncBusy = false,
+                            bluetoothSyncResult = BluetoothSyncResult.SUCCESS
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            bluetoothSyncBusy = false,
+                            bluetoothSyncResult = BluetoothSyncResult.FAILURE,
+                            bluetoothSyncError = error.message ?: "Bluetooth send failed"
+                        )
+                    }
+                }
+            )
         }
     }
 

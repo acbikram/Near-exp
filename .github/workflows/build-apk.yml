@@ -24,7 +24,7 @@ jobs:
     # setup-gradle reads the committed wrapper metadata, so local and CI builds
     # use the exact same Gradle version and wrapper checksum.
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      uses: gradle/actions/setup-gradle@v3
 
     - name: Validate Gradle wrapper
       uses: gradle/actions/wrapper-validation@v4
@@ -75,7 +75,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      uses: gradle/actions/setup-gradle@v3
 
     # Decode the signing keystore from the repo secret into release.jks at the
     # project root. If the secret is empty (not configured), the Android build

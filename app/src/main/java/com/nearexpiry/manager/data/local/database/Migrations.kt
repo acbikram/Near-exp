@@ -582,6 +582,20 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
     }
 }
 
+/** v17 -> v18: adds project-scoped lookup indexes used by History and duplicate checks. */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_expiry_items_projectId_expiryDate` " +
+                "ON `expiry_items` (`projectId`, `expiryDate`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_expiry_items_projectId_barcode` " +
+                "ON `expiry_items` (`projectId`, `barcode`)"
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -598,5 +612,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_13_14,
     MIGRATION_14_15,
     MIGRATION_15_16,
-    MIGRATION_16_17
+    MIGRATION_16_17,
+    MIGRATION_17_18
 )

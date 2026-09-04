@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.kapt")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
@@ -8,14 +9,14 @@ plugins {
 
 android {
     namespace = "com.nearexpiry.manager"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 126
-        versionName = "3.15"
+        targetSdk = 35
+        versionCode = 127
+        versionName = "3.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -81,16 +82,22 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
-    }
-
     // The CI quality job runs lintDebug before any release build. Fail on
     // lint errors so defects cannot silently pass into a published APK.
     lint {
         abortOnError = true
         checkReleaseBuilds = false
     }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {

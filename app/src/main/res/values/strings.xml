@@ -485,4 +485,16 @@
     <string name="google_drive_permission_required">Google Drive permission is required. Tap Grant Google Drive Permission to continue.</string>
     <string name="google_drive_grant_permission">Grant Google Drive Permission</string>
     <string name="google_drive_permission_granted">Google Drive permission granted</string>
+    <string name="bluetooth_sync_title">Sync Project via Bluetooth</string>
+    <string name="bluetooth_sync_project_format">Project: %1$s</string>
+    <string name="bluetooth_sync_instruction">Both phones must have Bluetooth enabled and be paired in Android settings. On the receiving phone, choose Receive first.</string>
+    <string name="bluetooth_sync_receive">Receive Project</string>
+    <string name="bluetooth_sync_send_to_device">Send this project to a paired device</string>
+    <string name="bluetooth_sync_no_devices">No paired Bluetooth devices found.</string>
+    <string name="bluetooth_sync_refresh">Refresh Devices</string>
+    <string name="bluetooth_sync_working">Transferring project…</string>
+    <string name="bluetooth_sync_complete">Project transferred successfully.</string>
+    <string name="bluetooth_sync_imported_format">Imported project: %1$s</string>
+    <string name="bluetooth_sync_failed_format">Bluetooth sync failed: %1$s</string>
+    <string name="bluetooth_permission_required">Bluetooth permission is required for project sync.</string>
 </resources>

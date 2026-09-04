@@ -1,7 +1,9 @@
 package com.nearexpiry.manager.presentation.screens.export
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -11,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Computer
@@ -33,6 +36,7 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
+import com.nearexpiry.manager.ui.components.BluetoothProjectSyncDialog
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
 import com.nearexpiry.manager.presentation.components.GlassSectionCard
@@ -60,6 +64,19 @@ fun ExportScreen(
     val scope = rememberCoroutineScope()
     val exportSuccessMsg = stringResource(R.string.export_successful)
     val shareCsvLabel = stringResource(R.string.share_csv)
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            listOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            ).all { grants[it] == true }
+        ) {
+            viewModel.openBluetoothSync()
+        }
+    }
 
     val itemsToExport = uiState.itemsToExport
     // Stock export always writes the entire selected Recheck template, while
@@ -204,6 +221,28 @@ fun ExportScreen(
                             onToggle = { viewModel.toggleItemSelection(selectItem.id) }
                         )
                     }
+                }
+
+                // ── Direct Bluetooth project sync ───────────────────────────
+                item {
+                    GlassActionButton(
+                        label = stringResource(R.string.bluetooth_sync_title),
+                        icon = Icons.Default.Bluetooth,
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                bluetoothPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.BLUETOOTH_CONNECT,
+                                        Manifest.permission.BLUETOOTH_SCAN,
+                                        Manifest.permission.BLUETOOTH_ADVERTISE
+                                    )
+                                )
+                            } else {
+                                viewModel.openBluetoothSync()
+                            }
+                        },
+                        tone = GlassActionTone.Neutral
+                    )
                 }
 
                 // ── Save / Share buttons ───────────────────────────────────
@@ -583,11 +622,35 @@ private fun ByFilterSection(
                 TextButton(onClick = { showToPicker = false }) { Text(stringResource(R.string.cancel)) }
             }
         ) { DatePicker(state = state) }
+        }
+
+    if (uiState.showBluetoothSyncDialog) {
+        BluetoothProjectSyncDialog(
+            projectName = uiState.projectName,
+            pairedDevices = uiState.bluetoothDevices,
+            isBusy = uiState.bluetoothSyncBusy,
+            statusMessage = when (uiState.bluetoothSyncResult) {
+                BluetoothSyncResult.SUCCESS -> stringResource(R.string.bluetooth_sync_complete)
+                BluetoothSyncResult.IMPORTED -> stringResource(
+                    R.string.bluetooth_sync_imported_format,
+                    uiState.bluetoothImportedProjectName.orEmpty()
+                )
+                BluetoothSyncResult.FAILURE -> stringResource(
+                    R.string.bluetooth_sync_failed_format,
+                    uiState.bluetoothSyncError.orEmpty()
+                )
+                BluetoothSyncResult.IDLE -> null
+            },
+            onDismiss = viewModel::closeBluetoothSync,
+            onRefresh = viewModel::refreshBluetoothDevices,
+            onReceive = viewModel::receiveBluetoothProject,
+            onSend = viewModel::sendBluetoothProject
+        )
     }
 }
-
 @Composable
 private fun DateFieldButton(
+
     label: String,
     date: LocalDate?,
     formatter: DateTimeFormatter,

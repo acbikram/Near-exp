@@ -485,4 +485,16 @@
     <string name="google_drive_permission_required">يلزم منح إذن Google Drive. اضغط «منح إذن Google Drive» للمتابعة.</string>
     <string name="google_drive_grant_permission">منح إذن Google Drive</string>
     <string name="google_drive_permission_granted">تم منح إذن Google Drive</string>
+    <string name="bluetooth_sync_title">مزامنة المشروع عبر Bluetooth</string>
+    <string name="bluetooth_sync_project_format">المشروع: %1$s</string>
+    <string name="bluetooth_sync_instruction">يجب تفعيل Bluetooth وإقران الهاتفين من إعدادات Android. على الهاتف المستقبل، اختر الاستلام أولاً.</string>
+    <string name="bluetooth_sync_receive">استلام المشروع</string>
+    <string name="bluetooth_sync_send_to_device">إرسال هذا المشروع إلى جهاز مقترن</string>
+    <string name="bluetooth_sync_no_devices">لم يتم العثور على أجهزة Bluetooth مقترنة.</string>
+    <string name="bluetooth_sync_refresh">تحديث الأجهزة</string>
+    <string name="bluetooth_sync_working">جارٍ نقل المشروع…</string>
+    <string name="bluetooth_sync_complete">تم نقل المشروع بنجاح.</string>
+    <string name="bluetooth_sync_imported_format">تم استيراد المشروع: %1$s</string>
+    <string name="bluetooth_sync_failed_format">فشلت مزامنة Bluetooth: %1$s</string>
+    <string name="bluetooth_permission_required">يلزم إذن Bluetooth لمزامنة المشروع.</string>
 </resources>

@@ -9,7 +9,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "expiry_items",
-    indices = [Index(value = ["barcode", "expiryDate"]), Index(value = ["projectId"])]
+    indices = [
+        Index(value = ["barcode", "expiryDate"]),
+        Index(value = ["projectId"]),
+        Index(value = ["projectId", "expiryDate"]),
+        Index(value = ["projectId", "barcode"])
+    ]
 )
 data class ExpiryItemEntity(
     @PrimaryKey(autoGenerate = true)
