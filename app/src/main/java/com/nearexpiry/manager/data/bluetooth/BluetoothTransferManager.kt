@@ -1,13 +1,12 @@
 package com.nearexpiry.manager.data.bluetooth
 
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.EOFException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,29 +30,33 @@ class BluetoothTransferManager @Inject constructor() {
     suspend fun send(deviceAddress: String, model: ProjectTransferModel): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val adapter = BluetoothAdapter.getDefaultAdapter()
-                    ?: error("Bluetooth is not available on this device")
-                val device = adapter.getRemoteDevice(deviceAddress)
-                adapter.cancelDiscovery()
-                device.createRfcommSocketToServiceRecord(SERVICE_UUID).use { socket ->
-                    socket.connect()
-                    socket.soTimeout = SOCKET_TIMEOUT_MS
-                    writeFrame(socket.outputStream, json.encodeToString(ProjectTransferModel.serializer(), model))
+                withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
+                    val adapter = BluetoothAdapter.getDefaultAdapter()
+                        ?: error("Bluetooth is not available on this device")
+                    val device = adapter.getRemoteDevice(deviceAddress)
+                    adapter.cancelDiscovery()
+                    device.createRfcommSocketToServiceRecord(SERVICE_UUID).use { socket ->
+                        socket.connect()
+                        writeFrame(
+                            socket.outputStream,
+                            json.encodeToString(ProjectTransferModel.serializer(), model)
+                        )
+                    }
                 }
             }
         }
 
     suspend fun receive(): Result<ProjectTransferModel> = withContext(Dispatchers.IO) {
         runCatching {
-            val adapter = BluetoothAdapter.getDefaultAdapter()
-                ?: error("Bluetooth is not available on this device")
-            adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID).use { server ->
-                server.soTimeout = SOCKET_TIMEOUT_MS
-                server.accept().use { socket ->
-                    socket.soTimeout = SOCKET_TIMEOUT_MS
-                    val payload = readFrame(socket.inputStream)
-                    val model = json.decodeFromString(ProjectTransferModel.serializer(), payload)
-                    model.validate().getOrThrow()
+            withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
+                val adapter = BluetoothAdapter.getDefaultAdapter()
+                    ?: error("Bluetooth is not available on this device")
+                adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID).use { server ->
+                    server.accept().use { socket ->
+                        val payload = readFrame(socket.inputStream)
+                        val model = json.decodeFromString(ProjectTransferModel.serializer(), payload)
+                        model.validate().getOrThrow()
+                    }
                 }
             }
         }
@@ -62,10 +65,10 @@ class BluetoothTransferManager @Inject constructor() {
     private fun writeFrame(output: java.io.OutputStream, payload: String) {
         val bytes = payload.toByteArray(Charsets.UTF_8)
         require(bytes.size <= MAX_FRAME_BYTES) { "Transfer is too large" }
-        DataOutputStream(output).use { stream ->
-            stream.writeInt(bytes.size)
-            stream.write(bytes)
-            stream.flush()
+        DataOutputStream(output).apply {
+            writeInt(bytes.size)
+            write(bytes)
+            flush()
         }
     }
 

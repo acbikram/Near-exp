@@ -103,7 +103,7 @@ fun BluetoothProjectSyncDialog(
         },
         confirmButton = {
             OutlinedButton(onClick = onDismiss, enabled = !isBusy) {
-                Text(stringResource(R.string.close))
+                Text(stringResource(R.string.cancel))
             }
         }
     )
