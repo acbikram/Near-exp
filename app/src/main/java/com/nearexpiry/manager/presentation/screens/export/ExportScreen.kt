@@ -65,6 +65,7 @@ fun ExportScreen(
     val scope = rememberCoroutineScope()
     val exportSuccessMsg = stringResource(R.string.export_successful)
     val shareCsvLabel = stringResource(R.string.share_csv)
+    val bluetoothPermissionMessage = stringResource(R.string.bluetooth_permission_required)
     val bluetoothPermissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(
@@ -87,7 +88,7 @@ fun ExportScreen(
             viewModel.openBluetoothSync()
         } else {
             scope.launch {
-                snackbarHostState.showSnackbar(stringResource(R.string.bluetooth_permission_required))
+                snackbarHostState.showSnackbar(bluetoothPermissionMessage)
             }
         }
     }
