@@ -1,6 +1,12 @@
 package com.nearexpiry.manager.data.bluetooth
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -12,7 +18,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class BluetoothTransferManager @Inject constructor() {
+class BluetoothTransferManager @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     data class PairedDevice(val name: String, val address: String)
 
     private val json = Json {
@@ -20,16 +28,20 @@ class BluetoothTransferManager @Inject constructor() {
         encodeDefaults = true
     }
 
+    @SuppressLint("MissingPermission")
     fun pairedDevices(): List<PairedDevice> = runCatching {
+        check(hasBluetoothPermission()) { "Bluetooth permission required" }
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
         adapter.bondedDevices.orEmpty()
             .sortedBy { it.name.orEmpty().lowercase() }
             .map { PairedDevice(it.name?.takeIf(String::isNotBlank) ?: it.address, it.address) }
     }.getOrDefault(emptyList())
 
+    @SuppressLint("MissingPermission")
     suspend fun send(deviceAddress: String, model: ProjectTransferModel): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
+                check(hasBluetoothPermission()) { "Bluetooth permission required" }
                 withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
                     val adapter = BluetoothAdapter.getDefaultAdapter()
                         ?: error("Bluetooth is not available on this device")
@@ -46,8 +58,10 @@ class BluetoothTransferManager @Inject constructor() {
             }
         }
 
+    @SuppressLint("MissingPermission")
     suspend fun receive(): Result<ProjectTransferModel> = withContext(Dispatchers.IO) {
         runCatching {
+            check(hasBluetoothPermission()) { "Bluetooth permission required" }
             withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
                 val adapter = BluetoothAdapter.getDefaultAdapter()
                     ?: error("Bluetooth is not available on this device")
@@ -59,6 +73,21 @@ class BluetoothTransferManager @Inject constructor() {
                     }
                 }
             }
+        }
+    }
+
+    private fun hasBluetoothPermission(): Boolean {
+        val permissions = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            listOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            )
+        } else {
+            listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        return permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
     }
 
