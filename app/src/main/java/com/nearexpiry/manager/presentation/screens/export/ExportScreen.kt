@@ -546,6 +546,34 @@ fun ExportScreen(
             }
         )
     }
+
+    if (bluetoothDialogVisible || uiState.showBluetoothSyncDialog) {
+        BluetoothProjectSyncDialog(
+            projectName = uiState.projectName,
+            pairedDevices = uiState.bluetoothDevices,
+            isBusy = uiState.bluetoothSyncBusy,
+            statusMessage = when (uiState.bluetoothSyncResult) {
+                BluetoothSyncResult.SUCCESS -> stringResource(R.string.bluetooth_sync_complete)
+                BluetoothSyncResult.IMPORTED -> stringResource(
+                    R.string.bluetooth_sync_imported_format,
+                    uiState.bluetoothImportedProjectName.orEmpty()
+                )
+                BluetoothSyncResult.FAILURE -> stringResource(
+                    R.string.bluetooth_sync_failed_format,
+                    uiState.bluetoothSyncError.orEmpty()
+                )
+                BluetoothSyncResult.IDLE -> null
+            },
+            onDismiss = {
+                bluetoothDialogVisible = false
+                viewModel.closeBluetoothSync()
+            },
+            onCancelTransfer = viewModel::cancelBluetoothTransfer,
+            onRefresh = viewModel::refreshBluetoothDevices,
+            onReceive = viewModel::receiveBluetoothProject,
+            onSend = viewModel::sendBluetoothProject
+        )
+    }
 }
 
 /** Tag/Type chips + From/To date range pickers (AND-combined, empty = no restriction). */
@@ -642,34 +670,8 @@ private fun ByFilterSection(
         ) { DatePicker(state = state) }
         }
 
-    if (bluetoothDialogVisible || uiState.showBluetoothSyncDialog) {
-        BluetoothProjectSyncDialog(
-            projectName = uiState.projectName,
-            pairedDevices = uiState.bluetoothDevices,
-            isBusy = uiState.bluetoothSyncBusy,
-            statusMessage = when (uiState.bluetoothSyncResult) {
-                BluetoothSyncResult.SUCCESS -> stringResource(R.string.bluetooth_sync_complete)
-                BluetoothSyncResult.IMPORTED -> stringResource(
-                    R.string.bluetooth_sync_imported_format,
-                    uiState.bluetoothImportedProjectName.orEmpty()
-                )
-                BluetoothSyncResult.FAILURE -> stringResource(
-                    R.string.bluetooth_sync_failed_format,
-                    uiState.bluetoothSyncError.orEmpty()
-                )
-                BluetoothSyncResult.IDLE -> null
-            },
-            onDismiss = {
-                bluetoothDialogVisible = false
-                viewModel.closeBluetoothSync()
-            },
-            onCancelTransfer = viewModel::cancelBluetoothTransfer,
-            onRefresh = viewModel::refreshBluetoothDevices,
-            onReceive = viewModel::receiveBluetoothProject,
-            onSend = viewModel::sendBluetoothProject
-        )
-    }
 }
+
 @Composable
 private fun DateFieldButton(
 
