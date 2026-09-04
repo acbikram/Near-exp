@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
@@ -64,17 +65,30 @@ fun ExportScreen(
     val scope = rememberCoroutineScope()
     val exportSuccessMsg = stringResource(R.string.export_successful)
     val shareCsvLabel = stringResource(R.string.share_csv)
-    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+    val bluetoothPermissions = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_ADVERTISE
-            ).all { grants[it] == true }
-        ) {
+            )
+        } else {
+            emptyList()
+        }
+    }
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = bluetoothPermissions.isEmpty() || bluetoothPermissions.all { permission ->
+            grants[permission] == true ||
+                ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) {
             viewModel.openBluetoothSync()
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(stringResource(R.string.bluetooth_permission_required))
+            }
         }
     }
 
@@ -229,16 +243,17 @@ fun ExportScreen(
                         label = stringResource(R.string.bluetooth_sync_title),
                         icon = Icons.Default.Bluetooth,
                         onClick = {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                bluetoothPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.BLUETOOTH_CONNECT,
-                                        Manifest.permission.BLUETOOTH_SCAN,
-                                        Manifest.permission.BLUETOOTH_ADVERTISE
-                                    )
-                                )
-                            } else {
-                                viewModel.openBluetoothSync()
+                            // Open the dialog immediately so a previously granted
+                            // Nearby devices permission can never swallow the tap.
+                            viewModel.openBluetoothSync()
+                            val missingPermissions = bluetoothPermissions.filter {
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    it
+                                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                            }
+                            if (missingPermissions.isNotEmpty()) {
+                                bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
                             }
                         },
                         tone = GlassActionTone.Neutral
