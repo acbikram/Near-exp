@@ -7,13 +7,17 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +26,8 @@ class BluetoothTransferManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     data class PairedDevice(val name: String, val address: String)
+
+    private val activeCancel = AtomicReference<(() -> Unit)?>(null)
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -40,7 +46,7 @@ class BluetoothTransferManager @Inject constructor(
     @SuppressLint("MissingPermission")
     suspend fun send(deviceAddress: String, model: ProjectTransferModel): Result<Unit> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 check(hasBluetoothPermission()) { "Bluetooth permission required" }
                 withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
                     val adapter = BluetoothAdapter.getDefaultAdapter()
@@ -48,32 +54,63 @@ class BluetoothTransferManager @Inject constructor(
                     val device = adapter.getRemoteDevice(deviceAddress)
                     adapter.cancelDiscovery()
                     device.createRfcommSocketToServiceRecord(SERVICE_UUID).use { socket ->
+                        activeCancel.set { runCatching { socket.close() } }
                         socket.connect()
                         writeFrame(
                             socket.outputStream,
                             json.encodeToString(ProjectTransferModel.serializer(), model)
                         )
+                        activeCancel.compareAndSet(activeCancel.get(), null)
                     }
                 }
+                Result.success(Unit)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                if (!currentCoroutineContext().isActive) {
+                    throw CancellationException("Bluetooth transfer cancelled", error)
+                }
+                Result.failure(error)
+            } finally {
+                activeCancel.set(null)
             }
         }
 
     @SuppressLint("MissingPermission")
     suspend fun receive(): Result<ProjectTransferModel> = withContext(Dispatchers.IO) {
-        runCatching {
+        try {
             check(hasBluetoothPermission()) { "Bluetooth permission required" }
-            withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
+            val model = withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
                 val adapter = BluetoothAdapter.getDefaultAdapter()
                     ?: error("Bluetooth is not available on this device")
                 adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID).use { server ->
+                    activeCancel.set { runCatching { server.close() } }
                     server.accept().use { socket ->
+                        activeCancel.set {
+                            runCatching { server.close() }
+                            runCatching { socket.close() }
+                        }
                         val payload = readFrame(socket.inputStream)
-                        val model = json.decodeFromString(ProjectTransferModel.serializer(), payload)
-                        model.validate().getOrThrow()
+                        json.decodeFromString(ProjectTransferModel.serializer(), payload)
                     }
                 }
             }
+            model.validate().getOrThrow()
+            Result.success(model)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            if (!currentCoroutineContext().isActive) {
+                throw CancellationException("Bluetooth transfer cancelled", error)
+            }
+            Result.failure(error)
+        } finally {
+            activeCancel.set(null)
         }
+    }
+
+    fun cancelActiveTransfer() {
+        activeCancel.getAndSet(null)?.invoke()
     }
 
     private fun hasBluetoothPermission(): Boolean {

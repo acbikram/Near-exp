@@ -30,6 +30,7 @@ fun BluetoothProjectSyncDialog(
     isBusy: Boolean,
     statusMessage: String?,
     onDismiss: () -> Unit,
+    onCancelTransfer: () -> Unit,
     onRefresh: () -> Unit,
     onReceive: () -> Unit,
     onSend: (BluetoothTransferManager.PairedDevice) -> Unit
@@ -102,7 +103,10 @@ fun BluetoothProjectSyncDialog(
             }
         },
         confirmButton = {
-            OutlinedButton(onClick = onDismiss, enabled = !isBusy) {
+            OutlinedButton(
+                onClick = if (isBusy) onCancelTransfer else onDismiss,
+                enabled = true
+            ) {
                 Text(stringResource(R.string.cancel))
             }
         }

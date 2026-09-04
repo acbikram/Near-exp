@@ -28,6 +28,7 @@ import com.nearexpiry.manager.utils.RecheckTemplateWorkbook
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -72,6 +73,8 @@ class ExportViewModel @Inject constructor(
     private val bluetoothTransferManager: BluetoothTransferManager,
     private val projectTransferRepository: ProjectTransferRepository
 ) : ViewModel() {
+
+    private var bluetoothTransferJob: Job? = null
 
     data class ExportUiState(
         val allItems: List<ExpiryItem> = emptyList(),
@@ -238,13 +241,28 @@ class ExportViewModel @Inject constructor(
         }
     }
 
+    fun cancelBluetoothTransfer() {
+        if (_uiState.value.bluetoothSyncBusy) {
+            bluetoothTransferManager.cancelActiveTransfer()
+            bluetoothTransferJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    bluetoothSyncBusy = false,
+                    bluetoothSyncResult = BluetoothSyncResult.IDLE,
+                    bluetoothSyncError = null,
+                    bluetoothImportedProjectName = null
+                )
+            }
+        }
+    }
+
     fun refreshBluetoothDevices() {
         _uiState.update { it.copy(bluetoothDevices = bluetoothTransferManager.pairedDevices()) }
     }
 
     fun receiveBluetoothProject() {
         if (_uiState.value.bluetoothSyncBusy) return
-        viewModelScope.launch {
+        bluetoothTransferJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
                     bluetoothSyncBusy = true,
@@ -291,7 +309,7 @@ class ExportViewModel @Inject constructor(
 
     fun sendBluetoothProject(device: BluetoothTransferManager.PairedDevice) {
         if (_uiState.value.bluetoothSyncBusy) return
-        viewModelScope.launch {
+        bluetoothTransferJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
                     bluetoothSyncBusy = true,

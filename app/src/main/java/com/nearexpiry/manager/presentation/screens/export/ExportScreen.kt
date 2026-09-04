@@ -63,6 +63,7 @@ fun ExportScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var bluetoothDialogVisible by rememberSaveable { mutableStateOf(false) }
     val exportSuccessMsg = stringResource(R.string.export_successful)
     val shareCsvLabel = stringResource(R.string.share_csv)
     val bluetoothPermissionMessage = stringResource(R.string.bluetooth_permission_required)
@@ -246,6 +247,7 @@ fun ExportScreen(
                         onClick = {
                             // Open the dialog immediately so a previously granted
                             // Nearby devices permission can never swallow the tap.
+                            bluetoothDialogVisible = true
                             viewModel.openBluetoothSync()
                             val missingPermissions = bluetoothPermissions.filter {
                                 ContextCompat.checkSelfPermission(
@@ -640,7 +642,7 @@ private fun ByFilterSection(
         ) { DatePicker(state = state) }
         }
 
-    if (uiState.showBluetoothSyncDialog) {
+    if (bluetoothDialogVisible || uiState.showBluetoothSyncDialog) {
         BluetoothProjectSyncDialog(
             projectName = uiState.projectName,
             pairedDevices = uiState.bluetoothDevices,
@@ -657,7 +659,11 @@ private fun ByFilterSection(
                 )
                 BluetoothSyncResult.IDLE -> null
             },
-            onDismiss = viewModel::closeBluetoothSync,
+            onDismiss = {
+                bluetoothDialogVisible = false
+                viewModel.closeBluetoothSync()
+            },
+            onCancelTransfer = viewModel::cancelBluetoothTransfer,
             onRefresh = viewModel::refreshBluetoothDevices,
             onReceive = viewModel::receiveBluetoothProject,
             onSend = viewModel::sendBluetoothProject
