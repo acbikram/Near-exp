@@ -33,7 +33,12 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun NearExpiryNavHost(modifier: Modifier = Modifier, openUpdates: Boolean = false, autoUpdate: Boolean = false) {
+fun NearExpiryNavHost(
+    modifier: Modifier = Modifier,
+    openUpdates: Boolean = false,
+    autoUpdate: Boolean = false,
+    autoInstallVersionName: String? = null
+) {
     val navController = rememberNavController()
     androidx.compose.runtime.LaunchedEffect(openUpdates) {
         if (openUpdates) {
@@ -74,7 +79,11 @@ fun NearExpiryNavHost(modifier: Modifier = Modifier, openUpdates: Boolean = fals
             ExportScreen(navController)
         }
         composable(Screen.Settings.route) {
-            SettingsScreen(navController, autoStartUpdate = autoUpdate)
+            SettingsScreen(
+                navController,
+                autoStartUpdate = autoUpdate,
+                autoInstallVersionName = autoInstallVersionName
+            )
         }
         composable(
             route = Screen.Detail.route,

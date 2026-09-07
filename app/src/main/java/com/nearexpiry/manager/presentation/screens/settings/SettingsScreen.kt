@@ -57,6 +57,7 @@ import com.nearexpiry.manager.utils.LanguageManager
 fun SettingsScreen(
     navController: NavController,
     autoStartUpdate: Boolean = false,
+    autoInstallVersionName: String? = null,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -79,6 +80,15 @@ fun SettingsScreen(
     // Arrived from the notification's "Update Now": check + auto-start download.
     LaunchedEffect(autoStartUpdate) {
         if (autoStartUpdate) viewModel.checkForUpdate(autoStartDownload = true)
+    }
+
+    // Arrived from the download-complete notification's "Install Now": the
+    // APK is already on disk, so open the system installer immediately
+    // instead of making the user tap the in-app button again.
+    LaunchedEffect(autoInstallVersionName) {
+        if (!autoInstallVersionName.isNullOrBlank()) {
+            viewModel.installDownloadedVersion(autoInstallVersionName)
+        }
     }
 
     // Surface the "cannot delete the last project" message as a toast.

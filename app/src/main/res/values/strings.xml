@@ -497,4 +497,6 @@
     <string name="bluetooth_sync_imported_format">Imported project: %1$s</string>
     <string name="bluetooth_sync_failed_format">Bluetooth sync failed: %1$s</string>
     <string name="bluetooth_permission_required">Bluetooth permission is required for project sync.</string>
+    <string name="bluetooth_unavailable">This device doesn\'t support Bluetooth.</string>
+    <string name="bluetooth_not_enabled">Bluetooth is required to sync projects. Please turn it on and try again.</string>
 </resources>

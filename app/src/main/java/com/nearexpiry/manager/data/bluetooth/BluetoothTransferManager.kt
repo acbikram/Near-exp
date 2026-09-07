@@ -60,6 +60,16 @@ class BluetoothTransferManager @Inject constructor(
                             socket.outputStream,
                             json.encodeToString(ProjectTransferModel.serializer(), model)
                         )
+                        // Wait for the receiver's one-byte ACK before closing.
+                        // On several OEM Bluetooth stacks (seen across
+                        // HONOR/HUAWEI/OnePlus pairings), closing the socket
+                        // right after writeFrame's flush() can race the
+                        // remote's read — the RFCOMM channel tears down before
+                        // the last buffered bytes land, and the receiver sees
+                        // "bt socket closed, read return: -1" instead of the
+                        // full payload. Reading a confirmation byte first
+                        // guarantees the receiver actually got everything.
+                        readAck(socket.inputStream)
                         activeCancel.compareAndSet(activeCancel.get(), null)
                     }
                 }
@@ -91,6 +101,9 @@ class BluetoothTransferManager @Inject constructor(
                             runCatching { socket.close() }
                         }
                         val payload = readFrame(socket.inputStream)
+                        // Tell the sender the full frame arrived before it
+                        // closes its end — see the matching comment in send().
+                        writeAck(socket.outputStream)
                         json.decodeFromString(ProjectTransferModel.serializer(), payload)
                     }
                 }
@@ -147,10 +160,27 @@ class BluetoothTransferManager @Inject constructor(
         return bytes.toString(Charsets.UTF_8)
     }
 
+    private fun writeAck(output: java.io.OutputStream) {
+        output.write(ACK_BYTE)
+        output.flush()
+    }
+
+    /**
+     * Blocks until the receiver's single ACK byte arrives, confirming the
+     * frame was fully read on the other end. Throws a clear message instead
+     * of letting a bare "read return: -1" (socket closed without an ACK)
+     * surface to the UI.
+     */
+    private fun readAck(input: java.io.InputStream) {
+        val ack = input.read()
+        check(ack == ACK_BYTE) { "Transfer was not confirmed by the receiving device" }
+    }
+
     companion object {
         private const val SERVICE_NAME = "Near Expiry Project Sync"
         private const val SOCKET_TIMEOUT_MS = 30_000
         private const val MAX_FRAME_BYTES = 10 * 1024 * 1024
+        private const val ACK_BYTE = 0x06 // ASCII ACK
         private val SERVICE_UUID: UUID = UUID.fromString("7d7c9e1e-8b5b-4cb6-9d2f-76d4bb2c2a01")
     }
 }

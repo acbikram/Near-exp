@@ -1,6 +1,8 @@
 package com.nearexpiry.manager.presentation.screens.export
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -79,6 +81,42 @@ fun ExportScreen(
             emptyList()
         }
     }
+    // ── Bluetooth radio on/off ───────────────────────────────────────────
+    // Android doesn't allow silently flipping the radio on since API 31; the
+    // closest to "automatic" is the system's own Enable Bluetooth dialog,
+    // which turns it on in one tap without leaving the app.
+    val bluetoothManager = remember {
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    }
+    val bluetoothUnavailableMessage = stringResource(R.string.bluetooth_unavailable)
+    val bluetoothNotEnabledMessage = stringResource(R.string.bluetooth_not_enabled)
+
+    fun openSyncDialog() {
+        bluetoothDialogVisible = true
+        viewModel.openBluetoothSync()
+    }
+
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        // Re-check the actual adapter state rather than trusting resultCode —
+        // some OEM skins return RESULT_CANCELED even when the user did turn it on.
+        if (bluetoothManager?.adapter?.isEnabled == true) {
+            openSyncDialog()
+        } else {
+            scope.launch { snackbarHostState.showSnackbar(bluetoothNotEnabledMessage) }
+        }
+    }
+
+    fun ensureBluetoothOnThenSync() {
+        val adapter = bluetoothManager?.adapter
+        when {
+            adapter == null -> scope.launch { snackbarHostState.showSnackbar(bluetoothUnavailableMessage) }
+            !adapter.isEnabled -> enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            else -> openSyncDialog()
+        }
+    }
+
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
@@ -87,11 +125,25 @@ fun ExportScreen(
                 ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
         if (granted) {
-            viewModel.openBluetoothSync()
+            ensureBluetoothOnThenSync()
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar(bluetoothPermissionMessage)
             }
+        }
+    }
+
+    // Entry point for the "Sync Project via Bluetooth" action: permissions
+    // first (ACTION_REQUEST_ENABLE itself needs BLUETOOTH_CONNECT on API 31+),
+    // then make sure the radio is on, then open the sync dialog.
+    fun startBluetoothSync() {
+        val missingPermissions = bluetoothPermissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (missingPermissions.isNotEmpty()) {
+            bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
+        } else {
+            ensureBluetoothOnThenSync()
         }
     }
 
@@ -245,21 +297,7 @@ fun ExportScreen(
                     GlassActionButton(
                         label = stringResource(R.string.bluetooth_sync_title),
                         icon = Icons.Default.Bluetooth,
-                        onClick = {
-                            // Open the dialog immediately so a previously granted
-                            // Nearby devices permission can never swallow the tap.
-                            bluetoothDialogVisible = true
-                            viewModel.openBluetoothSync()
-                            val missingPermissions = bluetoothPermissions.filter {
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    it
-                                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                            }
-                            if (missingPermissions.isNotEmpty()) {
-                                bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
-                            }
-                        },
+                        onClick = { startBluetoothSync() },
                         tone = GlassActionTone.Neutral
                     )
                 }

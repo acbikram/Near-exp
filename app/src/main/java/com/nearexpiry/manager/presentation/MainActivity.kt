@@ -71,7 +71,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val openUpdates = intent?.getBooleanExtra("open_updates", false) == true
+        val installVersionName = intent?.getStringExtra("install_version_name")
+        val openUpdates = intent?.getBooleanExtra("open_updates", false) == true || !installVersionName.isNullOrBlank()
         val autoUpdate = intent?.getBooleanExtra("auto_update", false) == true
         setContent {
             val themeMode by preferencesManager.themeModeFlow.collectAsState(initial = "dark")
@@ -85,7 +86,11 @@ class MainActivity : AppCompatActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NearExpiryNavHost(openUpdates = openUpdates, autoUpdate = autoUpdate)
+                    NearExpiryNavHost(
+                        openUpdates = openUpdates,
+                        autoUpdate = autoUpdate,
+                        autoInstallVersionName = installVersionName
+                    )
 
                     val showLanguagePrompt by firstLaunchViewModel.showLanguagePrompt.collectAsState()
                     val showThemePrompt by firstLaunchViewModel.showThemePrompt.collectAsState()

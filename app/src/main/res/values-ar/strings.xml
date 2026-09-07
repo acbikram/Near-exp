@@ -497,4 +497,6 @@
     <string name="bluetooth_sync_imported_format">تم استيراد المشروع: %1$s</string>
     <string name="bluetooth_sync_failed_format">فشلت مزامنة Bluetooth: %1$s</string>
     <string name="bluetooth_permission_required">يلزم إذن Bluetooth لمزامنة المشروع.</string>
+    <string name="bluetooth_unavailable">هذا الجهاز لا يدعم البلوتوث.</string>
+    <string name="bluetooth_not_enabled">يلزم تشغيل البلوتوث لمزامنة المشروع. يرجى تشغيله والمحاولة مرة أخرى.</string>
 </resources>

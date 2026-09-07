@@ -343,6 +343,24 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Entry point for the download-complete notification's "Install Now"
+     * action: [version] was already downloaded by [UpdateDownloadWorker], so
+     * this just puts the UI into the DOWNLOADED state for it and immediately
+     * hands the APK to the system installer — no extra tap required.
+     */
+    fun installDownloadedVersion(version: String) {
+        _uiState.update {
+            it.copy(
+                updateState = UpdateState.DOWNLOADED,
+                updateVersionName = version,
+                updateProgress = 1f,
+                updateProgressPercent = 100
+            )
+        }
+        installUpdate()
+    }
+
     fun dismissUpdateState() {
         _uiState.update { it.copy(updateState = UpdateState.IDLE, updateError = "") }
     }
