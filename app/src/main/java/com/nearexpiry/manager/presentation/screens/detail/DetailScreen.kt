@@ -87,6 +87,7 @@ fun DetailScreen(
                         val today = java.time.LocalDate.now()
                         val expiry = ExpiryDateUtils.parseOrNull(item.expiryDate)
                         val displayExpiryDate = ExpiryDateUtils.toItemDetailsDate(item.expiryDate)
+                        val expiryDateLabel = ExpiryDateUtils.toDisplayLabelDate(item.expiryDate)
                         val (expiryLabel, expiryColor) = when {
                             expiry?.isBefore(today) == true -> stringResource(R.string.expired) to ErrorRed
                             expiry == today -> stringResource(R.string.expire_today) to OrangeAccent
@@ -235,7 +236,7 @@ fun DetailScreen(
                                                 color = CyanAccent
                                             )
                                             Text(
-                                                text = displayExpiryDate,
+                                                text = expiryDateLabel,
                                                 style = MaterialTheme.typography.titleLarge,
                                                 color = expiryColor
                                             )

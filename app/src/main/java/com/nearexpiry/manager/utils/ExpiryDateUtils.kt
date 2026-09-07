@@ -97,6 +97,16 @@ object ExpiryDateUtils {
         return date.format(DateTimeFormatter.ofPattern("M/dd/yyyy", Locale.ENGLISH))
     }
 
+    /**
+     * Formats the stored ISO date for on-screen display on Item Details
+     * (the label above the barcode, not the barcode value itself).
+     * 2026-09-07 → "07 Sep 2026". Invalid values are returned unchanged.
+     */
+    fun toDisplayLabelDate(isoDateStr: String): String {
+        val date = parseOrNull(isoDateStr) ?: return isoDateStr
+        return date.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH))
+    }
+
     /** ISO stored date ("2026-09-28") → CSV format ("28-Sep-26"). */
     fun toCsvDate(isoDateStr: String): String {
         val date = parseOrNull(isoDateStr) ?: return isoDateStr
