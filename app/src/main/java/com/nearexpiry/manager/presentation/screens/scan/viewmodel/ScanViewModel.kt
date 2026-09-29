@@ -956,15 +956,13 @@ class ScanViewModel @Inject constructor(
     private fun rejectBarcodeNotFound() = rejectScan("⚠️ Barcode Not Found")
 
     /**
-     * Applies the selected global Stock Recheck file only after Catalog File
-     * validation succeeds, and only while the active project is Stock/Recheck.
+     * Applies the selected global Stock Recheck file after Catalog File
+     * validation. With no workbook selected, every catalog product is treated
+     * as a recheck item, so Stock Mode works without an extra file.
      */
     private suspend fun passesStockRecheckGate(product: ProductInfo): Boolean {
         if (!_uiState.value.isStockMode) return true
-        if (!recheckCodeStore.hasSelectedFile()) {
-            rejectScan("Select The Recheck File First")
-            return false
-        }
+        if (!recheckCodeStore.hasSelectedFile()) return true
         if (!recheckCodeStore.containsCatalogItem(product.itemCode, product.barcode)) {
             rejectScan("No Need Recheck For This Item")
             return false
