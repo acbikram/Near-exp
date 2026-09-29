@@ -77,16 +77,17 @@ fun ExpiryDateField(
     fun emit() {
         if (yearOk && monthOk && dayOk) {
             onValueChange("%04d-%02d-%02d".format(y, m, d))
-        } else {
-            onValueChange("")
         }
     }
 
     fun requestEditorIntoView(focusState: FocusState) {
         if (focusState.isFocused) {
             scope.launch {
-                // Wait for the IME/layout pass, then reveal the complete editor.
+                // Repeat after the IME/layout passes so the editor remains above
+                // the keyboard on devices that resize the window asynchronously.
                 delay(150)
+                bringIntoViewRequester.bringIntoView()
+                delay(350)
                 bringIntoViewRequester.bringIntoView()
             }
         }
