@@ -1,5 +1,6 @@
 package com.nearexpiry.manager.presentation.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import kotlinx.coroutines.launch
  * "10" therefore replaces the complete month instead of allowing the IME to
  * replace only one digit. The same behavior applies to the day and year.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExpiryDateField(
     value: String,
