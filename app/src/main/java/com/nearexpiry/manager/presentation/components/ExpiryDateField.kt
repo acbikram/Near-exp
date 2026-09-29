@@ -94,7 +94,7 @@ fun ExpiryDateField(
     }
 
     fun selectAllOnFocus(current: TextFieldValue): TextFieldValue =
-        if (current.text.isNotEmpty() && current.selection.collapsed) {
+        if (current.text.isNotEmpty()) {
             current.copy(selection = TextRange(0, current.text.length))
         } else current
 
