@@ -239,7 +239,7 @@ fun DetailScreen(
                                             Text(
                                                 text = expiryDateLabel,
                                                 style = MaterialTheme.typography.titleLarge,
-                                                color = expiryColor
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                         Code39Barcode(

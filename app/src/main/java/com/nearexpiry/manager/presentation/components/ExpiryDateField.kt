@@ -74,9 +74,22 @@ fun ExpiryDateField(
     val dayOk = d != null && d in 1..maxDay
     val allValid = yearOk && monthOk && dayOk
 
-    fun emit() {
-        if (yearOk && monthOk && dayOk) {
-            onValueChange("%04d-%02d-%02d".format(y, m, d))
+    fun emit(
+        yearText: String = year.text,
+        monthText: String = month.text,
+        dayText: String = day.text
+    ) {
+        val nextYear = yearText.toIntOrNull()
+        val nextMonth = monthText.toIntOrNull()
+        val nextDay = dayText.toIntOrNull()
+        val nextMaxDay = if (nextYear != null && nextMonth != null && nextMonth in 1..12) {
+            runCatching { YearMonth.of(nextYear, nextMonth).lengthOfMonth() }.getOrDefault(31)
+        } else 31
+        if (yearText.length == 4 && nextYear != null &&
+            nextMonth != null && nextMonth in 1..12 &&
+            nextDay != null && nextDay in 1..nextMaxDay
+        ) {
+            onValueChange("%04d-%02d-%02d".format(nextYear, nextMonth, nextDay))
         }
     }
 
@@ -120,8 +133,9 @@ fun ExpiryDateField(
             OutlinedTextField(
                 value = year,
                 onValueChange = { input ->
-                    year = normalizedValue(input, 4)
-                    emit()
+                    val next = normalizedValue(input, 4)
+                    year = next
+                    emit(yearText = next.text)
                 },
                 label = { Text(stringResource(R.string.year)) },
                 singleLine = true,
@@ -142,14 +156,18 @@ fun ExpiryDateField(
                     val text = digits(input.text, 2)
                     val v = text.toIntOrNull()
                     if (text.isEmpty() || (v != null && v <= 12)) {
-                        month = normalizedValue(input, 2)
+                        val next = normalizedValue(input, 2)
                         val newMax = if (y != null && v != null && v in 1..12) {
                             runCatching { YearMonth.of(y, v).lengthOfMonth() }.getOrDefault(31)
                         } else 31
-                        if ((day.text.toIntOrNull() ?: 0) > newMax) {
-                            day = TextFieldValue(newMax.toString())
+                        val nextDayText = if ((day.text.toIntOrNull() ?: 0) > newMax) {
+                            newMax.toString()
+                        } else {
+                            day.text
                         }
-                        emit()
+                        month = next
+                        if (nextDayText != day.text) day = TextFieldValue(nextDayText)
+                        emit(monthText = next.text, dayText = nextDayText)
                     }
                 },
                 label = { Text(stringResource(R.string.month_label)) },
@@ -171,8 +189,9 @@ fun ExpiryDateField(
                     val text = digits(input.text, 2)
                     val v = text.toIntOrNull()
                     if (text.isEmpty() || (v != null && v <= maxDay)) {
-                        day = normalizedValue(input, 2)
-                        emit()
+                        val next = normalizedValue(input, 2)
+                        day = next
+                        emit(dayText = next.text)
                     }
                 },
                 label = { Text(stringResource(R.string.day_label)) },
