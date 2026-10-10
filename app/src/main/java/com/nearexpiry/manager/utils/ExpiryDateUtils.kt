@@ -127,18 +127,13 @@ object ExpiryDateUtils {
             .trim('"', '\'')
         if (cleaned.isEmpty()) return null
 
-        // Title-case any 3+-letter month token so "SEP"/"sep" both work,
-        // since DateTimeFormatter month parsing is case-sensitive here.
-        val normalised = cleaned.split('-', '/', '.', ' ').joinToString(
-            separator = " "
-        ) { token ->
-            if (token.length >= 3 && token.any { it.isLetter() }) {
-                token.lowercase().replaceFirstChar { it.uppercase() }
-            } else token
+        // Title-case month-name tokens while preserving the original separators.
+        val normalised = Regex("[A-Za-z]{3,}").replace(cleaned) { match ->
+            match.value.lowercase(Locale.ENGLISH)
+                .replaceFirstChar { it.titlecase(Locale.ENGLISH) }
         }
 
         for (fmt in IMPORT_DATE_FORMATS) {
-            // Try both the original cleaned string and the month-normalised one.
             for (candidate in listOf(cleaned, normalised)) {
                 try {
                     return LocalDate.parse(candidate, fmt).toString()
