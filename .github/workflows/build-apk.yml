@@ -32,6 +32,9 @@ jobs:
     - name: Verify Gradle wrapper
       run: ./gradlew --version --no-daemon
 
+    - name: Compile debug APK
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
+
     - name: Run debug unit tests
       run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
 
