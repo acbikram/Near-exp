@@ -2,6 +2,7 @@ package com.nearexpiry.manager.presentation.screens.backup
 
 import android.content.Context
 import android.text.format.Formatter
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +80,23 @@ fun BackupRestoreScreen(
     val backupRestoreHeaderInteraction = remember { MutableInteractionSource() }
     val googleDriveHeaderInteraction = remember { MutableInteractionSource() }
     val catalogHeaderInteraction = remember { MutableInteractionSource() }
+
+    // Keep nested settings sections open while their actions run. Android Back
+    // collapses the active section first; a second Back returns to Settings.
+    val anyBackupSectionExpanded =
+        backupRestoreExpanded || googleDriveExpanded || catalogExpanded
+    BackHandler(
+        enabled = anyBackupSectionExpanded &&
+            !showBackupDestinationDialog &&
+            !showGoogleDriveRestoreDialog &&
+            !showDeleteRecheckDialog
+    ) {
+        when {
+            backupRestoreExpanded -> backupRestoreExpanded = false
+            googleDriveExpanded -> googleDriveExpanded = false
+            catalogExpanded -> catalogExpanded = false
+        }
+    }
     LaunchedEffect(uiState.googleDriveSwitchRequest) {
         if (uiState.googleDriveSwitchRequest > 0L) {
             googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
@@ -158,7 +176,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.backup_database),
                         onClick = {
-                            backupRestoreExpanded = false
                             backupLauncher.launch("NearExpiry_backup_${System.currentTimeMillis()}.json")
                         },
                         enabled = !uiState.isLoading,
@@ -168,7 +185,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.backup_all_projects),
                         onClick = {
-                            backupRestoreExpanded = false
                             backupAllLauncher.launch("NearExpiry_all_projects_${System.currentTimeMillis()}.json")
                         },
                         enabled = !uiState.isLoading,
@@ -178,7 +194,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.backup_now),
                         onClick = {
-                            backupRestoreExpanded = false
                             showBackupDestinationDialog = true
                         },
                         enabled = !uiState.isLoading,
@@ -194,7 +209,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.restore_database),
                         onClick = {
-                            backupRestoreExpanded = false
                             restoreLauncher.launch(arrayOf("*/*"))
                         },
                         enabled = !uiState.isLoading,
@@ -241,7 +255,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.google_drive_connect),
                             onClick = {
-                                googleDriveExpanded = false
                                 googleDriveSignInLauncher.launch(viewModel.googleDriveSignInIntent())
                             },
                             enabled = !uiState.isLoading,
@@ -288,7 +301,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.backup_now),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.backupNowToGoogleDrive(context)
                             },
                             enabled = !uiState.isLoading,
@@ -298,7 +310,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.google_drive_restore),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.loadGoogleDriveBackups()
                                 showGoogleDriveRestoreDialog = true
                             },
@@ -309,7 +320,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.google_drive_switch),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.switchGoogleDriveAccount()
                             },
                             enabled = !uiState.isLoading,
@@ -319,7 +329,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.google_drive_disconnect),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.disconnectGoogleDrive()
                             },
                             enabled = !uiState.isLoading,
@@ -355,7 +364,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.google_drive_grant_permission),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.requestGoogleDriveAuthorization()
                             },
                             enabled = !uiState.isLoading,
@@ -366,7 +374,6 @@ fun BackupRestoreScreen(
                         GlassActionButton(
                             label = stringResource(R.string.retry),
                             onClick = {
-                                googleDriveExpanded = false
                                 viewModel.retryGoogleDriveUpload()
                             },
                             enabled = !uiState.isLoading,
@@ -462,7 +469,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.update_catalog),
                         onClick = {
-                            catalogExpanded = false
                             catalogUpdateLauncher.launch(arrayOf("*/*"))
                         },
                         enabled = !uiState.isLoading,
@@ -476,7 +482,6 @@ fun BackupRestoreScreen(
                             else -> stringResource(R.string.get_catalog_wifi)
                         },
                         onClick = {
-                            catalogExpanded = false
                             viewModel.pullCatalogFromPc()
                         },
                         enabled = !uiState.isLoading && !wifiBusy,
@@ -507,7 +512,6 @@ fun BackupRestoreScreen(
                     GlassActionButton(
                         label = stringResource(R.string.stock_recheck_file_excel),
                         onClick = {
-                            catalogExpanded = false
                             recheckExcelLauncher.launch(
                                 arrayOf(
                                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -616,7 +620,6 @@ fun BackupRestoreScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteRecheckDialog = false
-                    catalogExpanded = false
                     viewModel.deleteRecheckFile()
                 }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
