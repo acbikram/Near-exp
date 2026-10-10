@@ -77,19 +77,24 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    # Decode the signing keystore from the repo secret into release.jks at the
-    # project root. If the secret is empty (not configured), the Android build
-    # falls back to debug signing for the release artifact.
-    - name: Decode keystore
+    # Release APKs must always use the permanent signing key. Never publish a
+    # debug-signed APK: it cannot update an installation signed with the release key.
+    - name: Decode and validate release keystore
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        if [ -n "$KEYSTORE_BASE64" ]; then
-          printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d -i > release.jks
-          echo "Keystore decoded ($(wc -c < release.jks) bytes)."
-        else
-          echo "No KEYSTORE_BASE64 secret set — release will be debug-signed."
-        fi
+        set -euo pipefail
+        test -n "$KEYSTORE_BASE64" || { echo "Missing KEYSTORE_BASE64 repository secret."; exit 1; }
+        test -n "$KEYSTORE_PASSWORD" || { echo "Missing KEYSTORE_PASSWORD repository secret."; exit 1; }
+        test -n "$KEY_ALIAS" || { echo "Missing KEY_ALIAS repository secret."; exit 1; }
+        test -n "$KEY_PASSWORD" || { echo "Missing KEY_PASSWORD repository secret."; exit 1; }
+        printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > release.jks
+        test -s release.jks || { echo "Decoded keystore is empty."; exit 1; }
+        keytool -list -keystore release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+        echo "Release keystore decoded and alias validated."
 
     - name: Build signed release APK
       env:

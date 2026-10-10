@@ -239,8 +239,23 @@ object AppUpdater {
                 }
             }
         }
-        if (target.exists()) target.delete()
-        part.renameTo(target)
+        if (part.length() <= 0L) {
+            part.delete()
+            throw IllegalStateException("Downloaded APK is empty")
+        }
+        if (target.exists() && !target.delete()) {
+            part.delete()
+            throw IllegalStateException("Could not replace the cached update APK")
+        }
+        // File.renameTo can fail silently on some filesystems; never report a
+        // successful download unless the completed APK is actually in place.
+        if (!part.renameTo(target)) {
+            part.copyTo(target, overwrite = true)
+            if (!part.delete()) part.deleteOnExit()
+        }
+        if (!target.isFile || target.length() <= 0L) {
+            throw IllegalStateException("Downloaded APK could not be saved")
+        }
         onProgress(1f)
         target
     }
