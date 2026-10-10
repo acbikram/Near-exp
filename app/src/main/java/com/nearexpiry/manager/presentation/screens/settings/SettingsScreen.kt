@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -68,6 +69,21 @@ fun SettingsScreen(
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
     var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // Keep the selected settings section open after changing an option so the
+    // user can inspect its current state. Back collapses the open section first.
+    val anySettingsSectionExpanded =
+        projectsExpanded || languageExpanded || appearanceExpanded || dataManagementExpanded
+    BackHandler(
+        enabled = anySettingsSectionExpanded && !showClearDialog && uiState.notificationTestResult == null
+    ) {
+        when {
+            projectsExpanded -> projectsExpanded = false
+            languageExpanded -> languageExpanded = false
+            appearanceExpanded -> appearanceExpanded = false
+            dataManagementExpanded -> dataManagementExpanded = false
+        }
+    }
 
     // An update may finish after navigation or while this app is backgrounded.
     // Keep automatic installer launch limited to a visibly active Settings screen;
@@ -135,27 +151,21 @@ fun SettingsScreen(
                     },
                     onSwitch = {
                         viewModel.switchProject(it)
-                        projectsExpanded = false
                     },
                     onCreate = { name, color ->
                         viewModel.createProject(name, color)
-                        projectsExpanded = false
                     },
                     onRename = { id, name ->
                         viewModel.renameProject(id, name)
-                        projectsExpanded = false
                     },
                     onRecolor = { id, color ->
                         viewModel.updateProjectColor(id, color)
-                        projectsExpanded = false
                     },
                     onClone = { id, name, color ->
                         viewModel.cloneProject(id, name, color)
-                        projectsExpanded = false
                     },
                     onDelete = {
                         viewModel.deleteProject(it)
-                        projectsExpanded = false
                     }
                 )
             }
@@ -193,9 +203,9 @@ fun SettingsScreen(
                         if (languageExpanded) {
                             Spacer(Modifier.height(12.dp))
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT); languageExpanded = false })
-                                LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH); languageExpanded = false })
-                                LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC); languageExpanded = false })
+                                LanguageOptionRow(label = stringResource(R.string.language_system_default), selected = currentLanguage == LanguageManager.AppLanguage.SYSTEM_DEFAULT, onClick = { currentLanguage = LanguageManager.AppLanguage.SYSTEM_DEFAULT; LanguageManager.setLanguage(LanguageManager.AppLanguage.SYSTEM_DEFAULT) })
+                                LanguageOptionRow(label = stringResource(R.string.language_english), selected = currentLanguage == LanguageManager.AppLanguage.ENGLISH, onClick = { currentLanguage = LanguageManager.AppLanguage.ENGLISH; LanguageManager.setLanguage(LanguageManager.AppLanguage.ENGLISH) })
+                                LanguageOptionRow(label = stringResource(R.string.language_arabic), selected = currentLanguage == LanguageManager.AppLanguage.ARABIC, onClick = { currentLanguage = LanguageManager.AppLanguage.ARABIC; LanguageManager.setLanguage(LanguageManager.AppLanguage.ARABIC) })
                             }
                         }
                     }
@@ -274,7 +284,6 @@ fun SettingsScreen(
                                         selected = themeMode == mode,
                                         onClick = {
                                             viewModel.setThemeMode(mode)
-                                            appearanceExpanded = false
                                         },
                                         detail = stringResource(
                                             when (mode) {
@@ -353,7 +362,6 @@ fun SettingsScreen(
                                 supportingText = stringResource(R.string.glass_test_notification_detail),
                                 onClick = {
                                     viewModel.testExpiryNotificationNow()
-                                    dataManagementExpanded = false
                                 },
                                 tone = GlassActionTone.Neutral
                             )
@@ -372,7 +380,6 @@ fun SettingsScreen(
                                 GlassActionButton(
                                     label = stringResource(R.string.exact_alarm_access_button),
                                     onClick = {
-                                        dataManagementExpanded = false
                                         val intent = Intent(
                                             Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                                             Uri.parse("package:${context.packageName}")
@@ -387,7 +394,6 @@ fun SettingsScreen(
                                 label = stringResource(R.string.clear_all_records),
                                 onClick = {
                                     showClearDialog = true
-                                    dataManagementExpanded = false
                                 },
                                 tone = GlassActionTone.Destructive
                             )
