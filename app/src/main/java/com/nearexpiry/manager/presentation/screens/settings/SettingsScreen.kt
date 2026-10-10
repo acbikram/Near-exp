@@ -341,7 +341,6 @@ fun SettingsScreen(
                                 label = stringResource(R.string.backup_restore),
                                 supportingText = stringResource(R.string.glass_backup_restore_detail),
                                 onClick = {
-                                    dataManagementExpanded = false
                                     navController.navigate(Screen.BackupRestore.route)
                                 },
                                 tone = GlassActionTone.Neutral
@@ -351,7 +350,6 @@ fun SettingsScreen(
                                 label = stringResource(R.string.recycle_bin),
                                 supportingText = stringResource(R.string.glass_recycle_bin_detail),
                                 onClick = {
-                                    dataManagementExpanded = false
                                     navController.navigate(Screen.RecycleBin.route)
                                 },
                                 tone = GlassActionTone.Neutral
