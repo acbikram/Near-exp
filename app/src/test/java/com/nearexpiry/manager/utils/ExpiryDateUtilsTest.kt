@@ -34,6 +34,13 @@ class ExpiryDateUtilsTest {
         assertNull(ExpiryDateUtils.parseOrNull("2026-13-40"))
     }
 
+    @Test
+    fun `CSV date parser accepts upper and lower case month names`() {
+        assertEquals("2026-09-28", ExpiryDateUtils.fromCsvDate("28-SEP-26"))
+        assertEquals("2026-09-28", ExpiryDateUtils.fromCsvDate("28-sep-26"))
+        assertEquals("2026-09-28", ExpiryDateUtils.fromCsvDate("28-Sep-2026"))
+    }
+
     // ── Item Details presentation format ────────────────────────────────────
 
     @Test
