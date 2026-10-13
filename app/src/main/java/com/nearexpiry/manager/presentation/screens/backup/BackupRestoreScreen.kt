@@ -1,6 +1,12 @@
 package com.nearexpiry.manager.presentation.screens.backup
 
+import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,12 +30,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
 import com.nearexpiry.manager.presentation.components.GlassSectionCard
+import com.nearexpiry.manager.ui.components.BluetoothCatalogSyncDialog
 import com.nearexpiry.manager.presentation.components.PriceTagPairingQrScannerDialog
 import com.nearexpiry.manager.presentation.theme.CyanAccent
 import com.nearexpiry.manager.presentation.theme.SubtleGray
@@ -73,6 +81,7 @@ fun BackupRestoreScreen(
     var showBackupDestinationDialog by remember { mutableStateOf(false) }
     var showGoogleDriveRestoreDialog by remember { mutableStateOf(false) }
     var showDeleteRecheckDialog by remember { mutableStateOf(false) }
+    var bluetoothCatalogDialogVisible by rememberSaveable { mutableStateOf(false) }
     var selectedGoogleDriveBackup by remember { mutableStateOf<GoogleDriveBackupManager.DriveBackupFile?>(null) }
     var backupRestoreExpanded by rememberSaveable { mutableStateOf(false) }
     var googleDriveExpanded by rememberSaveable { mutableStateOf(false) }
@@ -89,7 +98,9 @@ fun BackupRestoreScreen(
         enabled = anyBackupSectionExpanded &&
             !showBackupDestinationDialog &&
             !showGoogleDriveRestoreDialog &&
-            !showDeleteRecheckDialog
+            !showDeleteRecheckDialog &&
+            !bluetoothCatalogDialogVisible &&
+            !uiState.showBluetoothCatalogSyncDialog
     ) {
         when {
             backupRestoreExpanded -> backupRestoreExpanded = false
@@ -142,6 +153,65 @@ fun BackupRestoreScreen(
         if (uri != null) {
             viewModel.importRecheckExcel(context, uri)
         }
+    }
+
+    val bluetoothPermissions = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            )
+        } else emptyList()
+    }
+    val bluetoothManager = remember {
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    }
+    val bluetoothPermissionMessage = stringResource(R.string.bluetooth_permission_required)
+    val bluetoothUnavailableMessage = stringResource(R.string.bluetooth_unavailable)
+    val bluetoothNotEnabledMessage = stringResource(R.string.bluetooth_not_enabled)
+
+    fun openBluetoothCatalogDialog() {
+        bluetoothCatalogDialogVisible = true
+        viewModel.openBluetoothCatalogSync()
+    }
+
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (bluetoothManager?.adapter?.isEnabled == true) {
+            openBluetoothCatalogDialog()
+        } else {
+            scope.launch { snackbarHostState.showSnackbar(bluetoothNotEnabledMessage) }
+        }
+    }
+
+    fun ensureBluetoothOnThenCatalogSync() {
+        val adapter = bluetoothManager?.adapter
+        when {
+            adapter == null -> scope.launch { snackbarHostState.showSnackbar(bluetoothUnavailableMessage) }
+            !adapter.isEnabled -> enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            else -> openBluetoothCatalogDialog()
+        }
+    }
+
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = bluetoothPermissions.isEmpty() || bluetoothPermissions.all { permission ->
+            grants[permission] == true ||
+                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) ensureBluetoothOnThenCatalogSync()
+        else scope.launch { snackbarHostState.showSnackbar(bluetoothPermissionMessage) }
+    }
+
+    fun startBluetoothCatalogSync() {
+        val missing = bluetoothPermissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) bluetoothPermissionLauncher.launch(missing.toTypedArray())
+        else ensureBluetoothOnThenCatalogSync()
     }
 
     Scaffold(
@@ -476,6 +546,13 @@ fun BackupRestoreScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     GlassActionButton(
+                        label = stringResource(R.string.bluetooth_catalog_sync_title),
+                        onClick = { startBluetoothCatalogSync() },
+                        enabled = !uiState.isLoading && !uiState.bluetoothCatalogBusy,
+                        tone = GlassActionTone.Neutral
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    GlassActionButton(
                         label = when (uiState.wifiState) {
                             BackupRestoreViewModel.WifiCatalogState.DISCOVERING -> stringResource(R.string.wifi_searching)
                             BackupRestoreViewModel.WifiCatalogState.DOWNLOADING -> stringResource(R.string.wifi_downloading)
@@ -628,6 +705,31 @@ fun BackupRestoreScreen(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    if (bluetoothCatalogDialogVisible || uiState.showBluetoothCatalogSyncDialog) {
+        BluetoothCatalogSyncDialog(
+            pairedDevices = uiState.bluetoothCatalogDevices,
+            isBusy = uiState.bluetoothCatalogBusy,
+            statusMessage = when (uiState.bluetoothCatalogResult) {
+                BackupRestoreViewModel.CatalogBluetoothResult.SENT ->
+                    stringResource(R.string.bluetooth_catalog_sync_sent_format, uiState.bluetoothCatalogProductCount ?: 0)
+                BackupRestoreViewModel.CatalogBluetoothResult.RECEIVED ->
+                    stringResource(R.string.bluetooth_catalog_sync_received_format, uiState.bluetoothCatalogProductCount ?: 0)
+                BackupRestoreViewModel.CatalogBluetoothResult.FAILURE ->
+                    stringResource(R.string.bluetooth_catalog_sync_failed_format, uiState.bluetoothCatalogError.orEmpty())
+                BackupRestoreViewModel.CatalogBluetoothResult.IDLE -> null
+            },
+            isError = uiState.bluetoothCatalogResult == BackupRestoreViewModel.CatalogBluetoothResult.FAILURE,
+            onDismiss = {
+                bluetoothCatalogDialogVisible = false
+                viewModel.closeBluetoothCatalogSync()
+            },
+            onCancelTransfer = viewModel::cancelBluetoothCatalogTransfer,
+            onRefresh = viewModel::refreshBluetoothCatalogDevices,
+            onReceive = viewModel::receiveBluetoothCatalog,
+            onSend = viewModel::sendBluetoothCatalog
         )
     }
 
