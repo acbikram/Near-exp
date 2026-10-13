@@ -8,6 +8,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nearexpiry.manager.data.bluetooth.BluetoothTransferManager
+import com.nearexpiry.manager.data.bluetooth.CatalogTransferRepository
 import com.nearexpiry.manager.data.local.entity.ExpiryItemEntity
 import com.nearexpiry.manager.data.local.entity.toEntity
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
@@ -31,6 +33,7 @@ import com.nearexpiry.manager.notifications.GoogleDriveBackupUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,11 +55,15 @@ class BackupRestoreViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
     private val googleDriveBackupManager: GoogleDriveBackupManager,
     private val priceTagPairingManager: PriceTagPairingManager,
+    private val bluetoothTransferManager: BluetoothTransferManager,
+    private val catalogTransferRepository: CatalogTransferRepository,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     /** WiFi catalog-pull progress states for the UI. */
     enum class WifiCatalogState { IDLE, DISCOVERING, DOWNLOADING, SUCCESS, ERROR }
+
+    enum class CatalogBluetoothResult { IDLE, SENT, RECEIVED, FAILURE }
 
     /** Only the user-facing states permitted for the Price Tag PC connection. */
     enum class PriceTagConnectionState {
@@ -117,6 +124,12 @@ class BackupRestoreViewModel @Inject constructor(
         val pendingPriceTagPairing: PriceTagPairingPayload? = null,
         /** Current catalog product count, for the status indicator. */
         val catalogCount: Int = 0,
+        val showBluetoothCatalogSyncDialog: Boolean = false,
+        val bluetoothCatalogDevices: List<BluetoothTransferManager.PairedDevice> = emptyList(),
+        val bluetoothCatalogBusy: Boolean = false,
+        val bluetoothCatalogResult: CatalogBluetoothResult = CatalogBluetoothResult.IDLE,
+        val bluetoothCatalogError: String? = null,
+        val bluetoothCatalogProductCount: Int? = null,
         /** Global Stock Recheck workbook metadata; its codes live in Room. */
         val recheckFileName: String = "",
         /** Distinct POS codes used for Stock scan matching. */
@@ -134,6 +147,7 @@ class BackupRestoreViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
     private var pendingGoogleDriveAuthorization: PendingIntent? = null
+    private var catalogBluetoothTransferJob: Job? = null
 
     init {
         refreshCatalogCount()
@@ -559,6 +573,138 @@ class BackupRestoreViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Google Drive restore failed") }
             }
+        }
+    }
+
+    // ── Bluetooth product catalog sync ──────────────────────────────────────
+    fun openBluetoothCatalogSync() {
+        _uiState.update {
+            it.copy(
+                showBluetoothCatalogSyncDialog = true,
+                bluetoothCatalogDevices = bluetoothTransferManager.pairedDevices(),
+                bluetoothCatalogBusy = false,
+                bluetoothCatalogResult = CatalogBluetoothResult.IDLE,
+                bluetoothCatalogError = null,
+                bluetoothCatalogProductCount = null
+            )
+        }
+    }
+
+    fun closeBluetoothCatalogSync() {
+        if (!_uiState.value.bluetoothCatalogBusy) {
+            _uiState.update { it.copy(showBluetoothCatalogSyncDialog = false) }
+        }
+    }
+
+    fun cancelBluetoothCatalogTransfer() {
+        if (_uiState.value.bluetoothCatalogBusy) {
+            bluetoothTransferManager.cancelActiveTransfer()
+            catalogBluetoothTransferJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    bluetoothCatalogBusy = false,
+                    bluetoothCatalogResult = CatalogBluetoothResult.IDLE,
+                    bluetoothCatalogError = null
+                )
+            }
+        }
+    }
+
+    fun refreshBluetoothCatalogDevices() {
+        _uiState.update { it.copy(bluetoothCatalogDevices = bluetoothTransferManager.pairedDevices()) }
+    }
+
+    fun receiveBluetoothCatalog() {
+        if (_uiState.value.bluetoothCatalogBusy) return
+        catalogBluetoothTransferJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    bluetoothCatalogBusy = true,
+                    bluetoothCatalogResult = CatalogBluetoothResult.IDLE,
+                    bluetoothCatalogError = null,
+                    bluetoothCatalogProductCount = null
+                )
+            }
+            bluetoothTransferManager.receiveCatalog().fold(
+                onSuccess = { model ->
+                    runCatching { catalogTransferRepository.mergeCatalog(model) }
+                        .onSuccess { count ->
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothCatalogBusy = false,
+                                    bluetoothCatalogResult = CatalogBluetoothResult.RECEIVED,
+                                    bluetoothCatalogProductCount = count,
+                                    catalogCount = count
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothCatalogBusy = false,
+                                    bluetoothCatalogResult = CatalogBluetoothResult.FAILURE,
+                                    bluetoothCatalogError = error.message ?: "Catalog merge failed"
+                                )
+                            }
+                        }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            bluetoothCatalogBusy = false,
+                            bluetoothCatalogResult = CatalogBluetoothResult.FAILURE,
+                            bluetoothCatalogError = error.message ?: "Bluetooth catalog receive failed"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun sendBluetoothCatalog(device: BluetoothTransferManager.PairedDevice) {
+        if (_uiState.value.bluetoothCatalogBusy) return
+        catalogBluetoothTransferJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    bluetoothCatalogBusy = true,
+                    bluetoothCatalogResult = CatalogBluetoothResult.IDLE,
+                    bluetoothCatalogError = null,
+                    bluetoothCatalogProductCount = null
+                )
+            }
+            runCatching { catalogTransferRepository.exportCatalog() }.fold(
+                onSuccess = { model ->
+                    bluetoothTransferManager.sendCatalog(device.address, model).fold(
+                        onSuccess = {
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothCatalogBusy = false,
+                                    bluetoothCatalogResult = CatalogBluetoothResult.SENT,
+                                    bluetoothCatalogProductCount = model.catalog.size
+                                )
+                            }
+                        },
+                        onFailure = { error ->
+                            _uiState.update {
+                                it.copy(
+                                    bluetoothCatalogBusy = false,
+                                    bluetoothCatalogResult = CatalogBluetoothResult.FAILURE,
+                                    bluetoothCatalogError = error.message ?: "Bluetooth catalog send failed"
+                                )
+                            }
+                        }
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            bluetoothCatalogBusy = false,
+                            bluetoothCatalogResult = CatalogBluetoothResult.FAILURE,
+                            bluetoothCatalogError = error.message ?: "Could not prepare product catalog"
+                        )
+                    }
+                }
+            )
         }
     }
 
