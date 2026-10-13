@@ -170,6 +170,75 @@ class ProductCatalogOpenHelper @Inject constructor(
         return count
     }
 
+    /** Exports every catalog row, preserving duplicate barcodes for EA/POS/CTN variants. */
+    @Synchronized
+    fun exportEntries(): List<ProductCatalogEntry> {
+        val db = openReadable()
+        return db.query(
+            "products",
+            arrayOf("barcode", "pos_code", "name_en", "name_ar", "uom", "barcode_type"),
+            null, null, null, null, "rowid ASC"
+        ).use { cursor ->
+            buildList(cursor.count) {
+                while (cursor.moveToNext()) {
+                    add(
+                        ProductCatalogEntry(
+                            barcode = cursor.getString(0),
+                            posCode = if (cursor.isNull(1)) null else cursor.getString(1),
+                            nameEn = if (cursor.isNull(2)) null else cursor.getString(2),
+                            nameAr = if (cursor.isNull(3)) null else cursor.getString(3),
+                            uom = if (cursor.isNull(4)) null else cursor.getString(4),
+                            barcodeType = if (cursor.isNull(5)) null else cursor.getString(5)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Upserts incoming rows by barcode + barcode type + POS code. Existing local-only
+     * rows are retained, while matching rows are refreshed from the sending phone.
+     */
+    @Synchronized
+    fun mergeEntries(entries: List<ProductCatalogEntry>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            entries.forEach { entry ->
+                require(entry.barcode.isNotBlank()) { "Catalog contains an empty barcode" }
+                val existingRowId = db.query(
+                    "products",
+                    arrayOf("rowid"),
+                    "barcode = ? AND IFNULL(barcode_type, '') = ? AND IFNULL(pos_code, '') = ?",
+                    arrayOf(entry.barcode, entry.barcodeType.orEmpty(), entry.posCode.orEmpty()),
+                    null, null, "rowid ASC", "1"
+                ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+
+                val values = android.content.ContentValues().apply {
+                    put("barcode", entry.barcode)
+                    putNullable("pos_code", entry.posCode)
+                    putNullable("name_en", entry.nameEn)
+                    putNullable("name_ar", entry.nameAr)
+                    putNullable("uom", entry.uom)
+                    putNullable("barcode_type", entry.barcodeType)
+                }
+                if (existingRowId != null) {
+                    db.update("products", values, "rowid = ?", arrayOf(existingRowId.toString()))
+                } else {
+                    db.insertOrThrow("products", null, values)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    private fun android.content.ContentValues.putNullable(key: String, value: String?) {
+        if (value == null) putNull(key) else put(key, value)
+    }
+
     private fun bindOrNull(stmt: android.database.sqlite.SQLiteStatement, index: Int, value: String?) {
         if (value.isNullOrEmpty()) stmt.bindNull(index) else stmt.bindString(index, value)
     }
