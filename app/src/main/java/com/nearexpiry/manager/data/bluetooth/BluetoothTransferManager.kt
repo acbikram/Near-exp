@@ -122,6 +122,75 @@ class BluetoothTransferManager @Inject constructor(
         }
     }
 
+    @SuppressLint("MissingPermission")
+    suspend fun sendCatalog(deviceAddress: String, model: CatalogTransferModel): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                check(hasBluetoothPermission()) { "Bluetooth permission required" }
+                model.validate().getOrThrow()
+                withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
+                    val adapter = BluetoothAdapter.getDefaultAdapter()
+                        ?: error("Bluetooth is not available on this device")
+                    val device = adapter.getRemoteDevice(deviceAddress)
+                    adapter.cancelDiscovery()
+                    device.createRfcommSocketToServiceRecord(SERVICE_UUID).use { socket ->
+                        activeCancel.set { runCatching { socket.close() } }
+                        socket.connect()
+                        writeFrame(
+                            socket.outputStream,
+                            json.encodeToString(CatalogTransferModel.serializer(), model)
+                        )
+                        readAck(socket.inputStream)
+                        activeCancel.compareAndSet(activeCancel.get(), null)
+                    }
+                }
+                Result.success(Unit)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                if (!currentCoroutineContext().isActive) {
+                    throw CancellationException("Bluetooth catalog transfer cancelled", error)
+                }
+                Result.failure(error)
+            } finally {
+                activeCancel.set(null)
+            }
+        }
+
+    @SuppressLint("MissingPermission")
+    suspend fun receiveCatalog(): Result<CatalogTransferModel> = withContext(Dispatchers.IO) {
+        try {
+            check(hasBluetoothPermission()) { "Bluetooth permission required" }
+            val model = withTimeout(SOCKET_TIMEOUT_MS.toLong()) {
+                val adapter = BluetoothAdapter.getDefaultAdapter()
+                    ?: error("Bluetooth is not available on this device")
+                adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID).use { server ->
+                    activeCancel.set { runCatching { server.close() } }
+                    server.accept().use { socket ->
+                        activeCancel.set {
+                            runCatching { server.close() }
+                            runCatching { socket.close() }
+                        }
+                        val payload = readFrame(socket.inputStream)
+                        writeAck(socket.outputStream)
+                        json.decodeFromString(CatalogTransferModel.serializer(), payload)
+                    }
+                }
+            }
+            model.validate().getOrThrow()
+            Result.success(model)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            if (!currentCoroutineContext().isActive) {
+                throw CancellationException("Bluetooth catalog receive cancelled", error)
+            }
+            Result.failure(error)
+        } finally {
+            activeCancel.set(null)
+        }
+    }
+
     fun cancelActiveTransfer() {
         activeCancel.getAndSet(null)?.invoke()
     }
@@ -178,8 +247,8 @@ class BluetoothTransferManager @Inject constructor(
 
     companion object {
         private const val SERVICE_NAME = "Near Expiry Project Sync"
-        private const val SOCKET_TIMEOUT_MS = 30_000
-        private const val MAX_FRAME_BYTES = 10 * 1024 * 1024
+        private const val SOCKET_TIMEOUT_MS = 120_000
+        private const val MAX_FRAME_BYTES = 50 * 1024 * 1024
         private const val ACK_BYTE = 0x06 // ASCII ACK
         private val SERVICE_UUID: UUID = UUID.fromString("7d7c9e1e-8b5b-4cb6-9d2f-76d4bb2c2a01")
     }
