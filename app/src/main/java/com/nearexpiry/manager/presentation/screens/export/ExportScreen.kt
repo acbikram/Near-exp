@@ -40,6 +40,8 @@ import androidx.navigation.NavController
 import com.nearexpiry.manager.R
 import com.nearexpiry.manager.domain.model.ExpiryItem
 import com.nearexpiry.manager.presentation.components.BottomNavigationBar
+import com.nearexpiry.manager.presentation.screens.backup.BackupRestoreViewModel
+import com.nearexpiry.manager.ui.components.BluetoothCatalogSyncDialog
 import com.nearexpiry.manager.ui.components.BluetoothProjectSyncDialog
 import com.nearexpiry.manager.presentation.components.GlassActionButton
 import com.nearexpiry.manager.presentation.components.GlassActionTone
@@ -64,9 +66,13 @@ fun ExportScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val catalogSyncViewModel: BackupRestoreViewModel = hiltViewModel()
+    val catalogSyncUiState by catalogSyncViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var bluetoothDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var catalogBluetoothDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var pendingCatalogBluetoothSync by rememberSaveable { mutableStateOf(false) }
     val exportSuccessMsg = stringResource(R.string.export_successful)
     val shareCsvLabel = stringResource(R.string.share_csv)
     val bluetoothPermissionMessage = stringResource(R.string.bluetooth_permission_required)
@@ -96,23 +102,29 @@ fun ExportScreen(
         viewModel.openBluetoothSync()
     }
 
+    fun openCatalogSyncDialog() {
+        catalogBluetoothDialogVisible = true
+        catalogSyncViewModel.openBluetoothCatalogSync()
+    }
+
     val enableBluetoothLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { _ ->
         // Re-check the actual adapter state rather than trusting resultCode —
         // some OEM skins return RESULT_CANCELED even when the user did turn it on.
         if (bluetoothManager?.adapter?.isEnabled == true) {
-            openSyncDialog()
+            if (pendingCatalogBluetoothSync) openCatalogSyncDialog() else openSyncDialog()
         } else {
             scope.launch { snackbarHostState.showSnackbar(bluetoothNotEnabledMessage) }
         }
     }
 
-    fun ensureBluetoothOnThenSync() {
+    fun ensureBluetoothOnThenSync(forCatalog: Boolean) {
         val adapter = bluetoothManager?.adapter
         when {
             adapter == null -> scope.launch { snackbarHostState.showSnackbar(bluetoothUnavailableMessage) }
             !adapter.isEnabled -> enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            forCatalog -> openCatalogSyncDialog()
             else -> openSyncDialog()
         }
     }
@@ -125,7 +137,7 @@ fun ExportScreen(
                 ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
         if (granted) {
-            ensureBluetoothOnThenSync()
+            ensureBluetoothOnThenSync(pendingCatalogBluetoothSync)
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar(bluetoothPermissionMessage)
@@ -136,7 +148,8 @@ fun ExportScreen(
     // Entry point for the "Sync Project via Bluetooth" action: permissions
     // first (ACTION_REQUEST_ENABLE itself needs BLUETOOTH_CONNECT on API 31+),
     // then make sure the radio is on, then open the sync dialog.
-    fun startBluetoothSync() {
+    fun startBluetoothSync(forCatalog: Boolean = false) {
+        pendingCatalogBluetoothSync = forCatalog
         val missingPermissions = bluetoothPermissions.filter {
             ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
@@ -298,6 +311,16 @@ fun ExportScreen(
                         label = stringResource(R.string.bluetooth_sync_title),
                         icon = Icons.Default.Bluetooth,
                         onClick = { startBluetoothSync() },
+                        tone = GlassActionTone.Neutral
+                    )
+                }
+
+                // Keep product catalog transfer directly below project transfer.
+                item {
+                    GlassActionButton(
+                        label = stringResource(R.string.bluetooth_catalog_sync_title),
+                        icon = Icons.Default.Bluetooth,
+                        onClick = { startBluetoothSync(forCatalog = true) },
                         tone = GlassActionTone.Neutral
                     )
                 }
@@ -583,6 +606,31 @@ fun ExportScreen(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    if (catalogBluetoothDialogVisible || catalogSyncUiState.showBluetoothCatalogSyncDialog) {
+        BluetoothCatalogSyncDialog(
+            pairedDevices = catalogSyncUiState.bluetoothCatalogDevices,
+            isBusy = catalogSyncUiState.bluetoothCatalogBusy,
+            statusMessage = when (catalogSyncUiState.bluetoothCatalogResult) {
+                BackupRestoreViewModel.CatalogBluetoothResult.SENT ->
+                    context.getString(R.string.bluetooth_catalog_sync_sent_format, catalogSyncUiState.bluetoothCatalogProductCount ?: 0)
+                BackupRestoreViewModel.CatalogBluetoothResult.RECEIVED ->
+                    context.getString(R.string.bluetooth_catalog_sync_received_format, catalogSyncUiState.bluetoothCatalogProductCount ?: 0)
+                BackupRestoreViewModel.CatalogBluetoothResult.FAILURE ->
+                    context.getString(R.string.bluetooth_catalog_sync_failed_format, catalogSyncUiState.bluetoothCatalogError.orEmpty())
+                BackupRestoreViewModel.CatalogBluetoothResult.IDLE -> null
+            },
+            isError = catalogSyncUiState.bluetoothCatalogResult == BackupRestoreViewModel.CatalogBluetoothResult.FAILURE,
+            onDismiss = {
+                catalogBluetoothDialogVisible = false
+                catalogSyncViewModel.closeBluetoothCatalogSync()
+            },
+            onCancelTransfer = catalogSyncViewModel::cancelBluetoothCatalogTransfer,
+            onRefresh = catalogSyncViewModel::refreshBluetoothCatalogDevices,
+            onReceive = catalogSyncViewModel::receiveBluetoothCatalog,
+            onSend = catalogSyncViewModel::sendBluetoothCatalog
         )
     }
 

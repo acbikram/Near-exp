@@ -499,4 +499,13 @@
     <string name="bluetooth_permission_required">يلزم إذن Bluetooth لمزامنة المشروع.</string>
     <string name="bluetooth_unavailable">هذا الجهاز لا يدعم البلوتوث.</string>
     <string name="bluetooth_not_enabled">يلزم تشغيل البلوتوث لمزامنة المشروع. يرجى تشغيله والمحاولة مرة أخرى.</string>
+
+    <string name="bluetooth_catalog_sync_title">مزامنة كتالوج المنتجات عبر Bluetooth</string>
+    <string name="bluetooth_catalog_sync_instruction">يجب تفعيل Bluetooth وإقران الهاتفين من إعدادات Android. على الهاتف المستقبل، اختر استلام الكتالوج أولاً. سيتم الاحتفاظ بالمنتجات الموجودة على الهاتف المستقبل وتحديث المنتجات المتطابقة.</string>
+    <string name="bluetooth_catalog_sync_receive">استلام الكتالوج</string>
+    <string name="bluetooth_catalog_sync_send_to_device">إرسال الكتالوج والمنتجات المخصصة إلى جهاز مقترن</string>
+    <string name="bluetooth_catalog_sync_working">جارٍ نقل الكتالوج والمنتجات المخصصة…</string>
+    <string name="bluetooth_catalog_sync_sent_format">تم إرسال الكتالوج والمنتجات المخصصة بنجاح (عدد صفوف الكتالوج: %1$d).</string>
+    <string name="bluetooth_catalog_sync_received_format">تم دمج الكتالوج بنجاح (إجمالي صفوف الكتالوج على هذا الهاتف: %1$d).</string>
+    <string name="bluetooth_catalog_sync_failed_format">فشلت مزامنة كتالوج Bluetooth: %1$s</string>
 </resources>
