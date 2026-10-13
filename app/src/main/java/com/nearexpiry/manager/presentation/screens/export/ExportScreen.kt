@@ -156,7 +156,7 @@ fun ExportScreen(
         if (missingPermissions.isNotEmpty()) {
             bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
         } else {
-            ensureBluetoothOnThenSync()
+            ensureBluetoothOnThenSync(forCatalog)
         }
     }
 
