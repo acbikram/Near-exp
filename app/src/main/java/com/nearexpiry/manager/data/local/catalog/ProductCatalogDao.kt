@@ -87,6 +87,16 @@ class ProductCatalogDao @Inject constructor(
     /** Read-only handle to the product catalog. Safe to call from a background thread. */
     fun importCatalog(input: java.io.InputStream): Int = openHelper.importCatalog(input)
 
+    /** Snapshot of all catalog rows for Bluetooth transfer. */
+    suspend fun exportEntries(): List<ProductCatalogEntry> = withContext(Dispatchers.IO) {
+        openHelper.exportEntries()
+    }
+
+    /** Merges rows from another device while retaining receiver-only products. */
+    suspend fun mergeEntries(entries: List<ProductCatalogEntry>) = withContext(Dispatchers.IO) {
+        openHelper.mergeEntries(entries)
+    }
+
     /** Number of products currently in the catalog (0 if empty). */
     fun countProducts(): Int = openHelper.countProducts()
 
