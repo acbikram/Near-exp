@@ -42,7 +42,7 @@ class CatalogTransferModelTest {
 
     @Test
     fun `empty product barcodes are rejected`() {
-        assertTrue(valid.copy(catalog = listOf(valid.catalog.single().copy(barcode = ""))).validate().isFailure)
+        assertTrue(valid.copy(catalog = listOf(valid.catalog.single().copy(barcode = "", posCode = null))).validate().isFailure)
         assertTrue(valid.copy(customProducts = listOf(valid.customProducts.single().copy(barcode = ""))).validate().isFailure)
     }
 }
