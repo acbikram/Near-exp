@@ -25,8 +25,8 @@ data class CatalogTransferModel(
         require(version == VERSION) { "Unsupported catalog-sync version" }
         require(catalog.size <= MAX_CATALOG_ROWS) { "Catalog contains too many products" }
         require(customProducts.size <= MAX_CUSTOM_PRODUCTS) { "Too many custom products" }
-        require(catalog.all { it.barcode.isNotBlank() && it.barcode.length <= 512 }) {
-            "Catalog contains an invalid barcode"
+        require(catalog.all { (it.barcode.isNotBlank() || !it.posCode.isNullOrBlank()) && it.barcode.length <= 512 }) {
+            "Catalog contains a row without a barcode or POS code"
         }
         require(customProducts.all { it.barcode.isNotBlank() && it.barcode.length <= 512 }) {
             "Custom products contain an invalid barcode"
