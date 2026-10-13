@@ -206,7 +206,9 @@ class ProductCatalogOpenHelper @Inject constructor(
         db.beginTransaction()
         try {
             entries.forEach { entry ->
-                require(entry.barcode.isNotBlank()) { "Catalog contains an empty barcode" }
+                require(entry.barcode.isNotBlank() || !entry.posCode.isNullOrBlank()) {
+                    "Catalog row must contain a barcode or POS code"
+                }
                 val existingRowId = db.query(
                     "products",
                     arrayOf("rowid"),
