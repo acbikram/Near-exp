@@ -499,4 +499,12 @@
     <string name="bluetooth_permission_required">Bluetooth permission is required for project sync.</string>
     <string name="bluetooth_unavailable">This device doesn\'t support Bluetooth.</string>
     <string name="bluetooth_not_enabled">Bluetooth is required to sync projects. Please turn it on and try again.</string>
+    <string name="bluetooth_catalog_sync_title">Sync Catalog/Products via Bluetooth</string>
+    <string name="bluetooth_catalog_sync_instruction">Both phones must have Bluetooth enabled and be paired in Android settings. On the receiving phone, choose Receive Catalog first. Existing products on the receiving phone are kept; matching products are updated.</string>
+    <string name="bluetooth_catalog_sync_receive">Receive Catalog</string>
+    <string name="bluetooth_catalog_sync_send_to_device">Send catalog and custom products to a paired device</string>
+    <string name="bluetooth_catalog_sync_working">Transferring catalog and custom products…</string>
+    <string name="bluetooth_catalog_sync_sent_format">Catalog and custom products sent successfully (%1$d catalog rows).</string>
+    <string name="bluetooth_catalog_sync_received_format">Catalog merged successfully (%1$d catalog rows now on this phone).</string>
+    <string name="bluetooth_catalog_sync_failed_format">Bluetooth catalog sync failed: %1$s</string>
 </resources>
