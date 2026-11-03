@@ -33,11 +33,6 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     // same calendar day (first scan of a new day defaults to today).
     private val lastExpiryDateKey = stringPreferencesKey("last_expiry_date")        // "yyyy-MM-dd"
     private val lastExpirySavedDayKey = stringPreferencesKey("last_expiry_saved_day") // "yyyy-MM-dd"
-    // Global expiry-date shortcut: after five consecutive explicit selections
-    // of the same date, future scans reuse it without opening the date picker.
-    private val expiryDateStreakDateKey = stringPreferencesKey("expiry_date_streak_date")
-    private val expiryDateStreakCountKey = longPreferencesKey("expiry_date_streak_count")
-    private val automaticExpiryDateKey = stringPreferencesKey("automatic_expiry_date")
     private val lastBranchIdKey = stringPreferencesKey("last_branch_id")
     // The actual Recheck codes live in Room; preferences store only UI metadata.
     private val recheckFileNameKey = stringPreferencesKey("recheck_excel_file_name")
@@ -152,43 +147,6 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         context.dataStore.edit {
             it[lastExpiryDateKey] = expiryIso
             it[lastExpirySavedDayKey] = todayIso
-        }
-    }
-
-    /**
-     * Records one explicit date-picker selection. Five consecutive selections
-     * of the same value activate the global automatic-date shortcut.
-     */
-    suspend fun recordExpiryDateSelection(expiryIso: String) {
-        context.dataStore.edit { prefs ->
-            val next = ExpiryDateShortcut.recordSelection(
-                previousDate = prefs[expiryDateStreakDateKey],
-                previousCount = prefs[expiryDateStreakCountKey] ?: 0L,
-                selectedDate = expiryIso
-            )
-            prefs[expiryDateStreakDateKey] = next.selectedDate
-            prefs[expiryDateStreakCountKey] = next.consecutiveSelections
-            if (next.automaticDate != null) {
-                prefs[automaticExpiryDateKey] = next.automaticDate
-            } else {
-                prefs.remove(automaticExpiryDateKey)
-            }
-        }
-    }
-
-    /** Returns the date that may be applied without showing the picker, if any. */
-    suspend fun getAutomaticExpiryDate(): String? =
-        context.dataStore.data.first()[automaticExpiryDateKey]
-
-    /**
-     * Clears the automatic-date shortcut and its streak. A manual item-detail
-     * date edit starts a new five-selection sequence.
-     */
-    suspend fun resetExpiryDateShortcut() {
-        context.dataStore.edit { prefs ->
-            prefs.remove(expiryDateStreakDateKey)
-            prefs.remove(expiryDateStreakCountKey)
-            prefs.remove(automaticExpiryDateKey)
         }
     }
 

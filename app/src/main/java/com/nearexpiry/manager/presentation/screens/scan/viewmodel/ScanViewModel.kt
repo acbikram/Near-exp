@@ -562,10 +562,7 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Uses the globally remembered date after five matching explicit selections;
-     * otherwise opens the picker with the existing same-day prefill behavior.
-     */
+    /** Opens the expiry picker for every non-stock item. */
     private fun requestEntryForActiveProject() {
         if (_uiState.value.isStockMode) requestStockQuantity() else requestExpiryDate()
     }
@@ -585,13 +582,8 @@ class ScanViewModel @Inject constructor(
 
     private fun requestExpiryDate() {
         viewModelScope.launch {
-            val automaticDate = preferencesManager.getAutomaticExpiryDate()
-            if (automaticDate != null) {
-                applyExpiryDate(automaticDate)
-            } else {
-                _uiState.update { it.copy(showExpiryDialog = true) }
-                refreshInitialExpiry()
-            }
+            _uiState.update { it.copy(showExpiryDialog = true) }
+            refreshInitialExpiry()
         }
     }
 
@@ -610,14 +602,9 @@ class ScanViewModel @Inject constructor(
 
     fun onExpiryDateSelected(date: LocalDate) {
         val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        // The picker was explicitly used, so it counts toward the five-match
-        // shortcut and remains available again only after an item-detail edit.
         viewModelScope.launch {
             val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             preferencesManager.setLastExpiry(formatted, todayIso)
-            preferencesManager.recordExpiryDateSelection(formatted)
-            // Persist before continuing so the next completed scan reliably
-            // observes the shortcut, even when entries are processed quickly.
             applyExpiryDate(formatted)
         }
     }
@@ -865,9 +852,6 @@ class ScanViewModel @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateItem(updated.toEntity())
-            if (updated.expiryDate != existing.expiryDate) {
-                preferencesManager.resetExpiryDateShortcut()
-            }
             loadRecentScans()
             _uiState.update { it.copy(showEditDialog = false) }
         }

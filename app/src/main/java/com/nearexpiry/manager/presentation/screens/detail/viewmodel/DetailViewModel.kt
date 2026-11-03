@@ -8,7 +8,6 @@ import com.nearexpiry.manager.domain.model.Project
 import com.nearexpiry.manager.domain.repository.ExpiryRepository
 import com.nearexpiry.manager.domain.repository.ProjectRepository
 import com.nearexpiry.manager.presentation.components.EditableUnitTypes
-import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.StockProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +26,6 @@ class DetailViewModel @Inject constructor(
     private val repository: ExpiryRepository,
     private val projectRepository: ProjectRepository,
     private val itemNavigationContext: com.nearexpiry.manager.utils.ItemNavigationContext,
-    private val preferencesManager: PreferencesManager,
     private val recheckCodeStore: RecheckCodeStore
 ) : ViewModel() {
 
@@ -168,11 +166,6 @@ class DetailViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 ) ?: return@launch
                 repository.updateItem(updatedItem.toEntity())
-                if (updatedItem.expiryDate != current.item?.expiryDate) {
-                    // A deliberate Item Details date edit starts a fresh
-                    // five-selection sequence for the scan shortcut.
-                    preferencesManager.resetExpiryDateShortcut()
-                }
                 _uiState.update { it.copy(navigateBack = true, isSaving = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isSaving = false) }
