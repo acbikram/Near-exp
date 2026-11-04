@@ -457,7 +457,7 @@ class ExportViewModel @Inject constructor(
             try {
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { output ->
-                        DamageReportExcel.write(output, _uiState.value.itemsToExport, damageBranchInfo())
+                        DamageReportExcel.write(output, _uiState.value.itemsToExport, damageBranchInfo(), _uiState.value.projectName)
                     } ?: error("Unable to open the selected export location")
                 }
                 _uiState.update { it.copy(isExporting = false, success = true) }
@@ -474,7 +474,7 @@ class ExportViewModel @Inject constructor(
                 val file = withContext(Dispatchers.IO) {
                     File(context.cacheDir, "exports").apply { mkdirs() }
                         .resolve(buildDamageReportFilename()).also { target ->
-                            FileOutputStream(target).use { DamageReportExcel.write(it, _uiState.value.itemsToExport, damageBranchInfo()) }
+                            FileOutputStream(target).use { DamageReportExcel.write(it, _uiState.value.itemsToExport, damageBranchInfo(), _uiState.value.projectName) }
                         }
                 }
                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
