@@ -15,8 +15,8 @@ android {
         applicationId = "com.nearexpiry.manager"
         minSdk = 29
         targetSdk = 35
-        versionCode = 149
-        versionName = "3.38"
+        versionCode = 150
+        versionName = "3.39"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

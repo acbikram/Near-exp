@@ -25,6 +25,9 @@ jobs:
     # use the exact same Gradle version and wrapper checksum.
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
+      with:
+        # Cache outages must not prevent compilation or release.
+        cache-disabled: true
 
     - name: Validate Gradle wrapper
       uses: gradle/actions/wrapper-validation@v4
@@ -79,6 +82,8 @@ jobs:
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
+      with:
+        cache-disabled: true
 
     # Release APKs must always use the permanent signing key. Never publish a
     # debug-signed APK: it cannot update an installation signed with the release key.
