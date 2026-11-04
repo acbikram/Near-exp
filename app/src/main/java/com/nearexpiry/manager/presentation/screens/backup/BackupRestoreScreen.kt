@@ -477,6 +477,7 @@ fun BackupRestoreScreen(
             }
         }
     }
+}
 
     if (uiState.error != null) {
         LaunchedEffect(uiState.error) {
