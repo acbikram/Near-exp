@@ -108,6 +108,17 @@ object LocalFileServer {
         } catch (e: Exception) {
             modernFailure = e
         }
+        // Pairing is optional in the PC receiver by default. An old saved
+        // credential can therefore be rejected even though the PC accepts
+        // the normal catalog request. Retry the current protocol unpaired
+        // before falling back to the legacy frame.
+        if (deviceToken != null) {
+            try {
+                return@withContext pullCatalogGzip(pc, null, onProgress)
+            } catch (_: Exception) {
+                // Continue with the legacy attempt below.
+            }
+        }
         try {
             return@withContext pullCatalogLegacy(pc, deviceToken, onProgress)
         } catch (legacy: Exception) {
@@ -126,12 +137,23 @@ object LocalFileServer {
             val output = DataOutputStream(sock.getOutputStream())
             writeRequestStart(output, deviceToken, MAGIC_GDB2)
             output.flush()
-            val rawSize = decodeBigEndianInt(readFully(sock.getInputStream(), 4))
-            val compressedSize = decodeBigEndianInt(readFully(sock.getInputStream(), 4))
+            val input = sock.getInputStream()
+            val firstHeader = readFully(input, 4)
+            if (firstHeader[0].toInt().toChar() == '{') {
+                val errorBytes = ByteArrayOutputStream().apply { write(firstHeader) }
+                val one = ByteArray(1)
+                while (errorBytes.size() < 4096 && input.read(one) == 1) {
+                    errorBytes.write(one)
+                    if (one[0] == '\n'.code.toByte()) break
+                }
+                throw IOException("PC rejected catalog request: ${errorBytes.toString(Charsets.UTF_8.name()).trim()}")
+            }
+            val rawSize = decodeBigEndianInt(firstHeader)
+            val compressedSize = decodeBigEndianInt(readFully(input, 4))
             if (rawSize !in 1..MAX_CATALOG_BYTES || compressedSize !in 1..MAX_CATALOG_BYTES) {
                 throw IOException("Invalid GDB2 catalog sizes: raw=$rawSize compressed=$compressedSize")
             }
-            val compressed = readFully(sock.getInputStream(), compressedSize)
+            val compressed = readFully(input, compressedSize)
             val result = ByteArrayOutputStream(rawSize)
             GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
                 val buffer = ByteArray(65_536)
