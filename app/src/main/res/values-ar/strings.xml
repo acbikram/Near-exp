@@ -412,6 +412,7 @@
     <string name="quick_actions">إجراءات سريعة</string>
     <string name="safe_expiry">صلاحية آمنة</string>
     <string name="damage_expiry_dashboard">لوحة التالف والصلاحية</string>
+    <string name="damage_item">صنف تالف</string>
     <string name="damage_items">أصناف تالفة</string>
     <string name="expiry_items">أصناف منتهية الصلاحية</string>
     <string name="damage_quantity">كمية التالف</string>

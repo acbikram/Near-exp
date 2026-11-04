@@ -177,18 +177,18 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ClickableStatCard(label = stringResource(R.string.total_items), value = uiState.totalRecords, accentColor = CyanAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
-                    ClickableStatCard(label = stringResource(R.string.damage_items), value = uiState.damageItemCount, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
+                    ClickableStatCard(label = stringResource(R.string.damage_item), value = uiState.damageItemCount, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
+                    ClickableStatCard(label = stringResource(R.string.damage_quantity), value = uiState.damageQuantity, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ClickableStatCard(label = stringResource(R.string.expiry_items), value = uiState.expiryItemCount, accentColor = Color(0xFFE57373), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE") })
-                    ClickableStatCard(label = stringResource(R.string.total_quantity), value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                    ClickableStatCard(label = stringResource(R.string.expiry_quantity), value = uiState.expiryQuantity, accentColor = Color(0xFFE57373), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ClickableStatCard(label = stringResource(R.string.damage_quantity), value = uiState.damageQuantity, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
-                    ClickableStatCard(label = stringResource(R.string.expiry_quantity), value = uiState.expiryQuantity, accentColor = Color(0xFFE57373), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                    ClickableStatCard(label = stringResource(R.string.total_items), value = uiState.totalRecords, accentColor = CyanAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
+                    ClickableStatCard(label = stringResource(R.string.total_quantity), value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = stringResource(R.string.recent_scans), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))

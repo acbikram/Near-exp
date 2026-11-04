@@ -412,6 +412,7 @@
     <string name="quick_actions">Quick actions</string>
     <string name="safe_expiry">Safe expiry</string>
     <string name="damage_expiry_dashboard">Damage &amp; Expiry Dashboard</string>
+    <string name="damage_item">Damage Item</string>
     <string name="damage_items">Damage Items</string>
     <string name="expiry_items">Expiry Items</string>
     <string name="damage_quantity">Damage Quantity</string>
