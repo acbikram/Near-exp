@@ -523,8 +523,6 @@
 
     <string name="save_damage_excel">Save Damage Excel</string>
     <string name="share_damage_excel">Share Damage Excel</string>
-    <string name="open_catalog_tools">Open Catalog Tools</string>
-    <string name="open_catalog_tools_description">Update the product catalog, use PC Wi-Fi transfer, or manage the Stock Recheck File.</string>
     <string name="catalog_settings_description">Product catalog and PC transfer tools</string>
     <string name="damage_slow_moving">Slow Moving</string>
     <string name="damage_broken">Broken</string>

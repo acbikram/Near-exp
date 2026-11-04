@@ -9,6 +9,8 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
+import java.io.ByteArrayInputStream
+import java.util.zip.GZIPInputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -26,7 +28,8 @@ object LocalFileServer {
     const val DISCOVERY_PORT = 8765
     const val TCP_PORT = 8765
     private const val CONNECT_TIMEOUT_MS = 10_000
-    private val MAGIC_GDB = "PTAGGDB1".toByteArray(Charsets.US_ASCII)
+    private val MAGIC_GDB1 = "PTAGGDB1".toByteArray(Charsets.US_ASCII)
+    private val MAGIC_GDB2 = "PTAGGDB2".toByteArray(Charsets.US_ASCII)
     private val MAGIC_XLSX = "PTAGXLSX".toByteArray(Charsets.US_ASCII)
     private val MAGIC_PNG = "PTAGPNG1".toByteArray(Charsets.US_ASCII)
     private val DISCOVERY_REQ = "PTAGWHO1".toByteArray(Charsets.US_ASCII)
@@ -95,53 +98,80 @@ object LocalFileServer {
         deviceToken: String? = null,
         onProgress: (bytesReceived: Long, totalBytes: Long) -> Unit = { _, _ -> }
     ): ByteArray = withContext(Dispatchers.IO) {
-        connectedSocket(pc).use { sock ->
-            sock.soTimeout = 300_000 // The PC may regenerate its catalog database.
-            val output = DataOutputStream(sock.getOutputStream())
-            val input = sock.getInputStream()
-
-            writeRequestStart(output, deviceToken, MAGIC_GDB)
-            output.flush()
-
-            val first = readFully(input, 4)
-            val firstLength = decodeBigEndianInt(first)
-            val totalLen: Int
-            if (firstLength in 1..MAX_CATALOG_BYTES) {
-                totalLen = firstLength
-            } else {
-                // Some versions of the PC receiver wrote little-endian Ints,
-                // while newer builds wrote a Java long (8 bytes). Accept both
-                // formats so an existing paired PC does not become unusable.
-                val littleEndian = decodeLittleEndianInt(first)
-                if (littleEndian in 1..MAX_CATALOG_BYTES) {
-                    totalLen = littleEndian
-                } else if (first.all { it == 0.toByte() }) {
-                    val longTail = readFully(input, 4)
-                    val longLength = decodeBigEndianInt(longTail)
-                    if (longLength !in 1..MAX_CATALOG_BYTES) {
-                        throw IOException("Invalid catalog size received from PC")
-                    }
-                    totalLen = longLength
-                } else {
-                    throw IOException("Invalid catalog size received from PC")
-                }
-            }
-
-            val buffer = ByteArray(65_536)
-            val bytes = ByteArrayOutputStream(totalLen)
-            var received = 0L
-            while (received < totalLen) {
-                val toRead = minOf(buffer.size.toLong(), totalLen - received).toInt()
-                val n = input.read(buffer, 0, toRead)
-                if (n < 0) throw IOException("Connection dropped while receiving the catalog")
-                bytes.write(buffer, 0, n)
-                received += n
-                onProgress(received, totalLen.toLong())
-            }
-            bytes.toByteArray()
+        // Price_Tag_Final 2.12.64 serves PTAGGDB2 as:
+        // rawSize(4 BE) + gzipSize(4 BE) + gzip bytes. Older builds serve
+        // PTAGGDB1 as rawSize(4 BE) + raw SQLite bytes. Try the current
+        // protocol first, then reconnect and fall back to the legacy frame.
+        var modernFailure: Exception? = null
+        try {
+            return@withContext pullCatalogGzip(pc, deviceToken, onProgress)
+        } catch (e: Exception) {
+            modernFailure = e
+        }
+        try {
+            return@withContext pullCatalogLegacy(pc, deviceToken, onProgress)
+        } catch (legacy: Exception) {
+            throw IOException(
+                "Catalog transfer failed (GDB2: ${modernFailure?.message}; legacy: ${legacy.message})",
+                legacy
+            )
         }
     }
 
+    private fun pullCatalogGzip(
+        pc: PcInfo, deviceToken: String?, onProgress: (Long, Long) -> Unit
+    ): ByteArray {
+        connectedSocket(pc).use { sock ->
+            sock.soTimeout = 300_000
+            val output = DataOutputStream(sock.getOutputStream())
+            writeRequestStart(output, deviceToken, MAGIC_GDB2)
+            output.flush()
+            val rawSize = decodeBigEndianInt(readFully(sock.getInputStream(), 4))
+            val compressedSize = decodeBigEndianInt(readFully(sock.getInputStream(), 4))
+            if (rawSize !in 1..MAX_CATALOG_BYTES || compressedSize !in 1..MAX_CATALOG_BYTES) {
+                throw IOException("Invalid GDB2 catalog sizes: raw=$rawSize compressed=$compressedSize")
+            }
+            val compressed = readFully(sock.getInputStream(), compressedSize)
+            val result = ByteArrayOutputStream(rawSize)
+            GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
+                val buffer = ByteArray(65_536)
+                while (true) {
+                    val n = gzip.read(buffer)
+                    if (n < 0) break
+                    result.write(buffer, 0, n)
+                    if (result.size() > MAX_CATALOG_BYTES) throw IOException("Catalog exceeds size limit")
+                    onProgress(result.size().toLong(), rawSize.toLong())
+                }
+            }
+            if (result.size() != rawSize) throw IOException("Catalog size mismatch after decompression")
+            return result.toByteArray()
+        }
+    }
+
+    private fun pullCatalogLegacy(
+        pc: PcInfo, deviceToken: String?, onProgress: (Long, Long) -> Unit
+    ): ByteArray {
+        connectedSocket(pc).use { sock ->
+            sock.soTimeout = 300_000
+            val output = DataOutputStream(sock.getOutputStream())
+            writeRequestStart(output, deviceToken, MAGIC_GDB1)
+            output.flush()
+            val totalLen = decodeBigEndianInt(readFully(sock.getInputStream(), 4))
+            if (totalLen !in 1..MAX_CATALOG_BYTES) {
+                throw IOException("Invalid legacy catalog size received from PC: $totalLen")
+            }
+            val input = sock.getInputStream()
+            val bytes = ByteArrayOutputStream(totalLen)
+            val buffer = ByteArray(65_536)
+            while (bytes.size() < totalLen) {
+                val n = input.read(buffer, 0, minOf(buffer.size, totalLen - bytes.size()))
+                if (n < 0) throw IOException("Connection dropped while receiving the catalog")
+                bytes.write(buffer, 0, n)
+                onProgress(bytes.size().toLong(), totalLen.toLong())
+            }
+            return bytes.toByteArray()
+        }
+    }
     /**
      * Sends an .xlsx report using PTAGXLSX. A paired request is framed as
      * PTAGAUTH + token + PTAGXLSX + the unchanged existing XLSX payload.

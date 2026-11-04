@@ -432,12 +432,7 @@ fun SettingsScreen(
                         }
                         if (catalogExpanded) {
                             Spacer(Modifier.height(12.dp))
-                            GlassActionButton(
-                                label = stringResource(R.string.open_catalog_tools),
-                                supportingText = stringResource(R.string.open_catalog_tools_description),
-                                onClick = { navController.navigate(Screen.BackupRestore.route) },
-                                tone = GlassActionTone.Neutral
-                            )
+                            CatalogSettingsPanel(context = context)
                         }
                     }
                 }
