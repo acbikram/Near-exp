@@ -416,7 +416,6 @@
     <string name="expiry_items">Expiry Items</string>
     <string name="damage_quantity">Damage Quantity</string>
     <string name="expiry_quantity">Expiry Quantity</string>
-    <string name="recent_scans">Recent Scans</string>
     <string name="expiry_action_dashboard">Expiry Action Dashboard</string>
     <string name="today">Today</string>
     <string name="total_items">Total Items</string>

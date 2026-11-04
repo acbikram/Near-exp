@@ -416,7 +416,6 @@
     <string name="expiry_items">أصناف منتهية الصلاحية</string>
     <string name="damage_quantity">كمية التالف</string>
     <string name="expiry_quantity">كمية الصلاحية</string>
-    <string name="recent_scans">آخر عمليات المسح</string>
     <string name="expiry_action_dashboard">لوحة إجراءات الصلاحية</string>
     <string name="today">اليوم</string>
     <string name="total_items">إجمالي العناصر</string>
