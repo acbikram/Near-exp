@@ -78,12 +78,20 @@ object DamageReportExcel {
         sb.append(cell("A", signatureRow, SIGNATURE_TEXT, 3))
         for (i in 1 until headers.size) sb.append("<c r=\"${col(i)}$signatureRow\" s=\"3\"/>")
         sb.append("</row>")
+        // Closing signature-space row: blank, merged, and bordered like the
+        // wide blank row below the signature labels in the Near Expiry form.
+        val signatureSpaceRow = signatureRow + 1
+        sb.append("<row r=\"$signatureSpaceRow\" ht=\"36\">")
+        sb.append(cell("A", signatureSpaceRow, "", 2))
+        for (i in 1 until headers.size) sb.append("<c r=\"${col(i)}$signatureSpaceRow\" s=\"2\"/>")
+        sb.append("</row>")
         sb.append("</sheetData>")
         val groups = items.withIndex().filter { !it.value.cartonNumber.isNullOrBlank() }
             .groupBy { it.value.cartonNumber }.values.filter { it.size > 1 }
-        sb.append("<mergeCells count=\"${groups.size + 2}\">")
+        sb.append("<mergeCells count=\"${groups.size + 3}\">")
         sb.append("<mergeCell ref=\"A1:L1\"/>")
         sb.append("<mergeCell ref=\"A${signatureRow}:L${signatureRow}\"/>")
+        sb.append("<mergeCell ref=\"A${signatureSpaceRow}:L${signatureSpaceRow}\"/>")
         groups.forEach { group ->
             sb.append("<mergeCell ref=\"L${group.first().index + 3}:L${group.last().index + 3}\"/>")
         }
