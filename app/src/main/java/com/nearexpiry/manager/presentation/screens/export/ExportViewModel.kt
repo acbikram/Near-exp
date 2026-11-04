@@ -106,6 +106,7 @@ class ExportViewModel @Inject constructor(
         /** Damage exports need only a validated Branch ID, never month selection. */
         val damageSaveReady: Boolean = false,
         val damageShareReady: Boolean = false,
+        val damagePcReady: Boolean = false,
         /** Branch resolved from the entered ID, carried into the month step. */
         val pendingBranchId: String = "",
         val pendingBranchName: String = "",
@@ -467,7 +468,7 @@ class ExportViewModel @Inject constructor(
         }
     }
 
-    fun generateDamageReport(context: Context) {
+    fun generateDamageReport(context: Context, sendToPc: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true, error = null) }
             try {
@@ -478,7 +479,16 @@ class ExportViewModel @Inject constructor(
                         }
                 }
                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                _uiState.update { it.copy(isExporting = false, reportFileUri = uri, reportFileName = file.name, reportSummary = "${_uiState.value.itemsToExport.size} damage records") }
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        reportFileUri = if (sendToPc) null else uri,
+                        reportFilePath = file.absolutePath,
+                        reportFileName = file.name,
+                        reportSummary = "${_uiState.value.itemsToExport.size} damage records"
+                    )
+                }
+                if (sendToPc) sendReportToPc()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isExporting = false, error = e.message ?: "Damage export failed") }
             }
@@ -660,7 +670,7 @@ class ExportViewModel @Inject constructor(
             val last = preferencesManager.getLastBranchId()
             _uiState.update {
                 it.copy(showBranchIdDialog = true, lastBranchId = last, reportDestination = destination,
-                    damageSaveReady = false, damageShareReady = false)
+                    damageSaveReady = false, damageShareReady = false, damagePcReady = false)
             }
         }
     }
@@ -669,7 +679,7 @@ class ExportViewModel @Inject constructor(
         _uiState.update { it.copy(showBranchIdDialog = false) }
     }
     fun consumeDamageExportReady() {
-        _uiState.update { it.copy(damageSaveReady = false, damageShareReady = false) }
+        _uiState.update { it.copy(damageSaveReady = false, damageShareReady = false, damagePcReady = false) }
     }
 
     fun dismissMonthPicker() {
@@ -704,7 +714,8 @@ class ExportViewModel @Inject constructor(
                         pendingBranchName = branch.name,
                         pendingBranchArea = branch.area,
                         damageSaveReady = _uiState.value.reportDestination == ReportDestination.DAMAGE_SAVE,
-                        damageShareReady = _uiState.value.reportDestination == ReportDestination.SHARE
+                        damageShareReady = _uiState.value.reportDestination == ReportDestination.SHARE,
+                        damagePcReady = _uiState.value.reportDestination == ReportDestination.PC
                     )
                 }
                 return@launch

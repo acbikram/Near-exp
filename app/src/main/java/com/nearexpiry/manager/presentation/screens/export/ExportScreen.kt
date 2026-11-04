@@ -385,7 +385,27 @@ fun ExportScreen(
                                 uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING,
                             tone = GlassActionTone.Neutral
                         )
-                    } else if (!uiState.isDamageMode) {
+                    } else if (uiState.isDamageMode) {
+                        Text(
+                            text = stringResource(R.string.company_report_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        GlassActionButton(
+                            label = when (uiState.sendToPcState) {
+                                ExportViewModel.SendToPcState.SEARCHING -> stringResource(R.string.searching_pc)
+                                ExportViewModel.SendToPcState.SENDING -> stringResource(R.string.sending_to_pc)
+                                else -> stringResource(R.string.send_to_pc)
+                            },
+                            icon = Icons.Default.Computer,
+                            onClick = { viewModel.startDamageExport(ExportViewModel.ReportDestination.PC) },
+                            enabled = !uiState.isExporting &&
+                                uiState.sendToPcState != ExportViewModel.SendToPcState.SEARCHING &&
+                                uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING,
+                            tone = GlassActionTone.Neutral
+                        )
+                    } else {
                         Text(
                             stringResource(R.string.company_report_desc),
                             style = MaterialTheme.typography.bodySmall,
@@ -463,6 +483,12 @@ fun ExportScreen(
         LaunchedEffect(uiState.damageShareReady) {
             viewModel.consumeDamageExportReady()
             viewModel.generateDamageReport(context)
+        }
+    }
+    if (uiState.damagePcReady) {
+        LaunchedEffect(uiState.damagePcReady) {
+            viewModel.consumeDamageExportReady()
+            viewModel.generateDamageReport(context, sendToPc = true)
         }
     }
 

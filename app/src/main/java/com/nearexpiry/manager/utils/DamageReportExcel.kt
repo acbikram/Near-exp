@@ -7,6 +7,10 @@ import java.util.zip.ZipOutputStream
 
 /** Damage Project workbook with the same title-row convention as Near Expiry reports. */
 object DamageReportExcel {
+    private const val SIGNATURE_TEXT =
+        "Storekepeer                                                                      " +
+        "Supervisor                                                       " +
+        "Accountant                                                               Area manager"
     private val headers = listOf(
         "Sr. No.", "Area", "ID Branch", "Branch Name", "POS Code",
         "English Description", "UOM", "Qty", "Expiry Date", "Type", "Reason", "CTN No."
@@ -46,7 +50,7 @@ object DamageReportExcel {
         zip.closeEntry()
     }
 
-    private fun styles() = """<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellXfs count="3"><xf fontId="0" fillId="0" borderId="0"/><xf fontId="1" fillId="2" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs></styleSheet>"""
+    private fun styles() = """<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellXfs count="4"><xf fontId="0" fillId="0" borderId="0"/><xf fontId="1" fillId="2" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf fontId="1" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs></styleSheet>"""
 
     private fun sheet(items: List<ExpiryItem>, branch: BranchInfo, projectName: String): String {
         val sb = StringBuilder("""<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="8"/><col min="2" max="2" width="14"/><col min="3" max="3" width="12"/><col min="4" max="4" width="24"/><col min="5" max="5" width="16"/><col min="6" max="6" width="42"/><col min="7" max="7" width="10"/><col min="8" max="8" width="10"/><col min="9" max="9" width="14"/><col min="10" max="10" width="10"/><col min="11" max="11" width="20"/><col min="12" max="12" width="12"/></cols><sheetData>""")
@@ -69,11 +73,17 @@ object DamageReportExcel {
             values.forEachIndexed { i, value -> sb.append(cell(col(i), row, value, 2)) }
             sb.append("</row>")
         }
+        val signatureRow = items.size + 3
+        sb.append("<row r=\"$signatureRow\" ht=\"60\">")
+        sb.append(cell("A", signatureRow, SIGNATURE_TEXT, 3))
+        for (i in 1 until headers.size) sb.append("<c r=\"${col(i)}$signatureRow\" s=\"3\"/>")
+        sb.append("</row>")
         sb.append("</sheetData>")
         val groups = items.withIndex().filter { !it.value.cartonNumber.isNullOrBlank() }
             .groupBy { it.value.cartonNumber }.values.filter { it.size > 1 }
-        sb.append("<mergeCells count=\"${groups.size + 1}\">")
+        sb.append("<mergeCells count=\"${groups.size + 2}\">")
         sb.append("<mergeCell ref=\"A1:L1\"/>")
+        sb.append("<mergeCell ref=\"A${signatureRow}:L${signatureRow}\"/>")
         groups.forEach { group ->
             sb.append("<mergeCell ref=\"L${group.first().index + 3}:L${group.last().index + 3}\"/>")
         }
