@@ -103,19 +103,28 @@ object LocalFileServer {
             writeRequestStart(output, deviceToken, MAGIC_GDB)
             output.flush()
 
-            val lenBytes = ByteArray(4)
-            var read = 0
-            while (read < 4) {
-                val n = input.read(lenBytes, read, 4 - read)
-                if (n < 0) throw IOException("Connection closed before catalog length received")
-                read += n
-            }
-            val totalLen = ((lenBytes[0].toInt() and 0xFF) shl 24) or
-                ((lenBytes[1].toInt() and 0xFF) shl 16) or
-                ((lenBytes[2].toInt() and 0xFF) shl 8) or
-                (lenBytes[3].toInt() and 0xFF)
-            if (totalLen <= 0 || totalLen > 100 * 1024 * 1024) {
-                throw IOException("Invalid catalog size received from PC")
+            val first = readFully(input, 4)
+            val firstLength = decodeBigEndianInt(first)
+            val totalLen: Int
+            if (firstLength in 1..MAX_CATALOG_BYTES) {
+                totalLen = firstLength
+            } else {
+                // Some versions of the PC receiver wrote little-endian Ints,
+                // while newer builds wrote a Java long (8 bytes). Accept both
+                // formats so an existing paired PC does not become unusable.
+                val littleEndian = decodeLittleEndianInt(first)
+                if (littleEndian in 1..MAX_CATALOG_BYTES) {
+                    totalLen = littleEndian
+                } else if (first.all { it == 0.toByte() }) {
+                    val longTail = readFully(input, 4)
+                    val longLength = decodeBigEndianInt(longTail)
+                    if (longLength !in 1..MAX_CATALOG_BYTES) {
+                        throw IOException("Invalid catalog size received from PC")
+                    }
+                    totalLen = longLength
+                } else {
+                    throw IOException("Invalid catalog size received from PC")
+                }
             }
 
             val buffer = ByteArray(65_536)
@@ -217,4 +226,33 @@ object LocalFileServer {
         ((value ushr 8) and 0xFF).toByte(),
         (value and 0xFF).toByte()
     )
+
+    private const val MAX_CATALOG_BYTES = 100 * 1024 * 1024
+
+    private fun readFully(input: java.io.InputStream, count: Int): ByteArray {
+        val bytes = ByteArray(count)
+        var offset = 0
+        while (offset < count) {
+            val n = input.read(bytes, offset, count - offset)
+            if (n < 0) throw IOException("Connection closed before catalog length received")
+            offset += n
+        }
+        return bytes
+    }
+
+    internal fun decodeBigEndianInt(bytes: ByteArray): Int {
+        require(bytes.size == 4)
+        return ((bytes[0].toInt() and 0xFF) shl 24) or
+            ((bytes[1].toInt() and 0xFF) shl 16) or
+            ((bytes[2].toInt() and 0xFF) shl 8) or
+            (bytes[3].toInt() and 0xFF)
+    }
+
+    internal fun decodeLittleEndianInt(bytes: ByteArray): Int {
+        require(bytes.size == 4)
+        return ((bytes[3].toInt() and 0xFF) shl 24) or
+            ((bytes[2].toInt() and 0xFF) shl 16) or
+            ((bytes[1].toInt() and 0xFF) shl 8) or
+            (bytes[0].toInt() and 0xFF)
+    }
 }

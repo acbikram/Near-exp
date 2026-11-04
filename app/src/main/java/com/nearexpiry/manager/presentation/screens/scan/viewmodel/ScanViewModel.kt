@@ -19,6 +19,7 @@ import com.nearexpiry.manager.utils.EmbeddedBarcode
 import com.nearexpiry.manager.utils.PreferencesManager
 import com.nearexpiry.manager.utils.SoundManager
 import com.nearexpiry.manager.utils.StockProjectClassifier
+import com.nearexpiry.manager.utils.DamageProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -54,6 +55,7 @@ class ScanViewModel @Inject constructor(
         val activeProjectName: String = "",
         /** True when the active project is a permanent Stock / inventory check. */
         val isStockMode: Boolean = false,
+        val isDamageMode: Boolean = false,
         /** Last item successfully created or quantity-updated from this screen. */
         val lastSavedItem: ExpiryItem? = null,
         /** Keeps the green scan confirmation visible for two seconds. */
@@ -64,6 +66,7 @@ class ScanViewModel @Inject constructor(
         val showExpiryDialog: Boolean = false,
         val showQuantityDialog: Boolean = false,
         val showDuplicateDialog: Boolean = false,
+        val showDamageDuplicateDialog: Boolean = false,
         /** Shows the "item already exists" chooser (all existing entries for the item). */
         val showExistingItemDialog: Boolean = false,
         /** Existing entries for the just-scanned item in this project (all expiry dates). */
@@ -85,6 +88,11 @@ class ScanViewModel @Inject constructor(
         /** For "22" embedded barcodes: the quantity parsed from the barcode, so
          *  the quantity dialog is skipped and only expiry is asked. Null otherwise. */
         val pendingEmbeddedQty: Double? = null,
+        val pendingQuantity: Double = 0.0,
+        val pendingDamageReason: String? = null,
+        val pendingCartonNumber: String = "",
+        val showDamageChoiceDialog: Boolean = false,
+        val showCartonNumberDialog: Boolean = false,
         // Online fallback lookup (Open Food Facts), for barcodes not in the
         // bundled catalog or saved custom products.
         val onlineLookupState: OnlineLookupState = OnlineLookupState.IDLE,
@@ -168,10 +176,12 @@ class ScanViewModel @Inject constructor(
             activeProjectManager.activeProjectIdFlow.collect { id ->
                 loadRecentScans()
                 val project = projectRepository.getProjectById(id)
+                val damage = DamageProjectClassifier.isDamageProject(project?.name)
                 _uiState.update {
                     it.copy(
                         activeProjectName = project?.name ?: "",
-                        isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+                        isStockMode = !damage && StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name),
+                        isDamageMode = damage
                     )
                 }
             }
@@ -335,7 +345,9 @@ class ScanViewModel @Inject constructor(
             // Same item already in this project? (by item code, else barcode)
             val projectId = activeProjectManager.getActiveProjectId()
             val existing = repository.findAllForItem(projectId, product.itemCode, barcode)
-            if (existing.isNotEmpty()) {
+            if (_uiState.value.isDamageMode) {
+                requestDamageQuantity()
+            } else if (existing.isNotEmpty()) {
                 // Existing Stock/Recheck inventory must be confirmed explicitly:
                 // the user can add to or replace its current quantity.
                 soundManager.playDoubleBeep()
@@ -386,7 +398,9 @@ class ScanViewModel @Inject constructor(
             val existing = repository.findAllForItem(
                 projectId, product.itemCode ?: parsed.itemCode, parsed.itemCode
             )
-            if (existing.isNotEmpty()) {
+            if (_uiState.value.isDamageMode) {
+                requestDamageQuantity()
+            } else if (existing.isNotEmpty()) {
                 // Existing Stock/Recheck inventory must be confirmed explicitly:
                 // the user can add to or replace its current quantity.
                 soundManager.playDoubleBeep()
@@ -458,10 +472,16 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog = false,
                 showQuantityDialog = false,
                 showDuplicateDialog = false,
+                showDamageChoiceDialog = false,
+                showCartonNumberDialog = false,
+                showDamageDuplicateDialog = false,
                 existingEntries = emptyList(),
                 existingTargetId = 0,
                 pendingBarcode = "",
                 pendingExpiryDate = "",
+                pendingQuantity = 0.0,
+                pendingDamageReason = null,
+                pendingCartonNumber = "",
                 pendingProductName = null,
                 pendingProductNameArabic = null,
                 pendingUnit = null,
@@ -564,7 +584,90 @@ class ScanViewModel @Inject constructor(
 
     /** Opens the expiry picker for every non-stock item. */
     private fun requestEntryForActiveProject() {
-        if (_uiState.value.isStockMode) requestStockQuantity() else requestExpiryDate()
+        when {
+            _uiState.value.isStockMode -> requestStockQuantity()
+            _uiState.value.isDamageMode -> requestDamageQuantity()
+            else -> requestExpiryDate()
+        }
+    }
+
+    private fun requestDamageQuantity() {
+        val embeddedQty = _uiState.value.pendingEmbeddedQty
+        if (embeddedQty != null) onQuantityConfirmed(embeddedQty)
+        else _uiState.update { it.copy(showQuantityDialog = true) }
+    }
+
+    fun chooseDamageExpiry() {
+        _uiState.update { it.copy(showDamageChoiceDialog = false, pendingDamageReason = "Expiry") }
+        requestExpiryDate()
+    }
+
+    fun chooseDamageReason(reason: String) {
+        _uiState.update { it.copy(showDamageChoiceDialog = false, pendingDamageReason = reason, pendingExpiryDate = "") }
+        requestCartonNumber()
+    }
+
+    private fun requestCartonNumber() {
+        _uiState.update { it.copy(showCartonNumberDialog = true, pendingCartonNumber = "") }
+    }
+
+    fun onCartonNumberConfirmed(carton: String) {
+        val clean = carton.trim()
+        if (clean.isEmpty() || !clean.all { it.isDigit() }) return
+        _uiState.update { it.copy(showCartonNumberDialog = false, pendingCartonNumber = clean) }
+        viewModelScope.launch { saveDamageEntry(clean) }
+    }
+
+    private suspend fun saveDamageEntry(carton: String) {
+        val state = _uiState.value
+        val projectId = activeProjectManager.getActiveProjectId()
+        val sameCarton = repository.findAllForItem(projectId, state.pendingItemCode, state.pendingBarcode)
+            .firstOrNull { it.cartonNumber == carton }
+        if (sameCarton != null) {
+            soundManager.playDoubleBeep()
+            vibrateDouble()
+            _uiState.update { it.copy(duplicateExistingQty = sameCarton.quantity, duplicateNewQty = state.pendingQuantity, duplicateItemId = sameCarton.id, showDamageDuplicateDialog = true) }
+            return
+        }
+        insertDamageEntry(state, carton, state.pendingQuantity)
+    }
+
+    private suspend fun insertDamageEntry(state: ScanUiState, carton: String, quantity: Double) {
+        val insertedId = repository.insertItem(ExpiryItemEntity(
+            barcode = state.pendingBarcode,
+            expiryDate = state.pendingExpiryDate,
+            quantity = quantity,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis(),
+            productName = state.pendingProductName,
+            productNameArabic = state.pendingProductNameArabic,
+            unit = state.pendingUnit,
+            itemCode = state.pendingItemCode,
+            projectId = activeProjectManager.getActiveProjectId(),
+            damageReason = state.pendingDamageReason,
+            cartonNumber = carton
+        ))
+        val saved = repository.getItemById(insertedId)
+        recordModeUse()
+        loadRecentScans()
+        resetAfterScan()
+        saved?.let(::showSavedConfirmation)
+    }
+
+    fun resolveDamageDuplicate(addQuantity: Boolean) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val existing = repository.getItemById(state.duplicateItemId) ?: return@launch
+            if (addQuantity) {
+                repository.updateItem(existing.copy(quantity = existing.quantity + state.duplicateNewQty, updatedAt = System.currentTimeMillis()).toEntity())
+                val saved = repository.getItemById(existing.id)
+                resetAfterScan()
+                saved?.let(::showSavedConfirmation)
+            } else {
+                _uiState.update { it.copy(showDamageDuplicateDialog = false) }
+                insertDamageEntry(state, state.pendingCartonNumber, state.pendingQuantity)
+            }
+        }
     }
 
     /** Stock entries never show an expiry picker; all stock rows use this hidden stable marker. */
@@ -605,7 +708,10 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             preferencesManager.setLastExpiry(formatted, todayIso)
-            applyExpiryDate(formatted)
+            if (_uiState.value.isDamageMode) {
+                _uiState.update { it.copy(pendingExpiryDate = formatted, pendingDamageReason = "Expiry", showExpiryDialog = false) }
+                requestCartonNumber()
+            } else applyExpiryDate(formatted)
         }
     }
 
@@ -625,6 +731,9 @@ class ScanViewModel @Inject constructor(
                 showExpiryDialog    = false,
                 showQuantityDialog  = false,
                 showDuplicateDialog = false,
+                showDamageChoiceDialog = false,
+                showCartonNumberDialog = false,
+                showDamageDuplicateDialog = false,
                 showManualMode      = false,
                 pendingBarcode      = "",
                 pendingExpiryDate   = "",
@@ -690,6 +799,10 @@ class ScanViewModel @Inject constructor(
     fun onQuantityConfirmed(quantity: Double) {
         viewModelScope.launch {
             val currentState = _uiState.value
+            if (currentState.isDamageMode) {
+                _uiState.update { it.copy(pendingQuantity = quantity, showQuantityDialog = false, showDamageChoiceDialog = true) }
+                return@launch
+            }
             val barcode = currentState.pendingBarcode
             val expiry  = currentState.pendingExpiryDate
             val projectId = activeProjectManager.getActiveProjectId()

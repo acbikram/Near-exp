@@ -455,6 +455,29 @@ fun ScanScreen(
         )
     }
 
+    if (uiState.showDamageChoiceDialog) {
+        DamageChoiceDialog(
+            onExpiry = { viewModel.chooseDamageExpiry() },
+            onReason = { reason -> viewModel.chooseDamageReason(reason) },
+            onDismiss = { viewModel.dismissDialog() }
+        )
+    }
+
+    if (uiState.showCartonNumberDialog) {
+        CartonNumberDialog(
+            onConfirm = { carton -> viewModel.onCartonNumberConfirmed(carton) },
+            onDismiss = { viewModel.dismissDialog() }
+        )
+    }
+
+    if (uiState.showDamageDuplicateDialog) {
+        DamageDuplicateDialog(
+            onAddQuantity = { viewModel.resolveDamageDuplicate(addQuantity = true) },
+            onKeepSeparate = { viewModel.resolveDamageDuplicate(addQuantity = false) },
+            onDismiss = { viewModel.dismissDialog() }
+        )
+    }
+
     if (uiState.showExistingItemDialog) {
         ExistingItemDialog(
             productName = pendingDisplayName,

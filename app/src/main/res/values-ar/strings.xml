@@ -508,4 +508,20 @@
     <string name="bluetooth_catalog_sync_sent_format">تم إرسال الكتالوج والمنتجات المخصصة بنجاح (عدد صفوف الكتالوج: %1$d).</string>
     <string name="bluetooth_catalog_sync_received_format">تم دمج الكتالوج بنجاح (إجمالي صفوف الكتالوج على هذا الهاتف: %1$d).</string>
     <string name="bluetooth_catalog_sync_failed_format">فشلت مزامنة كتالوج Bluetooth: %1$s</string>
+
+    <string name="damage_item_type">نوع الصنف التالف</string>
+    <string name="expiry_item">منتهي الصلاحية</string>
+    <string name="damage_customer_open">مفتوح من العميل</string>
+    <string name="damage_reason_damage">تالف</string>
+    <string name="damage_pack_open">العبوة مفتوحة</string>
+    <string name="damage_defrost">إذابة التجميد</string>
+    <string name="damage_others">أخرى</string>
+    <string name="enter_carton_number">أدخل رقم الكرتون</string>
+    <string name="ctn_no">رقم الكرتون</string>
+    <string name="same_item_same_carton">الصنف نفسه في هذا الكرتون</string>
+    <string name="same_item_same_carton_message">تم العثور على هذا الصنف مسبقاً في الكرتون نفسه. هل تريد إضافة الكمية أم إبقاءه كسطر منفصل؟</string>
+    <string name="keep_separate">إبقاء منفصل</string>
+
+    <string name="save_damage_excel">حفظ Excel التالف</string>
+    <string name="share_damage_excel">مشاركة Excel التالف</string>
 </resources>

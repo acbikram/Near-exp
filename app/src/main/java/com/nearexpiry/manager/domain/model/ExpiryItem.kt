@@ -17,7 +17,11 @@ data class ExpiryItem(
     /** The project (isolated inventory) this item belongs to. */
     val projectId: Long = 1,
     /** Null = true scan order (createdAt); non-null after a manual Move Up/Down. */
-    val displayOrder: Long? = null
+    val displayOrder: Long? = null,
+    /** Damage workflow reason; null for ordinary and Stock items. */
+    val damageReason: String? = null,
+    /** Carton number entered in a Damage Project. */
+    val cartonNumber: String? = null
 ) {
     /** The value actually used for ordering (Sr No., History, export). */
     val effectiveOrder: Long get() = displayOrder ?: createdAt

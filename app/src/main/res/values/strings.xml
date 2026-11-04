@@ -507,4 +507,20 @@
     <string name="bluetooth_catalog_sync_sent_format">Catalog and custom products sent successfully (%1$d catalog rows).</string>
     <string name="bluetooth_catalog_sync_received_format">Catalog merged successfully (%1$d catalog rows now on this phone).</string>
     <string name="bluetooth_catalog_sync_failed_format">Bluetooth catalog sync failed: %1$s</string>
+
+    <string name="damage_item_type">Damage item type</string>
+    <string name="expiry_item">Expiry</string>
+    <string name="damage_customer_open">Customer Open</string>
+    <string name="damage_reason_damage">Damage</string>
+    <string name="damage_pack_open">Pack Open</string>
+    <string name="damage_defrost">Defrost</string>
+    <string name="damage_others">Others</string>
+    <string name="enter_carton_number">Enter Carton Number</string>
+    <string name="ctn_no">CTN No.</string>
+    <string name="same_item_same_carton">Same item in this carton</string>
+    <string name="same_item_same_carton_message">This item was already found in the same carton. Add the quantity or keep it as a separate row?</string>
+    <string name="keep_separate">Keep Separate</string>
+
+    <string name="save_damage_excel">Save Damage Excel</string>
+    <string name="share_damage_excel">Share Damage Excel</string>
 </resources>

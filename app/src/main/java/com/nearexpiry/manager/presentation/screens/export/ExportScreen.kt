@@ -172,7 +172,7 @@ fun ExportScreen(
     // every template row then receives physical quantity zero.
     val canExport = !uiState.isExporting && if (uiState.isStockMode) true else itemsToExport.isNotEmpty()
 
-    val saveMimeType = if (uiState.isStockMode) {
+    val saveMimeType = if (uiState.isStockMode || uiState.isDamageMode) {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     } else {
         "text/csv"
@@ -182,6 +182,7 @@ fun ExportScreen(
     ) { uri ->
         if (uri != null) {
             if (uiState.isStockMode) viewModel.exportStockReportToUri(context, uri)
+            else if (uiState.isDamageMode) viewModel.exportDamageReportToUri(context, uri)
             else viewModel.exportToUri(context, uri)
         }
     }
@@ -329,11 +330,12 @@ fun ExportScreen(
                 item {
                     Spacer(Modifier.height(4.dp))
                     GlassActionButton(
-                        label = if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else stringResource(R.string.save_csv),
+                        label = if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else if (uiState.isDamageMode) stringResource(R.string.save_damage_excel) else stringResource(R.string.save_csv),
                         icon = Icons.Default.Save,
                         onClick = {
                             saveLauncher.launch(
                                 if (uiState.isStockMode) viewModel.buildStockReportFilename()
+                                else if (uiState.isDamageMode) viewModel.buildDamageReportFilename()
                                 else viewModel.buildCsvFilename()
                             )
                         },
@@ -343,10 +345,11 @@ fun ExportScreen(
                 }
                 item {
                     GlassActionButton(
-                        label = if (uiState.isStockMode) stringResource(R.string.share_stock_check_excel) else stringResource(R.string.share_csv),
+                        label = if (uiState.isStockMode) stringResource(R.string.share_stock_check_excel) else if (uiState.isDamageMode) stringResource(R.string.share_damage_excel) else stringResource(R.string.share_csv),
                         icon = Icons.Default.Share,
                         onClick = {
                             if (uiState.isStockMode) viewModel.generateStockReport(context)
+                            else if (uiState.isDamageMode) viewModel.generateDamageReport(context)
                             else viewModel.shareAsCsv(context)
                         },
                         enabled = canExport,

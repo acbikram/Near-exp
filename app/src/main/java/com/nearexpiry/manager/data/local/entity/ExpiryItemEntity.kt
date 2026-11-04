@@ -13,7 +13,8 @@ import kotlinx.serialization.Serializable
         Index(value = ["barcode", "expiryDate"]),
         Index(value = ["projectId"]),
         Index(value = ["projectId", "expiryDate"]),
-        Index(value = ["projectId", "barcode"])
+        Index(value = ["projectId", "barcode"]),
+        Index(value = ["projectId", "cartonNumber"])
     ]
 )
 data class ExpiryItemEntity(
@@ -29,17 +30,14 @@ data class ExpiryItemEntity(
     val unit: String? = null,
     /** POS/Item Code from column B of the product catalog (posCode). */
     val itemCode: String? = null,
-    /** The project (isolated inventory) this item belongs to. Defaults to 1 ("Project 1"). */
+    /** The project (isolated inventory) this item belongs to. */
     val projectId: Long = 1,
-    /**
-     * Null = use [createdAt] (true scan order) for ordering/Sr No./export.
-     * Non-null after Move Up/Down: a manually-assigned position that
-     * overrides [createdAt] for ordering purposes, WITHOUT ever touching the
-     * real scan timestamp — this is what makes "Reset to Scan Order"
-     * possible: it just clears this column back to null everywhere in the
-     * project, restoring the true original chronology losslessly.
-     */
-    val displayOrder: Long? = null
+    /** Null = use createdAt for true scan order. */
+    val displayOrder: Long? = null,
+    /** Damage workflow reason; null for ordinary and Stock items. */
+    val damageReason: String? = null,
+    /** Carton number entered in a Damage Project. */
+    val cartonNumber: String? = null
 )
 
 fun ExpiryItemEntity.toDomain() = ExpiryItem(
@@ -54,7 +52,9 @@ fun ExpiryItemEntity.toDomain() = ExpiryItem(
     unit = unit,
     itemCode = itemCode,
     projectId = projectId,
-    displayOrder = displayOrder
+    displayOrder = displayOrder,
+    damageReason = damageReason,
+    cartonNumber = cartonNumber
 )
 
 fun ExpiryItem.toEntity() = ExpiryItemEntity(
@@ -69,5 +69,7 @@ fun ExpiryItem.toEntity() = ExpiryItemEntity(
     unit = unit,
     itemCode = itemCode,
     projectId = projectId,
-    displayOrder = displayOrder
+    displayOrder = displayOrder,
+    damageReason = damageReason,
+    cartonNumber = cartonNumber
 )

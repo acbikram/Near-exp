@@ -26,6 +26,8 @@ import com.nearexpiry.manager.utils.RecheckExcelReader
 import com.nearexpiry.manager.utils.RecheckTemplateStore
 import com.nearexpiry.manager.utils.RecheckTemplateWorkbook
 import com.nearexpiry.manager.utils.StockProjectClassifier
+import com.nearexpiry.manager.utils.DamageProjectClassifier
+import com.nearexpiry.manager.utils.DamageReportExcel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -89,6 +91,7 @@ class ExportViewModel @Inject constructor(
         val projectName: String = "",
         /** True for a permanent Stock project or a newly named Stock candidate. */
         val isStockMode: Boolean = false,
+        val isDamageMode: Boolean = false,
         /** Set once a CSV has been written to a shareable cache file; consumed by the UI to launch a share sheet. */
         val shareFileUri: Uri? = null,
         // ── Company Near-Expiry report ───────────────────────────────────
@@ -185,12 +188,14 @@ class ExportViewModel @Inject constructor(
             activeProjectManager.activeProjectIdFlow
                 .onEach { projectId ->
                     val project = projectRepository.getProjectById(projectId)
-                    val isStockMode = StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
+                    val isDamageMode = DamageProjectClassifier.isDamageProject(project?.name)
+                    val isStockMode = !isDamageMode && StockProjectClassifier.isStockProject(project?.isStockMode == true, project?.name)
                     val templateCount = if (isStockMode) recheckCodeStore.templateOrderedRows().size else 0
                     _uiState.update {
                         it.copy(
                             projectName = project?.name ?: "",
                             isStockMode = isStockMode,
+                            isDamageMode = isDamageMode,
                             stockTemplateRecordCount = templateCount
                         )
                     }
@@ -436,6 +441,46 @@ class ExportViewModel @Inject constructor(
      */
     fun buildStockReportFilename(): String =
         "Recheck ${stockReportDateLabel(_uiState.value.allItems)}.xlsx"
+
+    fun buildDamageReportFilename(): String {
+        val safeName = _uiState.value.projectName.ifBlank { "Damage" }
+            .replace(Regex("[^A-Za-z0-9 _-]"), "_").replace(' ', '_')
+        return "${safeName}_${System.currentTimeMillis()}.xlsx"
+    }
+
+    fun exportDamageReportToUri(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true, error = null, success = false) }
+            try {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        DamageReportExcel.write(output, _uiState.value.itemsToExport)
+                    } ?: error("Unable to open the selected export location")
+                }
+                _uiState.update { it.copy(isExporting = false, success = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isExporting = false, error = e.message ?: "Damage export failed") }
+            }
+        }
+    }
+
+    fun generateDamageReport(context: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true, error = null) }
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    File(context.cacheDir, "exports").apply { mkdirs() }
+                        .resolve(buildDamageReportFilename()).also { target ->
+                            FileOutputStream(target).use { DamageReportExcel.write(it, _uiState.value.itemsToExport) }
+                        }
+                }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                _uiState.update { it.copy(isExporting = false, reportFileUri = uri, reportFileName = file.name, reportSummary = "${_uiState.value.itemsToExport.size} damage records") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isExporting = false, error = e.message ?: "Damage export failed") }
+            }
+        }
+    }
 
     private fun stockReportDateLabel(items: List<ExpiryItem>): String {
         val firstScannedAt = items.minWithOrNull(compareBy<ExpiryItem> { it.createdAt }.thenBy { it.id })?.createdAt

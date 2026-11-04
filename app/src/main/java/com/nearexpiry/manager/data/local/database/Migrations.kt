@@ -596,6 +596,18 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
     }
 }
 
+/** v18 -> v19: adds optional Damage Project metadata to inventory rows. */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        addColumnIfMissing(db, "expiry_items", "damageReason", "TEXT")
+        addColumnIfMissing(db, "expiry_items", "cartonNumber", "TEXT")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_expiry_items_projectId_cartonNumber` " +
+                "ON `expiry_items` (`projectId`, `cartonNumber`)"
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -613,5 +625,6 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_14_15,
     MIGRATION_15_16,
     MIGRATION_16_17,
-    MIGRATION_17_18
+    MIGRATION_17_18,
+    MIGRATION_18_19
 )
