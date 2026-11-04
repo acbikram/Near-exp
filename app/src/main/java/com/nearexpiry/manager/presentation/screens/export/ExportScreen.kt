@@ -333,11 +333,14 @@ fun ExportScreen(
                         label = if (uiState.isStockMode) stringResource(R.string.save_stock_check_excel) else if (uiState.isDamageMode) stringResource(R.string.save_damage_excel) else stringResource(R.string.save_csv),
                         icon = Icons.Default.Save,
                         onClick = {
-                            saveLauncher.launch(
-                                if (uiState.isStockMode) viewModel.buildStockReportFilename()
-                                else if (uiState.isDamageMode) viewModel.buildDamageReportFilename()
-                                else viewModel.buildCsvFilename()
-                            )
+                            if (uiState.isDamageMode) {
+                                viewModel.startDamageExport(ExportViewModel.ReportDestination.DAMAGE_SAVE)
+                            } else {
+                                saveLauncher.launch(
+                                    if (uiState.isStockMode) viewModel.buildStockReportFilename()
+                                    else viewModel.buildCsvFilename()
+                                )
+                            }
                         },
                         enabled = canExport,
                         tone = GlassActionTone.Neutral
@@ -349,7 +352,7 @@ fun ExportScreen(
                         icon = Icons.Default.Share,
                         onClick = {
                             if (uiState.isStockMode) viewModel.generateStockReport(context)
-                            else if (uiState.isDamageMode) viewModel.generateDamageReport(context)
+                            else if (uiState.isDamageMode) viewModel.startDamageExport(ExportViewModel.ReportDestination.SHARE)
                             else viewModel.shareAsCsv(context)
                         },
                         enabled = canExport,
@@ -447,6 +450,19 @@ fun ExportScreen(
                 snackbarHostState.showSnackbar(exportSuccessMsg)
                 viewModel.resetSuccess()
             }
+        }
+    }
+
+    if (uiState.damageSaveReady) {
+        LaunchedEffect(uiState.damageSaveReady) {
+            viewModel.consumeDamageExportReady()
+            saveLauncher.launch(viewModel.buildDamageReportFilename())
+        }
+    }
+    if (uiState.damageShareReady) {
+        LaunchedEffect(uiState.damageShareReady) {
+            viewModel.consumeDamageExportReady()
+            viewModel.generateDamageReport(context)
         }
     }
 

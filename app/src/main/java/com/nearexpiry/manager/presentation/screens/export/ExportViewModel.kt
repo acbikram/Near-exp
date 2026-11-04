@@ -103,6 +103,9 @@ class ExportViewModel @Inject constructor(
         val lastBranchId: String = "",
         /** Shows the month-selection step after a valid Branch ID. */
         val showMonthPicker: Boolean = false,
+        /** Damage exports need only a validated Branch ID, never month selection. */
+        val damageSaveReady: Boolean = false,
+        val damageShareReady: Boolean = false,
         /** Branch resolved from the entered ID, carried into the month step. */
         val pendingBranchId: String = "",
         val pendingBranchName: String = "",
@@ -640,7 +643,7 @@ class ExportViewModel @Inject constructor(
 
     // ── Company Near-Expiry report (.xlsm) ─────────────────────────────────
 
-    enum class ReportDestination { SHARE, PC }
+    enum class ReportDestination { SHARE, PC, DAMAGE_SAVE }
 
     /** Opens the Branch ID prompt, pre-filling the last-used ID. [destination]
      *  decides whether the generated file is shared or sent to the PC. */
@@ -652,9 +655,21 @@ class ExportViewModel @Inject constructor(
             }
         }
     }
+    fun startDamageExport(destination: ReportDestination) {
+        viewModelScope.launch {
+            val last = preferencesManager.getLastBranchId()
+            _uiState.update {
+                it.copy(showBranchIdDialog = true, lastBranchId = last, reportDestination = destination,
+                    damageSaveReady = false, damageShareReady = false)
+            }
+        }
+    }
 
     fun dismissBranchIdDialog() {
         _uiState.update { it.copy(showBranchIdDialog = false) }
+    }
+    fun consumeDamageExportReady() {
+        _uiState.update { it.copy(damageSaveReady = false, damageShareReady = false) }
     }
 
     fun dismissMonthPicker() {
@@ -681,6 +696,19 @@ class ExportViewModel @Inject constructor(
                 return@launch
             }
             preferencesManager.setLastBranchId(id)
+            if (_uiState.value.isDamageMode) {
+                _uiState.update {
+                    it.copy(
+                        showBranchIdDialog = false,
+                        pendingBranchId = id,
+                        pendingBranchName = branch.name,
+                        pendingBranchArea = branch.area,
+                        damageSaveReady = _uiState.value.reportDestination == ReportDestination.DAMAGE_SAVE,
+                        damageShareReady = _uiState.value.reportDestination == ReportDestination.SHARE
+                    )
+                }
+                return@launch
+            }
             val months = CompanyReportBuilder.availableMonths(_uiState.value.allItems)
             if (months.isEmpty()) {
                 _uiState.update {
