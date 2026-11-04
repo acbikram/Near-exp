@@ -447,8 +447,8 @@ class ExportViewModel @Inject constructor(
 
     fun buildDamageReportFilename(): String {
         val safeName = _uiState.value.projectName.ifBlank { "Damage" }
-            .replace(Regex("[^A-Za-z0-9 _-]"), "_").replace(' ', '_')
-        return "${safeName}_${System.currentTimeMillis()}.xlsx"
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        return "$safeName.xlsx"
     }
 
     fun exportDamageReportToUri(context: Context, uri: Uri) {
