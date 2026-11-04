@@ -13,6 +13,11 @@ class ProductCatalogRepositoryImpl @Inject constructor(
     expiryDatabase: ExpiryDatabase
 ) : ProductCatalogRepository {
 
+    /** The catalog UOM is authoritative (for example, KGS must not become PCS/CTN). */
+    private fun unitFor(entry: com.nearexpiry.manager.data.local.catalog.ProductCatalogEntry): String? =
+        entry.uom?.trim()?.takeIf { it.isNotEmpty() }
+            ?: entry.barcodeType?.trim()?.takeIf { it.isNotEmpty() }
+
     private val customProductDao = expiryDatabase.customProductDao()
 
     /**
@@ -26,10 +31,7 @@ class ProductCatalogRepositoryImpl @Inject constructor(
             val name = catalogBarcode.nameEn?.takeIf { it.isNotBlank() }
             val nameArabic = catalogBarcode.nameAr?.takeIf { it.isNotBlank() }
             if (name != null || nameArabic != null) {
-                val unit = when (catalogBarcode.barcodeType?.uppercase()) {
-                    "EA", "POS" -> catalogBarcode.uom?.takeIf { it.isNotBlank() } ?: catalogBarcode.barcodeType
-                    else -> catalogBarcode.barcodeType?.takeIf { it.isNotBlank() } ?: catalogBarcode.uom
-                }
+                val unit = unitFor(catalogBarcode)
                 return ProductInfo(
                     barcode = catalogBarcode.barcode,
                     name = name,
@@ -48,10 +50,7 @@ class ProductCatalogRepositoryImpl @Inject constructor(
         val nameArabic = entry.nameAr?.takeIf { it.isNotBlank() }
         if (name == null && nameArabic == null) return null
 
-        val unit = when (entry.barcodeType?.uppercase()) {
-            "EA", "POS" -> entry.uom?.takeIf { it.isNotBlank() } ?: entry.barcodeType
-            else         -> entry.barcodeType?.takeIf { it.isNotBlank() } ?: entry.uom
-        }
+        val unit = unitFor(entry)
 
         return ProductInfo(
             barcode = entry.barcode,
@@ -93,10 +92,7 @@ class ProductCatalogRepositoryImpl @Inject constructor(
                 val name = entry.nameEn?.takeIf { it.isNotBlank() }
                 val nameArabic = entry.nameAr?.takeIf { it.isNotBlank() }
                 if (name == null && nameArabic == null) return@mapNotNull null
-                val unit = when (entry.barcodeType?.uppercase()) {
-                    "EA", "POS" -> entry.uom?.takeIf { it.isNotBlank() } ?: entry.barcodeType
-                    else         -> entry.barcodeType?.takeIf { it.isNotBlank() } ?: entry.uom
-                }
+                val unit = unitFor(entry)
                 ProductInfo(
                     barcode = entry.barcode,
                     name = name,

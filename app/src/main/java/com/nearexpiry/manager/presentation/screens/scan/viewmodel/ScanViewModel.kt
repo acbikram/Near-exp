@@ -115,6 +115,8 @@ class ScanViewModel @Inject constructor(
         val editQuantity: Double = 1.0,
         /** Editable UOM / Unit Type for the selected recent-scan item. */
         val editUnit: String = "",
+        /** Damage rows have no expiry date; keep their edit dialog saveable. */
+        val editIsDamageItem: Boolean = false,
         // Delete confirm dialog state
         val showDeleteConfirmDialog: Boolean = false,
         val deleteItemId: Long = 0,
@@ -939,7 +941,9 @@ class ScanViewModel @Inject constructor(
                 editProductNameArabic = item.productNameArabic,
                 editExpiryDate = item.expiryDate,
                 editQuantity = item.quantity,
-                editUnit = EditableUnitTypes.normalizedOrNull(item.unit.orEmpty()) ?: "PCS"
+                editUnit = EditableUnitTypes.normalizedOrNull(item.unit.orEmpty()) ?: item.unit ?: "PCS",
+                editIsDamageItem = _uiState.value.isDamageMode &&
+                    !item.damageReason.equals("Expiry", ignoreCase = true)
             )
         }
     }
@@ -962,10 +966,17 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val state = _uiState.value
             val existing = repository.getItemById(state.editItemId) ?: return@launch
+            val selectedUnit = EditableUnitTypes.normalizedOrNull(state.editUnit) ?: "PCS"
+            // KG is the edit selector's legacy label; do not rewrite catalog KGS data.
+            val savedUnit = if (selectedUnit == "KG" && existing.unit.equals("KGS", ignoreCase = true)) {
+                existing.unit
+            } else {
+                selectedUnit
+            }
             val updated = existing.copy(
                 expiryDate = state.editExpiryDate,
                 quantity = state.editQuantity,
-                unit = EditableUnitTypes.normalizedOrNull(state.editUnit) ?: "PCS",
+                unit = savedUnit,
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateItem(updated.toEntity())

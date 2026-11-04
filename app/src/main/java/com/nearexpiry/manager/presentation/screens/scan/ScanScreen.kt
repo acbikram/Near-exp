@@ -507,7 +507,7 @@ fun ScanScreen(
             barcode = uiState.editBarcode,
             productName = editDisplayName,
             expiryDate = uiState.editExpiryDate,
-            showExpiry = !uiState.isStockMode,
+            showExpiry = !uiState.isStockMode && !uiState.editIsDamageItem,
             quantity = uiState.editQuantity,
             unit = uiState.editUnit,
             onExpiryDateChange = { viewModel.updateEditExpiryDate(it) },
