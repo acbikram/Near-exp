@@ -27,6 +27,7 @@ import com.nearexpiry.manager.presentation.theme.GreenAccent
 import com.nearexpiry.manager.presentation.theme.OrangeAccent
 import com.nearexpiry.manager.presentation.theme.YellowAccent
 import com.nearexpiry.manager.utils.ExpiryDateUtils
+import com.nearexpiry.manager.utils.DamageProjectClassifier
 import com.nearexpiry.manager.utils.LanguageManager
 import com.nearexpiry.manager.utils.QuantityFormatter
 import kotlinx.coroutines.launch
@@ -209,6 +210,26 @@ fun DetailScreen(
                                         style = MaterialTheme.typography.titleLarge,
                                         color = OrangeAccent
                                     )
+                                } else if (DamageProjectClassifier.isDamageProject(uiState.projectName)) {
+                                    Text(stringResource(R.string.item_quantity), style = MaterialTheme.typography.labelLarge, color = CyanAccent)
+                                    Text(
+                                        text = if (!item.unit.isNullOrBlank()) "${QuantityFormatter.format(item.quantity)} ${item.unit}" else QuantityFormatter.format(item.quantity),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = OrangeAccent
+                                    )
+                                    HorizontalDivider(color = CyanAccent.copy(alpha = 0.35f))
+                                    Text(
+                                        text = stringResource(
+                                            R.string.damage_type_reason_format,
+                                            if (item.damageReason.equals("Expiry", ignoreCase = true)) stringResource(R.string.expiry_item) else stringResource(R.string.damage_reason_damage),
+                                            item.damageReason ?: stringResource(R.string.damage_reason_damage)
+                                        ),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = if (item.damageReason.equals("Expiry", ignoreCase = true)) ErrorRed else OrangeAccent
+                                    )
+                                    if (item.damageReason.equals("Expiry", ignoreCase = true)) {
+                                        Text(stringResource(R.string.item_expiry_date) + ": " + expiryDateLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    }
                                 } else {
                                     Text(
                                         text = stringResource(R.string.item_quantity),
@@ -253,7 +274,7 @@ fun DetailScreen(
                                 }
                             }
                         }
-                        if (!uiState.isStockMode) {
+                        if (!uiState.isStockMode && !DamageProjectClassifier.isDamageProject(uiState.projectName)) {
                             Surface(
                                 color = expiryColor.copy(alpha = 0.15f),
                                 shape = MaterialTheme.shapes.small,

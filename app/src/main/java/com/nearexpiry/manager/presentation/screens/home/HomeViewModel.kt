@@ -10,6 +10,7 @@ import com.nearexpiry.manager.utils.ExpiryDateUtils
 import com.nearexpiry.manager.utils.ItemNavigationContext
 import com.nearexpiry.manager.utils.RecheckCodeStore
 import com.nearexpiry.manager.utils.StockProjectClassifier
+import com.nearexpiry.manager.utils.DamageProjectClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -47,6 +48,11 @@ class HomeViewModel @Inject constructor(
         val stockTotalQuantityByItem: Map<Long, Double> = emptyMap(),
         /** Aggregate Damage/Exp Qty from matching Recheck rows for scanned Stock items. */
         val stockDamageExpiryQuantity: Double = 0.0,
+        val damageItemCount: Int = 0,
+        val damageQuantity: Double = 0.0,
+        val expiryItemCount: Int = 0,
+        val expiryQuantity: Double = 0.0,
+        val isDamageMode: Boolean = false,
         val isStockMode: Boolean = false,
         val activeProjectName: String = "",
         /** Colour tag of the active project (hex), used to tint the dashboard project name. */
@@ -79,10 +85,10 @@ class HomeViewModel @Inject constructor(
                                 it.copy(
                                     activeProjectName = project?.name ?: "",
                                     activeProjectColorHex = project?.colorHex ?: "",
-                                    isStockMode = StockProjectClassifier.isStockProject(
-                                        project?.isStockMode == true,
-                                        project?.name
-                                    )
+                                    isStockMode = !DamageProjectClassifier.isDamageProject(project?.name) && StockProjectClassifier.isStockProject(
+                                        project?.isStockMode == true, project?.name
+                                    ),
+                                    isDamageMode = DamageProjectClassifier.isDamageProject(project?.name)
                                 )
                             }
                         }
@@ -114,9 +120,9 @@ class HomeViewModel @Inject constructor(
                         val today = LocalDate.now()
 
                         val project = projectRepository.getProjectById(projectId)
-                        val isStockProject = StockProjectClassifier.isStockProject(
-                            project?.isStockMode == true,
-                            project?.name
+                        val isDamageProject = DamageProjectClassifier.isDamageProject(project?.name)
+                        val isStockProject = !isDamageProject && StockProjectClassifier.isStockProject(
+                            project?.isStockMode == true, project?.name
                         )
                         val recheckRowsByCode = if (isStockProject) {
                             recheckCodeStore.templateOrderedRows().associateBy { it.code }
@@ -144,6 +150,8 @@ class HomeViewModel @Inject constructor(
                             emptyMap()
                         }
                         val stockDamageExpiryQuantity = stockDamageExpiryByItem.values.sum()
+                        val damageItems = allItems.filter { it.damageReason != null && !it.damageReason.equals("Expiry", ignoreCase = true) }
+                        val expiryItems = allItems.filter { it.damageReason.equals("Expiry", ignoreCase = true) }
                         val totalRecords = allItems.size
                         val uniqueProducts = allItems.map { it.barcode }.distinct().size
                         val totalQuantity = if (isStockProject) {
@@ -191,6 +199,11 @@ class HomeViewModel @Inject constructor(
                                 recentScanItems = recentScanItems,
                                 stockTotalQuantityByItem = stockTotalQuantityByItem,
                                 stockDamageExpiryQuantity = stockDamageExpiryQuantity,
+                                damageItemCount = damageItems.size,
+                                damageQuantity = damageItems.sumOf { it.quantity },
+                                expiryItemCount = expiryItems.size,
+                                expiryQuantity = expiryItems.sumOf { it.quantity },
+                                isDamageMode = isDamageProject,
                                 isStockMode = isStockProject,
                                 error = null
                             )

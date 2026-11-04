@@ -411,6 +411,12 @@
     <string name="update_preparing_download">Preparing the update download…</string>
     <string name="quick_actions">Quick actions</string>
     <string name="safe_expiry">Safe expiry</string>
+    <string name="damage_expiry_dashboard">Damage &amp; Expiry Dashboard</string>
+    <string name="damage_items">Damage Items</string>
+    <string name="expiry_items">Expiry Items</string>
+    <string name="damage_quantity">Damage Quantity</string>
+    <string name="expiry_quantity">Expiry Quantity</string>
+    <string name="recent_scans">Recent Scans</string>
     <string name="expiry_action_dashboard">Expiry Action Dashboard</string>
     <string name="today">Today</string>
     <string name="total_items">Total Items</string>
@@ -508,6 +514,7 @@
     <string name="bluetooth_catalog_sync_received_format">Catalog merged successfully (%1$d catalog rows now on this phone).</string>
     <string name="bluetooth_catalog_sync_failed_format">Bluetooth catalog sync failed: %1$s</string>
 
+    <string name="damage_type_reason_format">Type: %1$s · Reason: %2$s</string>
     <string name="damage_item_type">Damage item type</string>
     <string name="expiry_item">Expiry</string>
     <string name="damage_customer_open">Customer Open</string>

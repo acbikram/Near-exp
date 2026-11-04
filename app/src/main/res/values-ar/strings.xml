@@ -411,6 +411,12 @@
     <string name="update_preparing_download">جارٍ تحضير تنزيل التحديث…</string>
     <string name="quick_actions">إجراءات سريعة</string>
     <string name="safe_expiry">صلاحية آمنة</string>
+    <string name="damage_expiry_dashboard">لوحة التالف والصلاحية</string>
+    <string name="damage_items">أصناف تالفة</string>
+    <string name="expiry_items">أصناف منتهية الصلاحية</string>
+    <string name="damage_quantity">كمية التالف</string>
+    <string name="expiry_quantity">كمية الصلاحية</string>
+    <string name="recent_scans">آخر عمليات المسح</string>
     <string name="expiry_action_dashboard">لوحة إجراءات الصلاحية</string>
     <string name="today">اليوم</string>
     <string name="total_items">إجمالي العناصر</string>
@@ -509,6 +515,7 @@
     <string name="bluetooth_catalog_sync_received_format">تم دمج الكتالوج بنجاح (إجمالي صفوف الكتالوج على هذا الهاتف: %1$d).</string>
     <string name="bluetooth_catalog_sync_failed_format">فشلت مزامنة كتالوج Bluetooth: %1$s</string>
 
+    <string name="damage_type_reason_format">النوع: %1$s · السبب: %2$s</string>
     <string name="damage_item_type">نوع الصنف التالف</string>
     <string name="expiry_item">منتهي الصلاحية</string>
     <string name="damage_customer_open">مفتوح من العميل</string>

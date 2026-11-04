@@ -170,7 +170,36 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (uiState.isStockMode) {
+            if (uiState.isDamageMode) {
+                Text(
+                    text = stringResource(R.string.damage_expiry_dashboard),
+                    style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ClickableStatCard(label = stringResource(R.string.total_items), value = uiState.totalRecords, accentColor = CyanAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
+                    ClickableStatCard(label = stringResource(R.string.damage_items), value = uiState.damageItemCount, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=SCAN_ORDER") })
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ClickableStatCard(label = stringResource(R.string.expiry_items), value = uiState.expiryItemCount, accentColor = Color(0xFFE57373), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=EXPIRY_DATE") })
+                    ClickableStatCard(label = stringResource(R.string.total_quantity), value = uiState.totalQuantity, accentColor = GreenAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ClickableStatCard(label = stringResource(R.string.damage_quantity), value = uiState.damageQuantity, accentColor = OrangeAccent, modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                    ClickableStatCard(label = stringResource(R.string.expiry_quantity), value = uiState.expiryQuantity, accentColor = Color(0xFFE57373), modifier = Modifier.weight(1f), fixedHeight = NORMAL_DASHBOARD_CARD_HEIGHT, compactLongDecimal = true, onClick = { navController.navigate("${Screen.History.BASE}?filter=$FILTER_ALL&sort=QUANTITY") })
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = stringResource(R.string.recent_scans), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    items(uiState.recentScanItems) { item ->
+                        RecentItemCard(item = item, showExpiry = true, onClick = { viewModel.prepareItemNavigation(); navController.navigate(Screen.Detail.passId(item.id)) })
+                    }
+                    if (uiState.recentScanItems.isEmpty()) { item { Text(stringResource(R.string.nothing_needs_attention), modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp), color = GreenAccent) } }
+                }
+            } else if (uiState.isStockMode) {
                 Text(
                     text = "STOCK CHECK DASHBOARD",
                     style = MaterialTheme.typography.titleMedium.copy(
