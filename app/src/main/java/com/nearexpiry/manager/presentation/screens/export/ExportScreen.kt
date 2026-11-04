@@ -385,7 +385,7 @@ fun ExportScreen(
                                 uiState.sendToPcState != ExportViewModel.SendToPcState.SENDING,
                             tone = GlassActionTone.Neutral
                         )
-                    } else {
+                    } else if (!uiState.isDamageMode) {
                         Text(
                             stringResource(R.string.company_report_desc),
                             style = MaterialTheme.typography.bodySmall,
