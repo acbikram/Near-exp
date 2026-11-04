@@ -2,13 +2,13 @@ package com.nearexpiry.manager.presentation.screens.scan.components
 
 import android.util.Size
 import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -49,7 +49,6 @@ fun ScannerView(
     val barcodeScanner = remember { BarcodeScanning.getClient() }
     val executor = remember { Executors.newSingleThreadExecutor() }
     val latestOnBarcodeScanned by rememberUpdatedState(onBarcodeScanned)
-    val latestOnCameraError by rememberUpdatedState(onCameraError)
 
     // Thread-safe confirmation state — written from the analyser executor thread.
     val candidateValue = remember { AtomicReference("") }
@@ -58,8 +57,14 @@ fun ScannerView(
     val lastFiredValue = remember { AtomicReference("") }
 
     DisposableEffect(cameraController, barcodeScanner, executor) {
+        // Keep only the newest frame and use a modest analysis size. This
+        // prevents a backlog of ML Kit tasks on slower devices while keeping
+        // normal retail barcodes readable.
+        cameraController.setImageAnalysisBackpressureStrategy(
+            ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+        )
         cameraController.setImageAnalysisTargetSize(
-            CameraController.OutputSize(Size(1280, 720))
+            CameraController.OutputSize(Size(640, 480))
         )
         cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
             processImageProxy(
@@ -73,20 +78,8 @@ fun ScannerView(
         }
         onDispose {
             cameraController.clearImageAnalysisAnalyzer()
-            cameraController.unbind()
             barcodeScanner.close()
             executor.shutdown()
-        }
-    }
-
-    // Bind after composition, including when ScannerView is hosted in an
-    // AlertDialog. Binding through a supplied owner avoids an attachment race.
-    LaunchedEffect(cameraController, lifecycleOwner, bindingKey) {
-        try {
-            cameraController.unbind()
-            cameraController.bindToLifecycle(lifecycleOwner)
-        } catch (error: Throwable) {
-            latestOnCameraError(error)
         }
     }
 
@@ -118,7 +111,8 @@ private fun processImageProxy(
     }
     val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
-    scanner.process(inputImage)
+    try {
+        scanner.process(inputImage)
         .addOnSuccessListener { barcodes ->
             val barcode = barcodes.firstOrNull() ?: run {
                 // Nothing detected this frame — reset candidate so a new scan
@@ -150,4 +144,10 @@ private fun processImageProxy(
         .addOnCompleteListener {
             imageProxy.close()
         }
+    } catch (_: Throwable) {
+        // CameraX may deliver a frame while the analyzer is being cleared on
+        // lifecycle transitions. Never let that exception reach the analyzer
+        // thread, and always release the ImageProxy.
+        imageProxy.close()
+    }
 }

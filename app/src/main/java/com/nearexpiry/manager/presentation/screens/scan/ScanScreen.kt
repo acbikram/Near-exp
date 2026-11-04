@@ -124,26 +124,18 @@ fun ScanScreen(
         }
     }
 
+    // Keep CameraX binding in one effect. Two independent effects can both
+    // observe isCameraBound=false during recomposition and race on slower
+    // devices, causing camera-provider crashes.
     LaunchedEffect(hasCameraPermission, scannerInactive, lifecycleOwner) {
-        if (hasCameraPermission && !scannerInactive && !isCameraBound) {
-            try {
-                cameraController.cameraSelector = cameraSelector
-                cameraController.bindToLifecycle(lifecycleOwner)
-                isCameraBound = true
-                cameraError = null
-                viewModel.startScanner()
-            } catch (e: Exception) {
-                cameraError = failedToStartCameraFormat.format(e.message)
+        if (!hasCameraPermission || scannerInactive) {
+            if (isCameraBound) {
+                try { cameraController.unbind() } catch (_: Exception) {}
                 isCameraBound = false
             }
+            return@LaunchedEffect
         }
-    }
-
-    LaunchedEffect(scannerInactive) {
-        if (scannerInactive && isCameraBound) {
-            try { cameraController.unbind() } catch (_: Exception) {}
-            isCameraBound = false
-        } else if (!scannerInactive && !isCameraBound && hasCameraPermission) {
+        if (!isCameraBound) {
             try {
                 cameraController.cameraSelector = cameraSelector
                 cameraController.bindToLifecycle(lifecycleOwner)
