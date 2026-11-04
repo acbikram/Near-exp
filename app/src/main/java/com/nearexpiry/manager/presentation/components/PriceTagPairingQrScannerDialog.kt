@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -39,6 +41,7 @@ fun PriceTagPairingQrScannerDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { LifecycleCameraController(context) }
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -58,6 +61,26 @@ fun PriceTagPairingQrScannerDialog(
     LaunchedEffect(Unit) {
         controller.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    // ScannerView owns analysis only. Bind this dialog's dedicated controller
+    // here, after the dialog has a real lifecycle owner. Without this explicit
+    // bind the QR surface renders as a black rectangle on affected devices.
+    LaunchedEffect(hasCameraPermission, lifecycleOwner, bindAttempt) {
+        if (!hasCameraPermission) return@LaunchedEffect
+        try {
+            controller.unbind()
+            controller.bindToLifecycle(lifecycleOwner)
+            cameraError = false
+        } catch (_: Throwable) {
+            cameraError = true
+        }
+    }
+
+    DisposableEffect(controller) {
+        onDispose {
+            try { controller.unbind() } catch (_: Throwable) {}
+        }
     }
 
     AlertDialog(
