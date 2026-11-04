@@ -431,7 +431,8 @@ fun ScanScreen(
             onlineProductName = uiState.onlineProductName,
             onlineProductNameArabic = uiState.onlineProductNameArabic,
             onSearchOnline = { viewModel.searchOnline() },
-            onUseOnlineResult = { saveForFutureScans -> viewModel.useOnlineResult(saveForFutureScans) }
+            onUseOnlineResult = { saveForFutureScans -> viewModel.useOnlineResult(saveForFutureScans) },
+            unrestrictedDateRange = uiState.isDamageMode
         )
     }
 

@@ -49,8 +49,14 @@ private const val PADDING_ITEMS = VISIBLE_ITEMS / 2   // = 2
 
 private data class PickerRange(val min: LocalDate, val max: LocalDate)
 
-private fun buildRange(): PickerRange {
+private fun buildRange(unrestricted: Boolean): PickerRange {
     val today = LocalDate.now()
+    if (unrestricted) {
+        return PickerRange(
+            min = LocalDate.of(1900, 1, 1),
+            max = LocalDate.of(2100, 12, 31)
+        )
+    }
     val maxMonth = today.plusMonths(6)
     val max = YearMonth.of(maxMonth.year, maxMonth.month).atEndOfMonth()
     return PickerRange(min = today, max = max)
@@ -93,9 +99,10 @@ fun ExpiryDatePickerDialog(
     onlineProductName: String? = null,
     onlineProductNameArabic: String? = null,
     onSearchOnline: () -> Unit = {},
-    onUseOnlineResult: (saveForFutureScans: Boolean) -> Unit = {}
+    onUseOnlineResult: (saveForFutureScans: Boolean) -> Unit = {},
+    unrestrictedDateRange: Boolean = false
 ) {
-    val range  = remember { buildRange() }
+    val range  = remember(unrestrictedDateRange) { buildRange(unrestrictedDateRange) }
     val months = remember(range) { buildMonthList(range) }   // list of (year, month)
     val scope  = rememberCoroutineScope()
     val monthNames = stringArrayResource(R.array.month_short_names)

@@ -698,7 +698,11 @@ class ScanViewModel @Inject constructor(
     private fun refreshInitialExpiry() {
         viewModelScope.launch {
             val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val remembered = preferencesManager.getLastExpiryForToday(todayIso) ?: ""
+            val remembered = if (_uiState.value.isDamageMode) {
+                ""
+            } else {
+                preferencesManager.getLastExpiryForToday(todayIso) ?: ""
+            }
             _uiState.update { it.copy(initialExpiryDate = remembered) }
         }
     }
