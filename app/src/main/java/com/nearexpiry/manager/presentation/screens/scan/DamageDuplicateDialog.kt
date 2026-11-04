@@ -17,7 +17,7 @@ fun DamageDuplicateDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.same_item_same_carton)) },
         text = { Text(stringResource(R.string.same_item_same_carton_message)) },
-        confirmButton = { Button(onClick = onAddQuantity) { Text(stringResource(R.string.add_quantity)) } },
+        confirmButton = { Button(onClick = onAddQuantity) { Text(stringResource(R.string.add_qty)) } },
         dismissButton = { Button(onClick = onKeepSeparate) { Text(stringResource(R.string.keep_separate)) } }
     )
 }

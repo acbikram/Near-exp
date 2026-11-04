@@ -69,11 +69,12 @@ fun SettingsScreen(
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
     var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     var dataManagementExpanded by rememberSaveable { mutableStateOf(false) }
+    var catalogExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Keep the selected settings section open after changing an option so the
     // user can inspect its current state. Back collapses the open section first.
     val anySettingsSectionExpanded =
-        projectsExpanded || languageExpanded || appearanceExpanded || dataManagementExpanded
+        projectsExpanded || languageExpanded || appearanceExpanded || dataManagementExpanded || catalogExpanded
     BackHandler(
         enabled = anySettingsSectionExpanded && !showClearDialog && uiState.notificationTestResult == null
     ) {
@@ -82,6 +83,7 @@ fun SettingsScreen(
             languageExpanded -> languageExpanded = false
             appearanceExpanded -> appearanceExpanded = false
             dataManagementExpanded -> dataManagementExpanded = false
+            catalogExpanded -> catalogExpanded = false
         }
     }
 
@@ -394,6 +396,47 @@ fun SettingsScreen(
                                     showClearDialog = true
                                 },
                                 tone = GlassActionTone.Destructive
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Catalog ───────────────────────────────────────────────────
+            item {
+                GlassSectionCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    catalogExpanded = !catalogExpanded
+                                    if (catalogExpanded) {
+                                        projectsExpanded = false
+                                        languageExpanded = false
+                                        appearanceExpanded = false
+                                        dataManagementExpanded = false
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.catalog_section), style = MaterialTheme.typography.titleMedium.copy(color = CyanAccent, fontWeight = FontWeight.Bold))
+                                Text(
+                                    stringResource(R.string.catalog_settings_description),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = SubtleGray)
+                                )
+                            }
+                            Icon(if (catalogExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = CyanAccent)
+                        }
+                        if (catalogExpanded) {
+                            Spacer(Modifier.height(12.dp))
+                            GlassActionButton(
+                                label = stringResource(R.string.open_catalog_tools),
+                                supportingText = stringResource(R.string.open_catalog_tools_description),
+                                onClick = { navController.navigate(Screen.BackupRestore.route) },
+                                tone = GlassActionTone.Neutral
                             )
                         }
                     }

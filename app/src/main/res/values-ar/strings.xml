@@ -524,4 +524,7 @@
 
     <string name="save_damage_excel">حفظ Excel التالف</string>
     <string name="share_damage_excel">مشاركة Excel التالف</string>
+    <string name="open_catalog_tools">فتح أدوات الكتالوج</string>
+    <string name="open_catalog_tools_description">تحديث كتالوج المنتجات أو النقل عبر Wi-Fi من الكمبيوتر أو إدارة ملف إعادة الجرد.</string>
+    <string name="catalog_settings_description">أدوات كتالوج المنتجات والنقل من الكمبيوتر</string>
 </resources>
