@@ -19,10 +19,13 @@ fun DamageChoiceDialog(
     onDismiss: () -> Unit
 ) {
     val reasons = listOf(
-        R.string.damage_customer_open to "Customer Open",
-        R.string.damage_reason_damage to "Damage",
         R.string.damage_pack_open to "Pack Open",
+        R.string.damage_slow_moving to "Slow Moving",
+        R.string.damage_broken to "Broken",
+        R.string.damage_customer_complaint to "Customer Complaint",
+        R.string.damage_label_missing to "Label Missing",
         R.string.damage_defrost to "Defrost",
+        R.string.damage_customer_open to "Customer Open",
         R.string.damage_others to "Others"
     )
     AlertDialog(

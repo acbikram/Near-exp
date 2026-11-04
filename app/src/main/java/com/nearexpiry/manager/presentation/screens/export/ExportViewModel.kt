@@ -454,7 +454,7 @@ class ExportViewModel @Inject constructor(
             try {
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { output ->
-                        DamageReportExcel.write(output, _uiState.value.itemsToExport)
+                        DamageReportExcel.write(output, _uiState.value.itemsToExport, damageBranchInfo())
                     } ?: error("Unable to open the selected export location")
                 }
                 _uiState.update { it.copy(isExporting = false, success = true) }
@@ -471,7 +471,7 @@ class ExportViewModel @Inject constructor(
                 val file = withContext(Dispatchers.IO) {
                     File(context.cacheDir, "exports").apply { mkdirs() }
                         .resolve(buildDamageReportFilename()).also { target ->
-                            FileOutputStream(target).use { DamageReportExcel.write(it, _uiState.value.itemsToExport) }
+                            FileOutputStream(target).use { DamageReportExcel.write(it, _uiState.value.itemsToExport, damageBranchInfo()) }
                         }
                 }
                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -480,6 +480,16 @@ class ExportViewModel @Inject constructor(
                 _uiState.update { it.copy(isExporting = false, error = e.message ?: "Damage export failed") }
             }
         }
+    }
+
+    private suspend fun damageBranchInfo(): DamageReportExcel.BranchInfo {
+        val id = preferencesManager.getLastBranchId()
+        val branch = branchDirectory.lookup(id)
+        return DamageReportExcel.BranchInfo(
+            area = branch?.area.orEmpty(),
+            id = branch?.id ?: id,
+            name = branch?.name.orEmpty()
+        )
     }
 
     private fun stockReportDateLabel(items: List<ExpiryItem>): String {

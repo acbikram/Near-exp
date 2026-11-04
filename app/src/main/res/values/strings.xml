@@ -526,4 +526,8 @@
     <string name="open_catalog_tools">Open Catalog Tools</string>
     <string name="open_catalog_tools_description">Update the product catalog, use PC Wi-Fi transfer, or manage the Stock Recheck File.</string>
     <string name="catalog_settings_description">Product catalog and PC transfer tools</string>
+    <string name="damage_slow_moving">Slow Moving</string>
+    <string name="damage_broken">Broken</string>
+    <string name="damage_customer_complaint">Customer Complaint</string>
+    <string name="damage_label_missing">Label Missing</string>
 </resources>
